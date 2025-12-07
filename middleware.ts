@@ -48,10 +48,10 @@ export async function middleware(req: NextRequest) {
         }
       );
 
-      // Use getUser() for edge runtime compatibility (more secure than getSession)
-      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      // Check for valid session
+      const { data: { session }, error: authError } = await supabase.auth.getSession();
 
-      if (authError || !user) {
+      if (authError || !session || !session.user) {
         return NextResponse.redirect(new URL('/setup', req.url));
       }
 
@@ -60,7 +60,7 @@ export async function middleware(req: NextRequest) {
       const { data: merchantUser, error: dbError } = await supabase
         .from('merchant_users')
         .select('merchant_id')
-        .eq('auth_user_id', user.id)
+        .eq('auth_user_id', session.user.id)
         .single();
 
       // If database query fails or no business account, redirect to setup
@@ -98,15 +98,15 @@ export async function middleware(req: NextRequest) {
         }
       );
 
-      // Use getUser() for edge runtime compatibility
-      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      // Check for valid session
+      const { data: { session }, error: authError } = await supabase.auth.getSession();
 
-      if (!authError && user) {
+      if (!authError && session && session.user) {
         // Check if user has a business account
         const { data: merchantUser } = await supabase
           .from('merchant_users')
           .select('merchant_id')
-          .eq('auth_user_id', user.id)
+          .eq('auth_user_id', session.user.id)
           .single();
 
         if (merchantUser) {
