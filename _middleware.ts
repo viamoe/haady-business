@@ -6,6 +6,11 @@ export async function middleware(req: NextRequest) {
   const basePath = '/business';
   const pathname = req.nextUrl.pathname;
   
+  // Only process paths that start with basePath
+  if (!pathname.startsWith(basePath)) {
+    return NextResponse.next();
+  }
+  
   // Remove basePath from pathname for route checking
   const pathWithoutBase = pathname.replace(basePath, '') || '/';
   
@@ -106,5 +111,11 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/business/dashboard/:path*', '/business/setup/:path*', '/business/auth/:path*', '/business']
+  matcher: [
+    // Only match business routes, exclude Next.js internals and static files
+    '/business',
+    '/business/dashboard/:path*',
+    '/business/setup/:path*',
+    '/business/auth/:path*',
+  ],
 };
