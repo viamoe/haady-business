@@ -9,7 +9,7 @@ export default async function BusinessSetupPage() {
   } = await supabase.auth.getSession();
 
   if (!session) {
-    redirect('/auth');
+    redirect('/login');
   }
 
   // Check if user already has a business account

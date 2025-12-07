@@ -1,0 +1,114 @@
+{
+      "common": {
+        "login": "Login",
+        "getStarted": "Get Started",
+        "createStore": "Create a store",
+        "signOut": "Sign Out",
+    "continue": "Continue",
+    "back": "Back",
+    "next": "Next",
+    "cancel": "Cancel",
+    "save": "Save",
+    "loading": "Loading...",
+    "error": "Error",
+    "success": "Success"
+  },
+  "landing": {
+    "title": "Grow your business with Haady",
+    "subtitle": "The all-in-one platform to manage your stores, track sales, and scale your business effortlessly.",
+    "getStarted": "Get Started",
+    "learnMore": "Learn More",
+    "startFreeTrial": "Start Free Trial",
+    "readyToGrow": "Ready to grow your business?",
+    "joinThousands": "Join thousands of businesses already using Haady to manage their operations.",
+    "features": {
+      "title": "Everything you need to run your business",
+      "multiStore": {
+        "title": "Multi-Store Management",
+        "description": "Manage multiple stores from a single dashboard. Add, edit, and organize all your locations effortlessly."
+      },
+      "analytics": {
+        "title": "Sales Analytics",
+        "description": "Track your performance with real-time analytics and insights to make data-driven decisions."
+      },
+      "security": {
+        "title": "Secure & Reliable",
+        "description": "Your data is protected with enterprise-grade security. We keep your business information safe."
+      },
+      "speed": {
+        "title": "Lightning Fast",
+        "description": "Built for speed. Access your dashboard and manage your business from anywhere, anytime."
+      },
+      "collaboration": {
+        "title": "Team Collaboration",
+        "description": "Invite team members, assign roles, and collaborate seamlessly across your organization."
+      },
+      "tools": {
+        "title": "Business Tools",
+        "description": "All the tools you need to run your business efficiently, from inventory to customer management."
+      }
+    },
+    "footer": {
+      "copyright": "© {year} Haady Business. All rights reserved.",
+      "signIn": "Sign In"
+    }
+  },
+  "auth": {
+    "createAccount": "Create your account",
+    "loginToAccount": "Login to your account",
+    "subtitle": "Get paid the same day — no matter how your clients pays.",
+    "signIn": "Sign in to Haady Business",
+    "enterEmail": "Enter your email to receive a verification code and get started.",
+    "emailAddress": "Email address",
+    "email": "Email",
+    "password": "Password",
+    "emailPlaceholder": "you@example.com",
+    "continueWithEmail": "Continue with Email",
+    "continueWithGoogle": "Continue with Google",
+    "sending": "Sending...",
+    "invalidEmail": "Please enter a valid email address",
+    "failedToSend": "Failed to send verification code. Please try again.",
+    "checkEmail": "Check your email",
+    "codeSent": "We sent a 6-digit code to",
+    "enterCode": "Enter verification code",
+    "verificationCode": "Verification code",
+    "verifyCode": "Verify Code",
+    "verifying": "Verifying...",
+    "didntReceive": "Didn't receive the code?",
+    "resendCode": "Resend code",
+    "resendIn": "Resend code in {seconds}s",
+    "resending": "Sending...",
+    "useDifferentEmail": "Use a different email",
+    "invalidCode": "Please enter the complete 6-digit code.",
+    "codeExpired": "This verification code has expired or is invalid. Please request a new code.",
+    "verificationFailed": "Verification Failed",
+    "verificationSuccessful": "Success!",
+    "signedIn": "You have been signed in successfully.",
+    "haveAccount": "Have an account?",
+    "noAccount": "Don't have an account?",
+    "joinBusinesses": "Join 1,200+ businesses & freelancers in 129+ countries"
+  },
+  "setup": {
+    "welcome": "Welcome to Haady Business",
+    "setupYourBusiness": "Set up your business account",
+    "businessName": "Business Name",
+    "businessNamePlaceholder": "Enter your business name",
+    "businessType": "Business Type",
+    "selectBusinessType": "Select business type",
+    "industry": "Industry",
+    "selectIndustry": "Select industry",
+    "country": "Country",
+    "selectCountry": "Select country",
+    "city": "City",
+    "cityPlaceholder": "Enter city",
+    "address": "Address",
+    "addressPlaceholder": "Enter address",
+    "phone": "Phone Number",
+    "phonePlaceholder": "Enter phone number",
+    "website": "Website",
+    "websitePlaceholder": "https://example.com",
+    "description": "Description",
+    "descriptionPlaceholder": "Tell us about your business..."
+  }
+}
+

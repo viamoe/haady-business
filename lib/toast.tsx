@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { toast as sonnerToast } from 'sonner';
 import { RefreshCw, Check } from 'lucide-react';
 
 interface ToastOptions {
@@ -198,27 +197,17 @@ const showToast = (
       };
     }
     
-    const toastId = sonnerToast.custom(
-      (id) => {
-        return <ToastComponent {...toastProps} />;
-      },
-      {
-        duration: options?.duration || DEFAULT_DURATION,
-        onDismiss: () => {
-          activeToastId = null;
-        },
-        onAutoClose: () => {
-          activeToastId = null;
-        },
-      }
-    );
+    // Toast functionality removed - sonner uninstalled
+    // TODO: Replace with alternative toast solution
+    console.log(`Toast: ${title}`, options);
+    const toastId = Date.now();
     activeToastId = toastId;
     return toastId;
   };
 
   // If there's an active toast, dismiss it first and wait before showing new one
   if (activeToastId !== null) {
-    sonnerToast.dismiss(activeToastId);
+    // Toast dismiss functionality removed - sonner uninstalled
     activeToastId = null;
     setTimeout(show, 300);
     return undefined;
@@ -245,7 +234,10 @@ export const toast = {
     return showToast(title, options, 'warning');
   },
 
-  // Keep custom for special cases like the auth form
-  custom: sonnerToast.custom,
+  // Custom toast functionality removed - sonner uninstalled
+  custom: () => {
+    console.warn('Toast.custom() is not available - sonner was uninstalled');
+    return undefined;
+  },
 };
 

@@ -1,0 +1,114 @@
+{
+      "common": {
+        "login": "تسجيل الدخول",
+        "getStarted": "ابدأ الآن",
+        "createStore": "إنشاء متجر",
+        "signOut": "تسجيل الخروج",
+    "continue": "متابعة",
+    "back": "رجوع",
+    "next": "التالي",
+    "cancel": "إلغاء",
+    "save": "حفظ",
+    "loading": "جاري التحميل...",
+    "error": "خطأ",
+    "success": "نجح"
+  },
+  "landing": {
+    "title": "نمو عملك مع هادي",
+    "subtitle": "المنصة الشاملة لإدارة متاجرك، وتتبع المبيعات، وتوسيع عملك بسهولة.",
+    "getStarted": "ابدأ الآن",
+    "learnMore": "اعرف المزيد",
+    "startFreeTrial": "ابدأ التجربة المجانية",
+    "readyToGrow": "هل أنت مستعد لنمو عملك؟",
+    "joinThousands": "انضم إلى آلاف الشركات التي تستخدم هادي بالفعل لإدارة عملياتها.",
+    "features": {
+      "title": "كل ما تحتاجه لإدارة عملك",
+      "multiStore": {
+        "title": "إدارة متاجر متعددة",
+        "description": "إدارة عدة متاجر من لوحة تحكم واحدة. أضف، عدّل، ونظّم جميع مواقعك بسهولة."
+      },
+      "analytics": {
+        "title": "تحليلات المبيعات",
+        "description": "تتبع أداءك مع تحليلات ورؤى فورية لاتخاذ قرارات مدعومة بالبيانات."
+      },
+      "security": {
+        "title": "آمن وموثوق",
+        "description": "بياناتك محمية بأمان على مستوى المؤسسات. نحافظ على معلومات عملك آمنة."
+      },
+      "speed": {
+        "title": "سريع جداً",
+        "description": "مبني للسرعة. الوصول إلى لوحة التحكم وإدارة عملك من أي مكان، في أي وقت."
+      },
+      "collaboration": {
+        "title": "تعاون الفريق",
+        "description": "ادعُ أعضاء الفريق، حدد الأدوار، وتعاون بسلاسة عبر مؤسستك."
+      },
+      "tools": {
+        "title": "أدوات الأعمال",
+        "description": "جميع الأدوات التي تحتاجها لإدارة عملك بكفاءة، من المخزون إلى إدارة العملاء."
+      }
+    },
+    "footer": {
+      "copyright": "© {year} هادي بيزنس. جميع الحقوق محفوظة.",
+      "signIn": "تسجيل الدخول"
+    }
+  },
+  "auth": {
+    "createAccount": "إنشاء حسابك",
+    "loginToAccount": "تسجيل الدخول إلى حسابك",
+    "subtitle": "احصل على أموالك في نفس اليوم — بغض النظر عن طريقة دفع عملائك.",
+    "signIn": "تسجيل الدخول إلى هادي بيزنس",
+    "enterEmail": "أدخل بريدك الإلكتروني لتلقي رمز التحقق والبدء.",
+    "emailAddress": "عنوان البريد الإلكتروني",
+    "email": "البريد الإلكتروني",
+    "password": "كلمة المرور",
+    "emailPlaceholder": "you@example.com",
+    "continueWithEmail": "المتابعة بالبريد الإلكتروني",
+    "continueWithGoogle": "المتابعة مع جوجل",
+    "sending": "جاري الإرسال...",
+    "invalidEmail": "يرجى إدخال عنوان بريد إلكتروني صحيح",
+    "failedToSend": "فشل إرسال رمز التحقق. يرجى المحاولة مرة أخرى.",
+    "checkEmail": "تحقق من بريدك الإلكتروني",
+    "codeSent": "أرسلنا رمزاً مكوناً من 6 أرقام إلى",
+    "enterCode": "أدخل رمز التحقق",
+    "verificationCode": "رمز التحقق",
+    "verifyCode": "التحقق من الرمز",
+    "verifying": "جاري التحقق...",
+    "didntReceive": "لم تستلم الرمز؟",
+    "resendCode": "إعادة إرسال الرمز",
+    "resendIn": "إعادة إرسال الرمز خلال {seconds}ث",
+    "resending": "جاري الإرسال...",
+    "useDifferentEmail": "استخدام بريد إلكتروني مختلف",
+    "invalidCode": "يرجى إدخال رمز التحقق المكون من 6 أرقام بالكامل.",
+    "codeExpired": "انتهت صلاحية رمز التحقق هذا أو أنه غير صحيح. يرجى طلب رمز جديد.",
+    "verificationFailed": "فشل التحقق",
+    "verificationSuccessful": "نجح!",
+    "signedIn": "تم تسجيل الدخول بنجاح.",
+    "haveAccount": "لديك حساب؟",
+    "noAccount": "ليس لديك حساب؟",
+    "joinBusinesses": "انضم إلى أكثر من 1,200 شركة ومستقل في أكثر من 129 دولة"
+  },
+  "setup": {
+    "welcome": "مرحباً بك في هادي بيزنس",
+    "setupYourBusiness": "إعداد حساب عملك",
+    "businessName": "اسم العمل",
+    "businessNamePlaceholder": "أدخل اسم عملك",
+    "businessType": "نوع العمل",
+    "selectBusinessType": "اختر نوع العمل",
+    "industry": "الصناعة",
+    "selectIndustry": "اختر الصناعة",
+    "country": "الدولة",
+    "selectCountry": "اختر الدولة",
+    "city": "المدينة",
+    "cityPlaceholder": "أدخل المدينة",
+    "address": "العنوان",
+    "addressPlaceholder": "أدخل العنوان",
+    "phone": "رقم الهاتف",
+    "phonePlaceholder": "أدخل رقم الهاتف",
+    "website": "الموقع الإلكتروني",
+    "websitePlaceholder": "https://example.com",
+    "description": "الوصف",
+    "descriptionPlaceholder": "أخبرنا عن عملك..."
+  }
+}
+

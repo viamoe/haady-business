@@ -19,7 +19,7 @@ export const createServerSupabase = async () => {
           // In Server Components, cookies can only be read, not written
           // Cookie modifications should happen in Route Handlers or Server Actions
           // This is a no-op to prevent "Cookies can only be modified in a Server Action or Route Handler" errors
-          // Cookie updates will be handled properly in route handlers like /auth/callback
+          // Cookie updates will be handled properly in route handlers like /login/callback
         },
       }
     }
