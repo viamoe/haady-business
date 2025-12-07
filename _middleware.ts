@@ -3,18 +3,24 @@ import type { NextRequest } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 
 export async function middleware(req: NextRequest) {
-  const isAuthPage = req.nextUrl.pathname.startsWith('/auth');
-  const isAuthCallback = req.nextUrl.pathname.startsWith('/auth/callback');
-  const isDashboard = req.nextUrl.pathname.startsWith('/dashboard');
-  const isSetupPage = req.nextUrl.pathname.startsWith('/setup');
+  const basePath = '/business';
+  const pathname = req.nextUrl.pathname;
+  
+  // Remove basePath from pathname for route checking
+  const pathWithoutBase = pathname.replace(basePath, '') || '/';
+  
+  const isAuthPage = pathWithoutBase.startsWith('/auth');
+  const isAuthCallback = pathWithoutBase.startsWith('/auth/callback');
+  const isDashboard = pathWithoutBase.startsWith('/dashboard');
+  const isSetupPage = pathWithoutBase.startsWith('/setup');
 
   // Allow auth callback to pass through without checking session
   if (isAuthCallback) {
     return NextResponse.next();
   }
 
-  // Protect dashboard and setup routes - require valid session
-  if (isDashboard || isSetupPage) {
+  // Protect dashboard route - require valid session
+  if (isDashboard) {
     // Create Supabase client to check session properly
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -39,23 +45,24 @@ export async function middleware(req: NextRequest) {
     const { data: { session } } = await supabase.auth.getSession();
 
     if (!session) {
-      return NextResponse.redirect(new URL('/auth', req.url));
+      return NextResponse.redirect(new URL(`${basePath}/setup`, req.url));
     }
 
-    // If accessing dashboard, check if user has a business account
-    if (isDashboard) {
-      const { data: merchantUser } = await supabase
-        .from('merchant_users')
-        .select('merchant_id')
-        .eq('auth_user_id', session.user.id)
-        .single();
+    // Check if user has a business account
+    const { data: merchantUser } = await supabase
+      .from('merchant_users')
+      .select('merchant_id')
+      .eq('auth_user_id', session.user.id)
+      .single();
 
-      // If no business account, redirect to setup
-      if (!merchantUser) {
-        return NextResponse.redirect(new URL('/setup', req.url));
-      }
+    // If no business account, redirect to setup
+    if (!merchantUser) {
+      return NextResponse.redirect(new URL(`${basePath}/setup`, req.url));
     }
   }
+
+  // Setup page is accessible without auth (for step 1), but we can check auth state
+  // The setup page itself handles the logic
 
   // If authenticated user tries to access auth page, redirect appropriately
   if (isAuthPage && !isAuthCallback) {
@@ -88,9 +95,9 @@ export async function middleware(req: NextRequest) {
         .single();
 
       if (merchantUser) {
-        return NextResponse.redirect(new URL('/dashboard', req.url));
+        return NextResponse.redirect(new URL(`${basePath}/dashboard`, req.url));
       } else {
-        return NextResponse.redirect(new URL('/setup', req.url));
+        return NextResponse.redirect(new URL(`${basePath}/setup`, req.url));
       }
     }
   }
@@ -99,5 +106,5 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/dashboard/:path*', '/setup/:path*', '/auth/:path*']
+  matcher: ['/business/dashboard/:path*', '/business/setup/:path*', '/business/auth/:path*', '/business']
 };

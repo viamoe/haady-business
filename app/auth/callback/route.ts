@@ -2,21 +2,24 @@ import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 
+const basePath = '/business';
+
 function validateRedirectUrl(url: string, origin: string): string {
   try {
     const urlObj = new URL(url, origin);
     // Only allow same-origin redirects
     if (urlObj.origin !== origin) {
-      return '/dashboard';
+      return `${basePath}/dashboard`;
     }
-    // Only allow certain paths
+    // Only allow certain paths (with or without basePath)
+    const pathWithoutBase = urlObj.pathname.replace(basePath, '') || '/';
     const allowedPaths = ['/dashboard', '/setup'];
-    if (allowedPaths.some(path => urlObj.pathname.startsWith(path))) {
-      return urlObj.pathname + urlObj.search;
+    if (allowedPaths.some(path => pathWithoutBase.startsWith(path))) {
+      return `${basePath}${pathWithoutBase}${urlObj.search}`;
     }
-    return '/dashboard';
+    return `${basePath}/dashboard`;
   } catch {
-    return '/dashboard';
+    return `${basePath}/dashboard`;
   }
 }
 
@@ -27,13 +30,13 @@ export async function GET(request: Request) {
   
   if (!code) {
     // No code, redirect to auth page
-    return NextResponse.redirect(new URL('/auth', requestUrl.origin));
+    return NextResponse.redirect(new URL(`${basePath}/auth`, requestUrl.origin));
   }
 
   const cookieStore = await cookies();
   
   // Create response first - we'll update the URL after session is created
-  let redirectUrl = new URL('/dashboard', requestUrl.origin);
+  let redirectUrl = new URL(`${basePath}/dashboard`, requestUrl.origin);
   const response = NextResponse.redirect(redirectUrl);
 
   const supabase = createServerClient(
@@ -69,14 +72,14 @@ export async function GET(request: Request) {
   if (error) {
     console.error('Error exchanging code for session:', error);
     // Redirect to auth with error message
-    const authUrl = new URL('/auth', requestUrl.origin);
+    const authUrl = new URL(`${basePath}/auth`, requestUrl.origin);
     authUrl.searchParams.set('error', 'auth_failed');
     return NextResponse.redirect(authUrl);
   }
   
   if (!session || !session.user) {
     console.error('No session or user after code exchange');
-    const authUrl = new URL('/auth', requestUrl.origin);
+    const authUrl = new URL(`${basePath}/auth`, requestUrl.origin);
     authUrl.searchParams.set('error', 'auth_failed');
     return NextResponse.redirect(authUrl);
   }
@@ -95,7 +98,7 @@ export async function GET(request: Request) {
     redirectUrl = new URL(next, requestUrl.origin);
   } else {
     // User doesn't have a business account yet, redirect to setup
-    redirectUrl = new URL('/setup', requestUrl.origin);
+    redirectUrl = new URL(`${basePath}/setup`, requestUrl.origin);
   }
 
   // Update the redirect URL
