@@ -1,28 +1,11 @@
-import { redirect } from 'next/navigation';
-import { createServerSupabase } from '@/lib/supabase/server';
-import AuthForm from '@/app/auth/AuthForm';
+import type { Metadata } from 'next';
+import LandingPage from '@/components/landing-page';
 
-export default async function Home() {
-  const supabase = await createServerSupabase();
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
+export const metadata: Metadata = {
+  title: 'Grow your business with Haady',
+  description: 'The all-in-one platform to manage your stores, track sales, and scale your business effortlessly.',
+};
 
-  // If not authenticated, show auth form on root page
-  if (!session) {
-    return <AuthForm />;
-  }
-
-  // If authenticated, redirect based on business setup status
-  const { data: merchantUser } = await supabase
-    .from('merchant_users')
-    .select('merchant_id')
-    .eq('auth_user_id', session.user.id)
-    .single();
-
-  if (merchantUser) {
-    redirect('/dashboard');
-  } else {
-    redirect('/setup');
-  }
+export default function Home() {
+  return <LandingPage />;
 }

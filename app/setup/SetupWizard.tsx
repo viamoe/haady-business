@@ -140,7 +140,7 @@ export default function SetupWizard({ initialSession }: SetupWizardProps) {
     setIsLoading(true);
 
     try {
-      const redirectUrl = `${window.location.origin}/business/auth/callback?next=/business/setup`;
+      const redirectUrl = `${window.location.origin}/auth/callback?next=/setup`;
       
       const { error } = await supabase.auth.signInWithOtp({ 
         email: email.trim().toLowerCase(),

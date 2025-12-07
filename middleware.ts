@@ -3,24 +3,25 @@ import type { NextRequest } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 
 export async function middleware(req: NextRequest) {
-  const basePath = '/business';
   const pathname = req.nextUrl.pathname;
   
-  // Only process paths that start with basePath
-  if (!pathname.startsWith(basePath)) {
+  // Allow root landing page to pass through without any checks
+  if (pathname === '/' || pathname === '') {
     return NextResponse.next();
   }
   
-  // Remove basePath from pathname for route checking
-  const pathWithoutBase = pathname.replace(basePath, '') || '/';
-  
-  const isAuthPage = pathWithoutBase.startsWith('/auth');
-  const isAuthCallback = pathWithoutBase.startsWith('/auth/callback');
-  const isDashboard = pathWithoutBase.startsWith('/dashboard');
-  const isSetupPage = pathWithoutBase.startsWith('/setup');
+  const isAuthPage = pathname.startsWith('/auth');
+  const isAuthCallback = pathname.startsWith('/auth/callback');
+  const isDashboard = pathname.startsWith('/dashboard');
+  const isSetupPage = pathname.startsWith('/setup');
 
   // Allow auth callback to pass through without checking session
   if (isAuthCallback) {
+    return NextResponse.next();
+  }
+  
+  // Allow setup page to pass through (handles its own auth logic)
+  if (isSetupPage) {
     return NextResponse.next();
   }
 
@@ -51,7 +52,7 @@ export async function middleware(req: NextRequest) {
       const { data: { user }, error: authError } = await supabase.auth.getUser();
 
       if (authError || !user) {
-        return NextResponse.redirect(new URL(`${basePath}/setup`, req.url));
+        return NextResponse.redirect(new URL('/setup', req.url));
       }
 
       // Check if user has a business account
@@ -64,12 +65,12 @@ export async function middleware(req: NextRequest) {
 
       // If database query fails or no business account, redirect to setup
       if (dbError || !merchantUser) {
-        return NextResponse.redirect(new URL(`${basePath}/setup`, req.url));
+        return NextResponse.redirect(new URL('/setup', req.url));
       }
     } catch (error) {
       // If middleware fails, redirect to setup to avoid blocking
       console.error('Middleware error:', error);
-      return NextResponse.redirect(new URL(`${basePath}/setup`, req.url));
+      return NextResponse.redirect(new URL('/setup', req.url));
     }
   }
 
@@ -109,9 +110,9 @@ export async function middleware(req: NextRequest) {
           .single();
 
         if (merchantUser) {
-          return NextResponse.redirect(new URL(`${basePath}/dashboard`, req.url));
+          return NextResponse.redirect(new URL('/dashboard', req.url));
         } else {
-          return NextResponse.redirect(new URL(`${basePath}/setup`, req.url));
+          return NextResponse.redirect(new URL('/setup', req.url));
         }
       }
     } catch (error) {
@@ -125,10 +126,9 @@ export async function middleware(req: NextRequest) {
 
 export const config = {
   matcher: [
-    // Only match business routes, exclude Next.js internals and static files
-    '/business',
-    '/business/dashboard/:path*',
-    '/business/setup/:path*',
-    '/business/auth/:path*',
+    // Only match routes that need middleware processing
+    // Exclude: root landing page, Next.js internals, static files
+    '/dashboard/:path*',
+    '/auth/:path*',
   ],
 };
