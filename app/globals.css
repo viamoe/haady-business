@@ -160,31 +160,33 @@
 }
 
 .animate-heartbeat {
-  animation: heartbeat 1.5s ease-in-out infinite;
+  animation: heartbeat 2.5s ease-in-out infinite;
 }
 
 /* Shimmer Effect for Text */
 @keyframes shimmer {
   0% {
-    background-position: -1000px 0;
+    background-position: -2000px 0;
   }
   100% {
-    background-position: 1000px 0;
+    background-position: 2000px 0;
   }
 }
 
 .shimmer-text {
   background: linear-gradient(
     90deg,
-    #374151 0%,
-    #6b7280 25%,
-    #374151 50%,
-    #6b7280 75%,
-    #374151 100%
+    #9ca3af 0%,
+    #ffffff 20%,
+    #9ca3af 40%,
+    #ffffff 60%,
+    #9ca3af 80%,
+    #ffffff 100%
   );
-  background-size: 1000px 100%;
+  background-size: 2000px 100%;
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
-  animation: shimmer 3s linear infinite;
+  animation: shimmer 2s linear infinite;
+  font-weight: 500;
 }
