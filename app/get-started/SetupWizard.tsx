@@ -25,6 +25,7 @@ import { Mail, Loader2, Building2, CheckCircle2, Paperclip } from 'lucide-react'
 import { toast } from '@/lib/toast';
 import Link from 'next/link';
 import type { Session } from '@supabase/supabase-js';
+import { useLoading } from '@/lib/loading-context';
 
 interface SetupWizardProps {
   initialSession: Session | null;
@@ -75,6 +76,7 @@ export default function SetupWizard({ initialSession }: SetupWizardProps) {
   const t = useTranslations();
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { setLoading } = useLoading();
   const [currentStep, setCurrentStepState] = useState<1 | 2>(initialSession ? 2 : 1);
   const [session, setSession] = useState<Session | null>(initialSession);
   const isInitialMount = useRef(true);
@@ -325,11 +327,15 @@ export default function SetupWizard({ initialSession }: SetupWizardProps) {
           duration: 3000,
         });
         
+        setLoading(true, 'Setting up your account...');
+        
         setSession(data.session);
         setCurrentStep(2);
         setFormData(prev => ({ ...prev, contact_email: data.user?.email || data.session?.user.email || '' }));
         setShowOtp(false);
         setOtpSent(false);
+        
+        setLoading(false);
       }
     } catch (err: any) {
       console.error('Error verifying OTP:', err);
@@ -338,6 +344,7 @@ export default function SetupWizard({ initialSession }: SetupWizardProps) {
         description: t('common.error'),
         duration: 5000,
       });
+      setLoading(false);
     } finally {
       setIsVerifying(false);
     }
@@ -462,6 +469,7 @@ export default function SetupWizard({ initialSession }: SetupWizardProps) {
         duration: 5000,
       });
 
+      setLoading(true, 'Redirecting to dashboard...');
       router.push('/dashboard');
     } catch (error: any) {
       console.error('Error creating business account:', error);
@@ -469,6 +477,7 @@ export default function SetupWizard({ initialSession }: SetupWizardProps) {
         description: error.message || 'Failed to create business account. Please try again.',
         duration: 5000,
       });
+      setLoading(false);
     } finally {
       setIsLoading(false);
     }
@@ -495,7 +504,7 @@ export default function SetupWizard({ initialSession }: SetupWizardProps) {
               <p className="text-base text-gray-600">
                 {t('auth.subtitle')}
               </p>
-            </div>
+                  </div>
 
             {/* Form */}
             <form onSubmit={handleEmailSubmit} className="space-y-4">
@@ -540,7 +549,7 @@ export default function SetupWizard({ initialSession }: SetupWizardProps) {
                 </div>
 
                 {/* Email Input */}
-                <div className="space-y-2">
+                  <div className="space-y-2">
                   <div className="relative">
                     <Input
                       type="email"
@@ -654,27 +663,27 @@ export default function SetupWizard({ initialSession }: SetupWizardProps) {
                 <div className="text-xs font-medium text-gray-500">axis</div>
                 <div className="text-xs font-medium text-gray-500">ETH SHANGHAI 2024</div>
               </div>
-            </div>
-          </>
+                </div>
+            </>
           )}
 
           {/* Step 2: Business Setup */}
           {currentStep === 2 && (
             <div className="w-full max-w-3xl bg-white rounded-lg border border-gray-200 shadow-sm p-8">
             <CardHeader className="p-0 mb-6">
-              <div className="flex items-center gap-4 mb-2">
-                <div className="w-16 h-16 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
-                  <Building2 className="h-8 w-8 text-primary" />
-                </div>
-                <div>
+                <div className="flex items-center gap-4 mb-2">
+                  <div className="w-16 h-16 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
+                    <Building2 className="h-8 w-8 text-primary" />
+                  </div>
+                  <div>
                   <CardTitle className="text-3xl md:text-2xl">{t('setup.setupYourBusiness')}</CardTitle>
-                  <CardDescription className="text-base mt-2">
+                    <CardDescription className="text-base mt-2">
                     {t('setup.welcome')}
-                  </CardDescription>
+                    </CardDescription>
+                  </div>
                 </div>
-              </div>
-            </CardHeader>
-            <form onSubmit={handleBusinessSubmit} className="space-y-4">
+              </CardHeader>
+              <form onSubmit={handleBusinessSubmit} className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="name">

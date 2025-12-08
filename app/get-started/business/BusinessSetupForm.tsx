@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Loader2, Building2 } from 'lucide-react';
 import { toast } from '@/lib/toast';
+import { useLoading } from '@/lib/loading-context';
 
 interface BusinessSetupFormProps {
   userId: string;
@@ -15,6 +16,7 @@ interface BusinessSetupFormProps {
 
 export default function BusinessSetupForm({ userId, userEmail }: BusinessSetupFormProps) {
   const router = useRouter();
+  const { setLoading } = useLoading();
   const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
@@ -74,7 +76,7 @@ export default function BusinessSetupForm({ userId, userEmail }: BusinessSetupFo
         duration: 5000,
       });
 
-      // Redirect to dashboard
+      setLoading(true, 'Redirecting to dashboard...');
       router.push('/dashboard');
     } catch (error: any) {
       console.error('Error creating business account:', error);
@@ -82,6 +84,7 @@ export default function BusinessSetupForm({ userId, userEmail }: BusinessSetupFo
         description: error.message || 'Failed to create business account. Please try again.',
         duration: 5000,
       });
+      setLoading(false);
     } finally {
       setIsLoading(false);
     }

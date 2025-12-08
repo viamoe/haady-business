@@ -34,7 +34,7 @@ export function ThemeProvider({
     // Get theme from localStorage on mount
     const stored = localStorage.getItem(storageKey) as Theme | null
     if (stored) {
-      setTheme(stored)
+        setTheme(stored)
     }
   }, [storageKey])
 

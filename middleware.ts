@@ -75,40 +75,40 @@ export async function middleware(req: NextRequest) {
   // Protect dashboard route - require valid session
   if (isDashboard) {
     try {
-      // Create Supabase client to check session properly
-      const supabase = createServerClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-        {
-          cookies: {
-            getAll() {
-              return req.cookies.getAll().map(cookie => ({
-                name: cookie.name,
-                value: cookie.value,
-              }));
-            },
-            setAll(cookiesToSet) {
-              // Cookies are set in route handlers, not middleware
-              // This is a no-op in middleware
-            },
+    // Create Supabase client to check session properly
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          getAll() {
+            return req.cookies.getAll().map(cookie => ({
+              name: cookie.name,
+              value: cookie.value,
+            }));
           },
-        }
-      );
+          setAll(cookiesToSet) {
+            // Cookies are set in route handlers, not middleware
+            // This is a no-op in middleware
+          },
+        },
+      }
+    );
 
-      // Check for valid session
+    // Check for valid session
       const { data: { session }, error: authError } = await supabase.auth.getSession();
 
       if (authError || !session || !session.user) {
         return NextResponse.redirect(new URL('/onboarding', req.url));
-      }
+    }
 
-      // Check if user has a business account
+    // Check if user has a business account
       // Note: Database queries in middleware should be lightweight
       const { data: merchantUser, error: dbError } = await supabase
-        .from('merchant_users')
-        .select('merchant_id')
-        .eq('auth_user_id', session.user.id)
-        .single();
+      .from('merchant_users')
+      .select('merchant_id')
+      .eq('auth_user_id', session.user.id)
+      .single();
 
       // If database query fails or no business account, redirect to onboarding
       if (dbError || !merchantUser) {
@@ -127,38 +127,38 @@ export async function middleware(req: NextRequest) {
   // If authenticated user tries to access login page, redirect appropriately
   if (isLoginPage && !isLoginCallback) {
     try {
-      const supabase = createServerClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-        {
-          cookies: {
-            getAll() {
-              return req.cookies.getAll().map(cookie => ({
-                name: cookie.name,
-                value: cookie.value,
-              }));
-            },
-            setAll() {
-              // No-op in middleware
-            },
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          getAll() {
+            return req.cookies.getAll().map(cookie => ({
+              name: cookie.name,
+              value: cookie.value,
+            }));
           },
-        }
-      );
+          setAll() {
+            // No-op in middleware
+          },
+        },
+      }
+    );
 
       // Check for valid session
       const { data: { session }, error: authError } = await supabase.auth.getSession();
 
       if (!authError && session && session.user) {
-        // Check if user has a business account
-        const { data: merchantUser } = await supabase
-          .from('merchant_users')
-          .select('merchant_id')
-          .eq('auth_user_id', session.user.id)
-          .single();
+      // Check if user has a business account
+      const { data: merchantUser } = await supabase
+        .from('merchant_users')
+        .select('merchant_id')
+        .eq('auth_user_id', session.user.id)
+        .single();
 
-        if (merchantUser) {
+      if (merchantUser) {
           return NextResponse.redirect(new URL('/dashboard', req.url));
-        } else {
+      } else {
           return NextResponse.redirect(new URL('/onboarding', req.url));
         }
       }

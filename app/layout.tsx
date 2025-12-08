@@ -1,6 +1,7 @@
 import '@/app/globals.css';
 import { ThemeProvider } from '@/components/theme-provider';
 import { AuthProvider } from '@/lib/auth/auth-context';
+import { LoadingProvider } from '@/lib/loading-context';
 import { Header } from '@/components/header';
 import { NextIntlClientProvider } from 'next-intl';
 import { getLocale, getMessages } from 'next-intl/server';
@@ -41,11 +42,13 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <NextIntlClientProvider messages={messages}>
           <LocaleProvider initialLocale={locale}>
             <ThemeProvider defaultTheme="light" storageKey="haady-theme">
-              <AuthProvider>
-                <Header />
-                {children}
-              </AuthProvider>
-            </ThemeProvider>
+              <LoadingProvider>
+                <AuthProvider>
+                  <Header />
+                    {children}
+                </AuthProvider>
+              </LoadingProvider>
+        </ThemeProvider>
           </LocaleProvider>
         </NextIntlClientProvider>
       </body>

@@ -16,6 +16,7 @@ import {
 import { Mail, Loader2, AlertCircle, ArrowLeft } from 'lucide-react';
 import { toast } from '@/lib/toast';
 import Link from 'next/link';
+import { useLoading } from '@/lib/loading-context';
 
 interface OtpVerificationFormProps {
   email: string;
@@ -24,6 +25,7 @@ interface OtpVerificationFormProps {
 export default function OtpVerificationForm({ email }: OtpVerificationFormProps) {
   const t = useTranslations();
   const router = useRouter();
+  const { setLoading } = useLoading();
   const [otp, setOtp] = useState(['', '', '', '', '', '']);
   const [isVerifying, setIsVerifying] = useState(false);
   const [otpError, setOtpError] = useState('');
@@ -145,6 +147,8 @@ export default function OtpVerificationForm({ email }: OtpVerificationFormProps)
           duration: 3000,
         });
 
+        setLoading(true, 'Checking your account...');
+
         // Check if user has a business account
         const { data: merchantUser } = await supabase
           .from('merchant_users')
@@ -153,8 +157,10 @@ export default function OtpVerificationForm({ email }: OtpVerificationFormProps)
           .single();
 
         if (merchantUser) {
+          setLoading(true, 'Redirecting to dashboard...');
           router.push('/dashboard');
         } else {
+          setLoading(true, 'Redirecting to setup...');
           router.push('/get-started');
         }
         router.refresh();
@@ -166,6 +172,7 @@ export default function OtpVerificationForm({ email }: OtpVerificationFormProps)
         description: t('auth.verificationFailed'),
         duration: 5000,
       });
+      setLoading(false);
       setIsVerifying(false);
     }
   };

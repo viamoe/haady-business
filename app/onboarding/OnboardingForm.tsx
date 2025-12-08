@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Loader2 } from 'lucide-react';
 import { toast } from '@/lib/toast';
+import { useLoading } from '@/lib/loading-context';
 
 // Zod schema for form validation
 const onboardingSchema = z.object({
@@ -34,6 +35,7 @@ function generateSlug(name: string): string {
 
 export default function OnboardingForm() {
   const router = useRouter();
+  const { setLoading } = useLoading();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const {
@@ -85,6 +87,7 @@ export default function OnboardingForm() {
             description: 'Your business and store have been set up successfully.',
             duration: 5000,
           });
+          setLoading(true, 'Redirecting to dashboard...');
           router.push('/dashboard');
           router.refresh();
         } else {
@@ -106,6 +109,7 @@ export default function OnboardingForm() {
         description: errorMessage,
         duration: 5000,
       });
+      setLoading(false);
     } finally {
       setIsSubmitting(false);
     }

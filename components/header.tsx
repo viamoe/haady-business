@@ -17,6 +17,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { useLoading } from '@/lib/loading-context';
 
 const HAADY_LOGO_URL = 'https://rovphhvuuxwbhgnsifto.supabase.co/storage/v1/object/public/assets/haady-icon.svg';
 
@@ -26,6 +27,7 @@ export function Header() {
   const { user, signOut, loading } = useAuth();
   const pathname = usePathname();
   const router = useRouter();
+  const { setLoading } = useLoading();
   const [isCheckingMerchant, setIsCheckingMerchant] = useState(false);
   
   // Hide navigation buttons on login and get-started pages
@@ -34,14 +36,22 @@ export function Header() {
   const showUserInfo = user && !loading;
   
   const handleSignOut = async () => {
-    await signOut();
-    window.location.href = '/';
+    setLoading(true, 'Signing out...');
+    try {
+      await signOut();
+      setLoading(true, 'Redirecting...');
+      window.location.href = '/';
+    } catch (error) {
+      console.error('Error signing out:', error);
+      setLoading(false);
+    }
   };
 
   const handleEmailClick = async () => {
     if (!user || isCheckingMerchant) return;
     
     setIsCheckingMerchant(true);
+    setLoading(true, 'Loading your account...');
     try {
       // Check if user has a merchant account
       const { data: merchantUser, error } = await supabase
@@ -57,14 +67,17 @@ export function Header() {
 
       if (merchantUser) {
         // User has completed onboarding, navigate to dashboard
+        setLoading(true, 'Redirecting to dashboard...');
         router.push('/dashboard');
       } else {
         // User is still in onboarding, navigate to onboarding page
+        setLoading(true, 'Redirecting to onboarding...');
         router.push('/onboarding');
       }
     } catch (error) {
       console.error('Error navigating to account:', error);
       // Fallback to onboarding if check fails
+      setLoading(true, 'Redirecting...');
       router.push('/onboarding');
     } finally {
       setIsCheckingMerchant(false);

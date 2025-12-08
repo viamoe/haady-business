@@ -10,11 +10,13 @@ import { Loader2, Paperclip, Mail, CheckCircle2 } from 'lucide-react';
 import { toast } from '@/lib/toast';
 import Link from 'next/link';
 import { Separator } from '@/components/ui/separator';
+import { useLoading } from '@/lib/loading-context';
 
 export default function AuthForm() {
   const t = useTranslations();
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { setLoading } = useLoading();
   const [email, setEmail] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
@@ -136,6 +138,8 @@ export default function AuthForm() {
           duration: 3000,
         });
         
+        setLoading(true, 'Checking your account...');
+        
         const { data: merchantUser } = await supabase
           .from('merchant_users')
           .select('merchant_id')
@@ -143,8 +147,10 @@ export default function AuthForm() {
           .single();
 
         if (merchantUser) {
+          setLoading(true, 'Redirecting to dashboard...');
           router.push('/dashboard');
         } else {
+          setLoading(true, 'Setting up your account...');
           router.push('/onboarding');
         }
         router.refresh();
@@ -156,6 +162,7 @@ export default function AuthForm() {
         description: t('common.error'),
         duration: 5000,
       });
+      setLoading(false);
     } finally {
       setIsVerifying(false);
     }
@@ -275,7 +282,7 @@ export default function AuthForm() {
         {/* Decorative Paperclip Icon */}
         <div className="absolute right-8 top-1/2 -translate-y-1/2 opacity-10 hidden lg:block">
           <Paperclip className="h-32 w-32 text-gray-400" />
-        </div>
+              </div>
 
         <div className="w-full max-w-md relative z-10">
           {/* Header */}
@@ -286,10 +293,10 @@ export default function AuthForm() {
             <p className="text-base text-gray-600">
               {t('auth.subtitle')}
             </p>
-          </div>
+              </div>
 
           {/* Form */}
-          <form onSubmit={handleSubmit} className="space-y-4">
+              <form onSubmit={handleSubmit} className="space-y-4">
             {/* Google Sign In Button */}
             <Button
               type="button"
@@ -331,43 +338,43 @@ export default function AuthForm() {
             </div>
 
             {/* Email Input */}
-            <div className="space-y-2">
+                <div className="space-y-2">
               <div className="relative">
-                <Input
-                  type="email"
+                  <Input
+                    type="email"
                   placeholder={t('auth.email')}
-                  value={email}
-                  onChange={(e) => {
+                    value={email}
+                    onChange={(e) => {
                     setEmail(e.target.value);
-                    setEmailError('');
-                  }}
+                      setEmailError('');
+                    }}
                   className={`h-12 ${emailError ? 'border-red-500' : 'border-gray-300'}`}
-                  required
+                    required
                   disabled={isLoading || isGoogleLoading}
                   autoFocus
-                />
+                  />
               </div>
-              {emailError && (
+                  {emailError && (
                 <div className="flex items-start gap-2 text-sm text-red-500">
                   <Mail className="h-4 w-4 mt-0.5 shrink-0" />
-                  <span>{emailError}</span>
+                      <span>{emailError}</span>
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
 
             {/* Continue Button - Only show if OTP not sent */}
             {!otpSent && (
-              <Button
-                type="submit"
+                <Button
+                  type="submit"
                 disabled={isLoading || isGoogleLoading || !validateEmail(email)}
                 className="w-full h-12 bg-gradient-to-r from-gray-900 to-gray-800 hover:from-gray-800 hover:to-gray-700 text-white rounded-md"
-              >
-                {isLoading ? (
-                  <>
+                >
+                  {isLoading ? (
+                    <>
                     <Loader2 className="h-5 w-5 animate-spin mr-2" />
                     {t('common.loading')}
-                  </>
-                ) : (
+                    </>
+                  ) : (
                   t('common.continue')
                 )}
               </Button>
@@ -429,7 +436,7 @@ export default function AuthForm() {
                 </Link>
               </p>
             </div>
-          </form>
+              </form>
 
           {/* Footer with Partner Logos */}
           <div className="mt-12 text-center">
