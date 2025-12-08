@@ -23,7 +23,7 @@ export default async function OtpVerificationPage({
     if (merchantUser) {
       redirect('/dashboard');
     } else {
-      redirect('/get-started');
+      redirect('/setup');
     }
   }
 

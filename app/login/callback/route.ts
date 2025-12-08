@@ -10,7 +10,7 @@ function validateRedirectUrl(url: string, origin: string): string {
       return '/dashboard';
     }
     // Only allow certain paths
-    const allowedPaths = ['/dashboard', '/onboarding', '/get-started'];
+    const allowedPaths = ['/dashboard', '/setup'];
     if (allowedPaths.some(path => urlObj.pathname.startsWith(path))) {
       return urlObj.pathname + urlObj.search;
     }
@@ -98,8 +98,8 @@ export async function GET(request: Request) {
     const next = validateRedirectUrl(nextParam || '/dashboard', requestUrl.origin);
     redirectUrl = new URL(next, requestUrl.origin);
   } else {
-    // User doesn't have a business account yet, redirect to onboarding
-    redirectUrl = new URL('/onboarding', requestUrl.origin);
+    // User doesn't have a business account yet, redirect to setup
+    redirectUrl = new URL('/setup', requestUrl.origin);
   }
 
   // Create the final response with the correct redirect URL

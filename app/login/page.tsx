@@ -21,7 +21,7 @@ export default async function AuthPage() {
       redirect('/dashboard');
     } else {
       // User is authenticated but doesn't have a business account yet
-      redirect('/get-started');
+      redirect('/setup');
     }
   }
 

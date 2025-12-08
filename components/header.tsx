@@ -30,8 +30,8 @@ export function Header() {
   const { setLoading } = useLoading();
   const [isCheckingMerchant, setIsCheckingMerchant] = useState(false);
   
-  // Hide navigation buttons on login and get-started pages
-  const isAuthPage = pathname === '/login' || pathname === '/get-started' || pathname.startsWith('/login/') || pathname.startsWith('/get-started/');
+  // Hide navigation buttons on login and setup pages
+  const isAuthPage = pathname === '/login' || pathname === '/setup' || pathname.startsWith('/login/') || pathname.startsWith('/setup/');
   const showNavButtons = !isAuthPage && !user;
   const showUserInfo = user && !loading;
   
@@ -66,21 +66,21 @@ export function Header() {
       }
 
       if (merchantUser) {
-        // User has completed onboarding, navigate to dashboard
+        // User has completed setup, navigate to dashboard
         setLoading(true, 'Redirecting to dashboard...');
         router.push('/dashboard');
         router.refresh();
       } else {
-        // User is still in onboarding, navigate to onboarding page
-        setLoading(true, 'Redirecting to onboarding...');
-        router.push('/onboarding');
+        // User needs to complete setup
+        setLoading(true, 'Redirecting to setup...');
+        router.push('/setup');
         router.refresh();
       }
     } catch (error) {
       console.error('Error navigating to account:', error);
-      // Fallback to onboarding if check fails
+      // Fallback to setup if check fails
       setLoading(true, 'Redirecting...');
-      router.push('/onboarding');
+      router.push('/setup');
     } finally {
       setIsCheckingMerchant(false);
     }
@@ -110,7 +110,7 @@ export function Header() {
                   <Link href="/login">{t('common.login')}</Link>
                 </Button>
                 <Button asChild>
-                  <Link href="/get-started">
+                  <Link href="/login">
                     {t('common.createStore')}
                   </Link>
                 </Button>

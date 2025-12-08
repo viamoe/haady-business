@@ -162,7 +162,7 @@ export default function OtpVerificationForm({ email }: OtpVerificationFormProps)
           router.refresh();
         } else {
           setLoading(true, 'Redirecting to setup...');
-          router.push('/get-started');
+          router.push('/setup');
           router.refresh();
         }
       }

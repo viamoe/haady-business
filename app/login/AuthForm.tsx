@@ -152,7 +152,7 @@ export default function AuthForm() {
           router.refresh();
         } else {
           setLoading(true, 'Setting up your account...');
-          router.push('/onboarding');
+          router.push('/setup');
           router.refresh();
         }
       }
@@ -247,7 +247,7 @@ export default function AuthForm() {
           setIsLoading(false);
           
           setTimeout(() => {
-            router.push(`/get-started?email=${encodeURIComponent(email.trim().toLowerCase())}`);
+            router.push('/login');
           }, 2000);
           return;
         }
@@ -436,7 +436,7 @@ export default function AuthForm() {
             <div className="mt-6 text-center">
               <p className="text-sm text-gray-600">
                 {t('auth.noAccount')}{' '}
-                <Link href="/get-started" className="text-gray-900 underline font-medium hover:text-gray-700">
+                <Link href="/login" className="text-gray-900 underline font-medium hover:text-gray-700">
                   {t('auth.createAccount')}
                 </Link>
               </p>

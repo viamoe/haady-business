@@ -22,13 +22,13 @@ export default function LandingPage() {
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center items-center pt-4">
             <Button asChild size="lg" className="text-lg px-8">
-              <Link href="/get-started">
+              <Link href="/login">
                 {t('landing.getStarted')}
                 <ArrowRight className={isRTL ? 'mr-2 rotate-180' : 'ml-2'} style={{ transform: isRTL ? 'rotate(180deg)' : 'none' }} />
               </Link>
             </Button>
             <Button asChild variant="outline" size="lg" className="text-lg px-8">
-              <Link href="/get-started">{t('landing.learnMore')}</Link>
+              <Link href="/login">{t('landing.learnMore')}</Link>
             </Button>
           </div>
         </div>
@@ -130,7 +130,7 @@ export default function LandingPage() {
             </CardHeader>
             <CardContent className="flex justify-center pt-6">
               <Button asChild size="lg" className="text-lg px-8">
-                <Link href="/get-started">
+                <Link href="/login">
                   {t('landing.startFreeTrial')}
                   <ArrowRight className={isRTL ? 'mr-2 rotate-180' : 'ml-2'} style={{ transform: isRTL ? 'rotate(180deg)' : 'none' }} />
                 </Link>
@@ -148,7 +148,7 @@ export default function LandingPage() {
               {t('landing.footer.copyright', { year: new Date().getFullYear() })}
             </p>
             <div className={`flex gap-6 mt-4 md:mt-0 ${isRTL ? 'flex-row-reverse' : ''}`}>
-              <Link href="/get-started" className="text-sm text-muted-foreground hover:text-foreground">
+              <Link href="/login" className="text-sm text-muted-foreground hover:text-foreground">
                 {t('common.getStarted')}
               </Link>
               <Link href="/login" className="text-sm text-muted-foreground hover:text-foreground">
