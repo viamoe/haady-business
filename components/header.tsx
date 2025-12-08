@@ -101,6 +101,11 @@ export function Header() {
               className="w-8 h-8"
             />
             <span className="text-xl font-light tracking-tight text-foreground">Business</span>
+            {process.env.NEXT_PUBLIC_VERCEL_ENV === 'preview' && (
+              <span className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-medium">
+                Preview
+              </span>
+            )}
           </Link>
 
           {/* Right side - Navigation buttons, User info, and Language Switcher */}
