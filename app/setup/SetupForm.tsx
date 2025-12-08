@@ -13,8 +13,6 @@ import { Loader2, Building2, Store, MapPin, Link as LinkIcon } from 'lucide-reac
 import { toast } from '@/lib/toast';
 import { useLoading } from '@/lib/loading-context';
 
-const HAADY_LOGO_URL = 'https://rovphhvuuxwbhgnsifto.supabase.co/storage/v1/object/public/assets/haady-icon.svg';
-
 // Validation schema
 const setupSchema = z.object({
   businessName: z
@@ -37,10 +35,6 @@ const setupSchema = z.object({
 
 type SetupFormData = z.infer<typeof setupSchema>;
 
-interface SetupFormProps {
-  userEmail: string;
-}
-
 // Generate URL-friendly slug from name
 function generateSlug(name: string): string {
   return name
@@ -52,7 +46,7 @@ function generateSlug(name: string): string {
     .replace(/^-+|-+$/g, '');
 }
 
-export default function SetupForm({ userEmail }: SetupFormProps) {
+export default function SetupForm() {
   const router = useRouter();
   const { setLoading } = useLoading();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -131,17 +125,6 @@ export default function SetupForm({ userEmail }: SetupFormProps) {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
-      {/* Header */}
-      <header className="border-b border-gray-200 bg-white/80 backdrop-blur-sm">
-        <div className="max-w-4xl mx-auto px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <img src={HAADY_LOGO_URL} alt="Haady" className="w-8 h-8" />
-            <span className="text-xl font-bold text-gray-900">Haady Business</span>
-          </div>
-          <div className="text-sm text-gray-500">{userEmail}</div>
-        </div>
-      </header>
-
       {/* Main Content */}
       <main className="max-w-2xl mx-auto px-6 py-12">
         <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">

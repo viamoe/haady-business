@@ -23,6 +23,6 @@ export default async function SetupPage() {
     redirect('/dashboard');
   }
   
-  return <SetupForm userEmail={user.email || ''} />;
+  return <SetupForm />;
 }
 
