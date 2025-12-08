@@ -23,11 +23,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      setLoading(false);
+    // Get initial user - using getUser() for security (verifies with Supabase Auth server)
+    supabase.auth.getUser().then(({ data: { user }, error }) => {
+      if (!error && user) {
+        // Get session for compatibility with components that need it
+        supabase.auth.getSession().then(({ data: { session } }) => {
+          setSession(session);
+          setUser(user);
+          setLoading(false);
+        });
+      } else {
+        setSession(null);
+        setUser(null);
+        setLoading(false);
+      }
     });
 
     // Listen for auth changes

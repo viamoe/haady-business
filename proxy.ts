@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 
-export async function middleware(req: NextRequest) {
+export async function proxy(req: NextRequest) {
   const pathname = req.nextUrl.pathname;
   
   // Allow root landing page to pass through without any checks
@@ -35,15 +35,16 @@ export async function middleware(req: NextRequest) {
               }));
             },
             setAll() {
-              // No-op in middleware
+              // No-op in proxy
             },
           },
         }
       );
 
-      const { data: { session }, error: authError } = await supabase.auth.getSession();
+      // Use getUser() instead of getSession() for security - verifies with Supabase Auth server
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
 
-      if (authError || !session || !session.user) {
+      if (authError || !user) {
         return NextResponse.redirect(new URL('/login', req.url));
       }
 
@@ -51,7 +52,7 @@ export async function middleware(req: NextRequest) {
       const { data: merchantUser } = await supabase
         .from('merchant_users')
         .select('merchant_id')
-        .eq('auth_user_id', session.user.id)
+        .eq('auth_user_id', user.id)
         .single();
 
       // If user has merchant, redirect to dashboard
@@ -61,12 +62,12 @@ export async function middleware(req: NextRequest) {
 
       // User is authenticated but no merchant - allow access to setup
     } catch (error) {
-      console.error('Middleware error:', error);
+      console.error('Proxy error:', error);
       return NextResponse.redirect(new URL('/login', req.url));
     }
   }
 
-  // Protect dashboard route - require valid session and merchant account
+  // Protect dashboard route - require valid user and merchant account
   if (isDashboard) {
     try {
       const supabase = createServerClient(
@@ -81,15 +82,16 @@ export async function middleware(req: NextRequest) {
               }));
             },
             setAll() {
-              // No-op in middleware
+              // No-op in proxy
             },
           },
         }
       );
 
-      const { data: { session }, error: authError } = await supabase.auth.getSession();
+      // Use getUser() instead of getSession() for security - verifies with Supabase Auth server
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
 
-      if (authError || !session || !session.user) {
+      if (authError || !user) {
         return NextResponse.redirect(new URL('/login', req.url));
       }
 
@@ -97,7 +99,7 @@ export async function middleware(req: NextRequest) {
       const { data: merchantUser, error: dbError } = await supabase
         .from('merchant_users')
         .select('merchant_id')
-        .eq('auth_user_id', session.user.id)
+        .eq('auth_user_id', user.id)
         .single();
 
       // If no business account, redirect to setup
@@ -105,7 +107,7 @@ export async function middleware(req: NextRequest) {
         return NextResponse.redirect(new URL('/setup', req.url));
       }
     } catch (error) {
-      console.error('Middleware error:', error);
+      console.error('Proxy error:', error);
       return NextResponse.redirect(new URL('/login', req.url));
     }
   }
@@ -125,20 +127,21 @@ export async function middleware(req: NextRequest) {
               }));
             },
             setAll() {
-              // No-op in middleware
+              // No-op in proxy
             },
           },
         }
       );
 
-      const { data: { session }, error: authError } = await supabase.auth.getSession();
+      // Use getUser() instead of getSession() for security - verifies with Supabase Auth server
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
 
-      if (!authError && session && session.user) {
+      if (!authError && user) {
         // Check if user has a business account
         const { data: merchantUser } = await supabase
           .from('merchant_users')
           .select('merchant_id')
-          .eq('auth_user_id', session.user.id)
+          .eq('auth_user_id', user.id)
           .single();
 
         if (merchantUser) {
@@ -148,7 +151,7 @@ export async function middleware(req: NextRequest) {
         }
       }
     } catch (error) {
-      console.error('Middleware error:', error);
+      console.error('Proxy error:', error);
     }
   }
 
@@ -162,3 +165,4 @@ export const config = {
     '/setup/:path*',
   ],
 };
+

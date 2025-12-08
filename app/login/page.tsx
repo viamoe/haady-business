@@ -5,16 +5,16 @@ import AuthForm from './AuthForm';
 
 export default async function AuthPage() {
   const supabase = await createServerSupabase();
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
+  
+  // Use getUser() instead of getSession() for security - verifies with Supabase Auth server
+  const { data: { user }, error } = await supabase.auth.getUser();
 
   // If user is authenticated, check if they have a business account
-  if (session) {
+  if (!error && user) {
     const { data: merchantUser } = await supabase
       .from('merchant_users')
       .select('merchant_id')
-      .eq('auth_user_id', session.user.id)
+      .eq('auth_user_id', user.id)
       .single();
 
     if (merchantUser) {

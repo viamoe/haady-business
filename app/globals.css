@@ -160,7 +160,7 @@
 }
 
 .animate-heartbeat {
-  animation: heartbeat 2.5s ease-in-out infinite;
+  animation: heartbeat 4s ease-in-out infinite;
 }
 
 /* Shimmer Effect for Text */
@@ -187,6 +187,6 @@
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
-  animation: shimmer 2.5s linear infinite;
+  animation: shimmer 4s linear infinite;
   font-weight: 500;
 }
