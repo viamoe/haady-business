@@ -7,6 +7,7 @@ import { useLocale } from '@/i18n/context';
 import { useAuth } from '@/lib/auth/auth-context';
 import { LanguageSwitcher } from '@/components/language-switcher';
 import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
 import { LogOut, User, ChevronDown } from 'lucide-react';
 import { supabase } from '@/lib/supabase/client';
 import { useState } from 'react';
@@ -104,7 +105,16 @@ export function Header() {
 
           {/* Right side - Navigation buttons, User info, and Language Switcher */}
           <div className={`flex items-center gap-3 ${isRTL ? 'flex-row-reverse' : ''}`}>
-            {showNavButtons && (
+            {/* Loading skeleton */}
+            {loading && !isAuthPage && (
+              <div className="flex items-center gap-3">
+                <Skeleton className="h-9 w-20 rounded-md" />
+                <Skeleton className="h-9 w-28 rounded-md" />
+              </div>
+            )}
+            
+            {/* Navigation buttons for non-authenticated users */}
+            {!loading && showNavButtons && (
               <>
                 <Button asChild variant="ghost">
                   <Link href="/login">{t('common.login')}</Link>
@@ -117,6 +127,7 @@ export function Header() {
               </>
             )}
             
+            {/* User dropdown for authenticated users */}
             {showUserInfo && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -148,6 +159,11 @@ export function Header() {
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
+            )}
+            
+            {/* Loading skeleton for user email on auth pages */}
+            {loading && isAuthPage && user === null && (
+              <Skeleton className="h-5 w-36 rounded" />
             )}
             
             <LanguageSwitcher />
