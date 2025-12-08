@@ -187,6 +187,6 @@
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
-  animation: shimmer 2s linear infinite;
+  animation: shimmer 2.5s linear infinite;
   font-weight: 500;
 }
