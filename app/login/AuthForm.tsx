@@ -172,30 +172,24 @@ export default function AuthForm() {
   const handleGoogleSignIn = async () => {
     setIsGoogleLoading(true);
     try {
-      // Ensure we're using the business domain
-      // In production, use business.haady.app, fallback to current origin for local dev
-      const currentOrigin = window.location.origin;
-      let businessOrigin = currentOrigin;
+      // Use the exact redirect URL that's in Supabase's allowed list
+      // This must match exactly: https://business.haady.app/login/callback
+      const isLocalhost = window.location.hostname === 'localhost';
+      const redirectUrl = isLocalhost 
+        ? 'http://localhost:3002/login/callback'
+        : 'https://business.haady.app/login/callback';
       
-      // If we're on haady.app, redirect to business.haady.app
-      if (currentOrigin.includes('haady.app') && !currentOrigin.includes('business.haady.app')) {
-        businessOrigin = currentOrigin.replace('haady.app', 'business.haady.app');
-      }
+      console.log('Google OAuth redirect URL:', redirectUrl);
+      console.log('Current origin:', window.location.origin);
       
-      // Construct full absolute URL for redirect
-      const redirectUrl = new URL('/login/callback', businessOrigin);
-      redirectUrl.searchParams.set('next', '/dashboard');
-      redirectUrl.searchParams.set('app_type', 'merchant');
-      
-      const redirectUrlString = redirectUrl.toString();
-      console.log('Google OAuth redirect URL:', redirectUrlString);
-      console.log('Current origin:', currentOrigin);
-      console.log('Business origin:', businessOrigin);
-      
-      const { error } = await supabase.auth.signInWithOAuth({
+      const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: redirectUrlString,
+          redirectTo: redirectUrl,
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'consent',
+          },
         },
       });
 
