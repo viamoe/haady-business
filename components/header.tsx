@@ -33,8 +33,10 @@ export function Header() {
   
   // Hide navigation buttons on login and setup pages
   const isAuthPage = pathname === '/login' || pathname === '/setup' || pathname.startsWith('/login/') || pathname.startsWith('/setup/');
-  const showNavButtons = !isAuthPage && !user;
-  const showUserInfo = user && !loading;
+  const isDashboardPage = pathname.startsWith('/dashboard');
+  const showNavButtons = !isAuthPage && !user && !isDashboardPage;
+  const showUserInfo = user && !loading && !isDashboardPage;
+  const showHeader = !isDashboardPage; // Hide header on dashboard pages (sidebar handles navigation)
   
   const handleSignOut = async () => {
     setLoading(true, 'Signing out...');
@@ -87,6 +89,10 @@ export function Header() {
     }
   };
   
+  if (!showHeader) {
+    return null;
+  }
+
   return (
     <header className="bg-white sticky top-0 z-50">
       <div className="container mx-auto px-4">
