@@ -1,9 +1,9 @@
 import { redirect } from 'next/navigation';
-import { createClient } from '@/lib/supabase/server';
+import { createServerSupabase } from '@/lib/supabase/server';
 import SetupForm from './SetupForm';
 
 export default async function SetupPage() {
-  const supabase = await createClient();
+  const supabase = await createServerSupabase();
   
   const { data: { user }, error } = await supabase.auth.getUser();
   
