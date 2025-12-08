@@ -204,14 +204,25 @@ export default function SetupWizard({ initialSession }: SetupWizardProps) {
   const handleGoogleSignIn = async () => {
     setIsGoogleLoading(true);
     try {
-      // Always use window.location.origin to ensure we're using the current domain
-      // Construct full absolute URL for redirect
+      // Ensure we're using the business domain
+      // In production, use business.haady.app, fallback to current origin for local dev
       const currentOrigin = window.location.origin;
-      const redirectUrl = new URL('/login/callback', currentOrigin);
+      let businessOrigin = currentOrigin;
+      
+      // If we're on haady.app, redirect to business.haady.app
+      if (currentOrigin.includes('haady.app') && !currentOrigin.includes('business.haady.app')) {
+        businessOrigin = currentOrigin.replace('haady.app', 'business.haady.app');
+      }
+      
+      // Construct full absolute URL for redirect
+      const redirectUrl = new URL('/login/callback', businessOrigin);
       redirectUrl.searchParams.set('next', '/get-started');
+      redirectUrl.searchParams.set('app_type', 'merchant');
       
       const redirectUrlString = redirectUrl.toString();
       console.log('Google OAuth redirect URL:', redirectUrlString);
+      console.log('Current origin:', currentOrigin);
+      console.log('Business origin:', businessOrigin);
       
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
