@@ -10,7 +10,7 @@ function validateRedirectUrl(url: string, origin: string): string {
       return '/dashboard';
     }
     // Only allow certain paths
-    const allowedPaths = ['/dashboard', '/onboarding'];
+    const allowedPaths = ['/dashboard', '/onboarding', '/get-started'];
     if (allowedPaths.some(path => urlObj.pathname.startsWith(path))) {
       return urlObj.pathname + urlObj.search;
     }
@@ -33,9 +33,8 @@ export async function GET(request: Request) {
 
   const cookieStore = await cookies();
   
-  // Create response first - we'll update the URL after session is created
-  let redirectUrl = new URL('/dashboard', requestUrl.origin);
-  const response = NextResponse.redirect(redirectUrl);
+  // Store cookies to set on the final response
+  const cookiesToSetOnResponse: Array<{ name: string; value: string; options: any }> = [];
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -49,15 +48,9 @@ export async function GET(request: Request) {
           }));
         },
         setAll(cookiesToSet) {
+          // Store cookies to set them on the final response
           cookiesToSet.forEach(({ name, value, options }) => {
-            // Set cookies on the response with proper options for production
-            response.cookies.set(name, value, {
-              ...options,
-              sameSite: 'lax',
-              secure: process.env.NODE_ENV === 'production',
-              httpOnly: options?.httpOnly ?? true,
-              path: '/',
-            });
+            cookiesToSetOnResponse.push({ name, value, options });
           });
         },
       },
@@ -99,6 +92,7 @@ export async function GET(request: Request) {
     .single();
 
   // Determine redirect URL based on whether user has a business account
+  let redirectUrl: URL;
   if (merchantUser && !merchantError) {
     // User has a business account, redirect to dashboard
     const next = validateRedirectUrl(nextParam || '/dashboard', requestUrl.origin);
@@ -108,7 +102,20 @@ export async function GET(request: Request) {
     redirectUrl = new URL('/onboarding', requestUrl.origin);
   }
 
-  // Update the redirect URL
-  return NextResponse.redirect(redirectUrl);
+  // Create the final response with the correct redirect URL
+  const response = NextResponse.redirect(redirectUrl);
+  
+  // Set all the session cookies on the response
+  cookiesToSetOnResponse.forEach(({ name, value, options }) => {
+    response.cookies.set(name, value, {
+      ...options,
+      sameSite: 'lax',
+      secure: process.env.NODE_ENV === 'production',
+      httpOnly: options?.httpOnly ?? true,
+      path: '/',
+    });
+  });
+
+  return response;
 }
 
