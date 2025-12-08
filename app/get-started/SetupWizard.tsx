@@ -203,16 +203,18 @@ export default function SetupWizard({ initialSession }: SetupWizardProps) {
     setIsGoogleLoading(true);
     try {
       // Always use window.location.origin to ensure we're using the current domain
-      // This prevents Supabase from redirecting to a different domain
+      // Construct full absolute URL for redirect
       const currentOrigin = window.location.origin;
-      const redirectUrl = `${currentOrigin}/login/callback?next=/get-started`;
+      const redirectUrl = new URL('/login/callback', currentOrigin);
+      redirectUrl.searchParams.set('next', '/get-started');
       
-      console.log('Google OAuth redirect URL:', redirectUrl);
+      const redirectUrlString = redirectUrl.toString();
+      console.log('Google OAuth redirect URL:', redirectUrlString);
       
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: redirectUrl,
+          redirectTo: redirectUrlString,
         },
       });
 

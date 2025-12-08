@@ -165,16 +165,19 @@ export default function AuthForm() {
     setIsGoogleLoading(true);
     try {
       // Always use window.location.origin to ensure we're using the current domain
-      // This prevents Supabase from redirecting to a different domain
+      // Construct full absolute URL for redirect
       const currentOrigin = window.location.origin;
-      const redirectUrl = `${currentOrigin}/login/callback?next=/dashboard&app_type=merchant`;
+      const redirectUrl = new URL('/login/callback', currentOrigin);
+      redirectUrl.searchParams.set('next', '/dashboard');
+      redirectUrl.searchParams.set('app_type', 'merchant');
       
-      console.log('Google OAuth redirect URL:', redirectUrl);
+      const redirectUrlString = redirectUrl.toString();
+      console.log('Google OAuth redirect URL:', redirectUrlString);
       
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: redirectUrl,
+          redirectTo: redirectUrlString,
         },
       });
 
