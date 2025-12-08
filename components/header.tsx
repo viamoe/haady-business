@@ -69,10 +69,12 @@ export function Header() {
         // User has completed onboarding, navigate to dashboard
         setLoading(true, 'Redirecting to dashboard...');
         router.push('/dashboard');
+        router.refresh();
       } else {
         // User is still in onboarding, navigate to onboarding page
         setLoading(true, 'Redirecting to onboarding...');
         router.push('/onboarding');
+        router.refresh();
       }
     } catch (error) {
       console.error('Error navigating to account:', error);

@@ -149,11 +149,12 @@ export default function AuthForm() {
         if (merchantUser) {
           setLoading(true, 'Redirecting to dashboard...');
           router.push('/dashboard');
+          router.refresh();
         } else {
           setLoading(true, 'Setting up your account...');
           router.push('/onboarding');
+          router.refresh();
         }
-        router.refresh();
       }
     } catch (err: any) {
       console.error('Error verifying OTP:', err);

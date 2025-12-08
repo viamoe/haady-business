@@ -159,11 +159,12 @@ export default function OtpVerificationForm({ email }: OtpVerificationFormProps)
         if (merchantUser) {
           setLoading(true, 'Redirecting to dashboard...');
           router.push('/dashboard');
+          router.refresh();
         } else {
           setLoading(true, 'Redirecting to setup...');
           router.push('/get-started');
+          router.refresh();
         }
-        router.refresh();
       }
     } catch (err: any) {
       console.error('Error verifying OTP:', err);

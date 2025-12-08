@@ -471,6 +471,7 @@ export default function SetupWizard({ initialSession }: SetupWizardProps) {
 
       setLoading(true, 'Redirecting to dashboard...');
       router.push('/dashboard');
+      router.refresh();
     } catch (error: any) {
       console.error('Error creating business account:', error);
       toast.error('Error', {
