@@ -42,6 +42,7 @@ type SidebarContextProps = {
   isMobile: boolean
   toggleSidebar: () => void
   isTransitioning: boolean
+  isInitialLoad: boolean
 }
 
 const SidebarContext = React.createContext<SidebarContextProps | null>(null)
@@ -71,6 +72,17 @@ function SidebarProvider({
   const isMobile = useIsMobile()
   const [openMobile, setOpenMobile] = React.useState(false)
   const [isTransitioning, setIsTransitioning] = React.useState(false)
+  const [isInitialLoad, setIsInitialLoad] = React.useState(true)
+
+  // Disable animations on initial mount/refresh
+  React.useEffect(() => {
+    // Disable animations for initial render (including refresh)
+    // Use a longer delay to ensure all initial renders complete
+    const timer = setTimeout(() => {
+      setIsInitialLoad(false)
+    }, 300)
+    return () => clearTimeout(timer)
+  }, [])
 
   // This is the internal state of the sidebar.
   // We use openProp and setOpenProp for control from outside the component.
@@ -141,8 +153,9 @@ function SidebarProvider({
       setOpenMobile,
       toggleSidebar,
       isTransitioning,
+      isInitialLoad,
     }),
-    [state, open, setOpen, isMobile, openMobile, setOpenMobile, toggleSidebar, isTransitioning]
+    [state, open, setOpen, isMobile, openMobile, setOpenMobile, toggleSidebar, isTransitioning, isInitialLoad]
   )
 
   return (
@@ -182,7 +195,7 @@ function Sidebar({
   variant?: "sidebar" | "floating" | "inset"
   collapsible?: "offcanvas" | "icon" | "none"
 }) {
-  const { isMobile, state, openMobile, setOpenMobile } = useSidebar()
+  const { isMobile, state, openMobile, setOpenMobile, isInitialLoad } = useSidebar()
 
   if (collapsible === "none") {
     return (
@@ -264,6 +277,7 @@ function Sidebar({
       data-variant={variant}
       data-side={side}
       data-slot="sidebar"
+      data-initial-load={isInitialLoad}
     >
       {/* This is what handles the sidebar gap on desktop */}
       <motion.div
@@ -272,11 +286,12 @@ function Sidebar({
           "relative bg-transparent",
           "group-data-[side=right]:rotate-180"
         )}
+        initial={isInitialLoad ? { width: getGapWidth() } : false}
         animate={{
           width: getGapWidth(),
         }}
         transition={{
-          duration: 0.5,
+          duration: isInitialLoad ? 0 : 0.5,
           ease: [0.4, 0, 0.2, 1],
         }}
       />
@@ -289,12 +304,16 @@ function Sidebar({
             : "group-data-[side=left]:border-r group-data-[side=right]:border-l",
           className
         )}
+        initial={isInitialLoad ? { 
+          width: getContainerWidth(),
+          [side === "left" ? "left" : "right"]: getContainerPosition()
+        } : false}
         animate={{
           width: getContainerWidth(),
           [side === "left" ? "left" : "right"]: getContainerPosition(),
         }}
         transition={{
-          duration: 0.5,
+          duration: isInitialLoad ? 0 : 0.5,
           ease: [0.4, 0, 0.2, 1],
         }}
         {...(props as Omit<typeof props, "onAnimationStart" | "onAnimationEnd" | "onAnimationIteration" | "onDragStart" | "onDrag" | "onDragEnd">)}

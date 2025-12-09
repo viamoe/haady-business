@@ -3,8 +3,13 @@ import { Suspense } from 'react';
 import { createServerSupabase } from '@/lib/supabase/server';
 import AuthForm from './AuthForm';
 
-export default async function AuthPage() {
+interface PageProps {
+  searchParams: Promise<{ reason?: string }>;
+}
+
+export default async function AuthPage({ searchParams }: PageProps) {
   const supabase = await createServerSupabase();
+  const params = await searchParams;
   
   // Use getUser() instead of getSession() for security - verifies with Supabase Auth server
   const { data: { user }, error } = await supabase.auth.getUser();
@@ -27,7 +32,7 @@ export default async function AuthPage() {
 
   return (
     <Suspense fallback={<div>Loading...</div>}>
-      <AuthForm />
+      <AuthForm reason={params.reason} />
     </Suspense>
   );
 }

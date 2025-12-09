@@ -2,14 +2,14 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 
-export async function proxy(req: NextRequest) {
+export default async function middleware(req: NextRequest) {
   const pathname = req.nextUrl.pathname;
-  
+
   // Allow root landing page to pass through without any checks
   if (pathname === '/' || pathname === '') {
     return NextResponse.next();
   }
-  
+
   const isLoginPage = pathname.startsWith('/login');
   const isLoginCallback = pathname.startsWith('/login/callback');
   const isDashboard = pathname.startsWith('/dashboard');
@@ -35,7 +35,7 @@ export async function proxy(req: NextRequest) {
               }));
             },
             setAll() {
-              // No-op in proxy
+              // No-op in middleware
             },
           },
         }
@@ -62,7 +62,7 @@ export async function proxy(req: NextRequest) {
 
       // User is authenticated but no merchant - allow access to setup
     } catch (error) {
-      console.error('Proxy error:', error);
+      console.error('Middleware error:', error);
       return NextResponse.redirect(new URL('/login', req.url));
     }
   }
@@ -82,7 +82,7 @@ export async function proxy(req: NextRequest) {
               }));
             },
             setAll() {
-              // No-op in proxy
+              // No-op in middleware
             },
           },
         }
@@ -107,13 +107,21 @@ export async function proxy(req: NextRequest) {
         return NextResponse.redirect(new URL('/setup', req.url));
       }
     } catch (error) {
-      console.error('Proxy error:', error);
+      console.error('Middleware error:', error);
       return NextResponse.redirect(new URL('/login', req.url));
     }
   }
 
   // If authenticated user tries to access login page, redirect appropriately
+  // BUT: Skip redirect if logout=true param is present (user was just logged out)
   if (isLoginPage && !isLoginCallback) {
+    const logoutParam = req.nextUrl.searchParams.get('logout');
+
+    // If logout param is present, allow access to login page without redirect
+    if (logoutParam === 'true') {
+      return NextResponse.next();
+    }
+
     try {
       const supabase = createServerClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -127,7 +135,7 @@ export async function proxy(req: NextRequest) {
               }));
             },
             setAll() {
-              // No-op in proxy
+              // No-op in middleware
             },
           },
         }
@@ -151,7 +159,7 @@ export async function proxy(req: NextRequest) {
         }
       }
     } catch (error) {
-      console.error('Proxy error:', error);
+      console.error('Middleware error:', error);
     }
   }
 
@@ -160,9 +168,13 @@ export async function proxy(req: NextRequest) {
 
 export const config = {
   matcher: [
-    '/dashboard/:path*',
-    '/login/:path*',
-    '/setup/:path*',
+    /*
+     * Match all request paths except for the ones starting with:
+     * - _next/static (static files)
+     * - _next/image (image optimization files)
+     * - favicon.ico (favicon file)
+     * - public folder files
+     */
+    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
 };
-

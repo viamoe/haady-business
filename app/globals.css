@@ -7,8 +7,8 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-inter);
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -122,7 +122,7 @@
   }
   body {
     @apply bg-background text-foreground;
-}
+  }
 }
 
 @keyframes fadeInUp {
@@ -189,4 +189,82 @@
   -webkit-text-fill-color: transparent;
   animation: shimmer 6s linear infinite;
   font-weight: 500;
+}
+
+/* Remove shadows from sidebar inset */
+[data-slot="sidebar-inset"] {
+  box-shadow: none !important;
+}
+
+/* Universal input field hover and focus styles */
+input[type="text"],
+input[type="email"],
+input[type="tel"],
+input[type="password"],
+input[type="number"],
+input[type="search"],
+input[data-slot="input"],
+textarea {
+  @apply hover:border-gray-400 focus:ring-gray-300 focus:ring-2 focus:border-gray-300 transition-colors;
+}
+
+/* Universal inline error message styles - make all error messages smaller */
+p.text-red-500,
+span.text-red-500,
+div.text-red-500 {
+  @apply text-xs;
+}
+
+/* Custom text selection colors for Haady-business */
+::selection {
+  background-color: #FEEFE7;
+  color: #F4610B;
+}
+
+::-moz-selection {
+  background-color: #FEEFE7;
+  color: #F4610B;
+}
+
+/* Disable sidebar transitions on initial load/refresh */
+[data-slot="sidebar"][data-initial-load="true"] *,
+[data-slot="sidebar"][data-initial-load="true"] *::before,
+[data-slot="sidebar"][data-initial-load="true"] *::after {
+  transition-duration: 0s !important;
+  animation-duration: 0s !important;
+}
+
+/* Smooth fade-in animation for content */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.fade-in-content {
+  animation: fadeIn 0.3s ease-out;
+}
+
+/* Friendly cursor for interactive elements */
+button,
+a,
+[role="button"],
+[onclick],
+input[type="submit"],
+input[type="button"],
+label[for] {
+  cursor: pointer;
+}
+
+button:disabled,
+a:disabled,
+[role="button"]:disabled,
+input[type="submit"]:disabled,
+input[type="button"]:disabled {
+  cursor: not-allowed;
 }

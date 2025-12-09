@@ -6,6 +6,7 @@ import { Header } from '@/components/header';
 import { NextIntlClientProvider } from 'next-intl';
 import { getLocale, getMessages } from 'next-intl/server';
 import { LocaleProvider } from '@/i18n/context';
+import { Toaster } from '@/components/ui/sonner';
 import type { Metadata } from 'next';
 import type { Locale } from '@/i18n/request';
 import { IBM_Plex_Sans_Arabic, Inter } from 'next/font/google';
@@ -46,6 +47,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                 <AuthProvider>
                   <Header />
                     {children}
+                  <Toaster />
                 </AuthProvider>
               </LoadingProvider>
         </ThemeProvider>

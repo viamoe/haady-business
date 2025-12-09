@@ -6,13 +6,17 @@ import { supabase } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Loader2, Paperclip, Mail, CheckCircle2 } from 'lucide-react';
+import { Loader2, Paperclip, Mail, CheckCircle2, AlertTriangle } from 'lucide-react';
 import { toast } from '@/lib/toast';
 import Link from 'next/link';
 import { Separator } from '@/components/ui/separator';
 import { useLoading } from '@/lib/loading-context';
 
-export default function AuthForm() {
+interface AuthFormProps {
+  reason?: string;
+}
+
+export default function AuthForm({ reason }: AuthFormProps) {
   const t = useTranslations();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -26,6 +30,7 @@ export default function AuthForm() {
   const [isVerifying, setIsVerifying] = useState(false);
   const [otpError, setOtpError] = useState('');
   const [showOtp, setShowOtp] = useState(false);
+  const [isSignupMode, setIsSignupMode] = useState(false);
   const otpInputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
   // Email validation function
@@ -45,6 +50,19 @@ export default function AuthForm() {
       window.history.replaceState({}, '', url.toString());
     }
   }, [searchParams]);
+
+  // Clean up logout param from URL after showing message
+  useEffect(() => {
+    if (reason === 'account_deleted') {
+      // Clean up logout param from URL after a short delay
+      const timer = setTimeout(() => {
+        const url = new URL(window.location.href);
+        url.searchParams.delete('logout');
+        window.history.replaceState({}, '', url.toString());
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [reason]);
 
   // No automatic email validation - validation happens on button click
 
@@ -222,11 +240,11 @@ export default function AuthForm() {
     setIsLoading(true);
     
     try {
-      // Send OTP for login (only existing users)
+      // Send OTP - allow creating new users in signup mode
       const { error } = await supabase.auth.signInWithOtp({ 
         email: email.trim().toLowerCase(),
         options: {
-          shouldCreateUser: false, // Only allow existing users for login
+          shouldCreateUser: isSignupMode, // Allow new users in signup mode
           data: {
             app_type: 'merchant',
           },
@@ -234,22 +252,20 @@ export default function AuthForm() {
       });
       
       if (error) {
-        // Check if error indicates user doesn't exist
-        const errorMessage = error.message?.toLowerCase() || '';
-        if (
-          errorMessage.includes('user not found') ||
-          errorMessage.includes('email not found') ||
-          errorMessage.includes('no user found') ||
-          errorMessage.includes('user does not exist') ||
-          errorMessage.includes('email does not exist')
-        ) {
-          setEmailError("You don't have an account. Please create one instead.");
-          setIsLoading(false);
-          
-          setTimeout(() => {
-            router.push('/login');
-          }, 2000);
-          return;
+        // In login mode, check if error indicates user doesn't exist
+        if (!isSignupMode) {
+          const errorMessage = error.message?.toLowerCase() || '';
+          if (
+            errorMessage.includes('user not found') ||
+            errorMessage.includes('email not found') ||
+            errorMessage.includes('no user found') ||
+            errorMessage.includes('user does not exist') ||
+            errorMessage.includes('email does not exist')
+          ) {
+            setEmailError("You don't have an account. Please create one instead.");
+            setIsLoading(false);
+            return;
+          }
         }
         
         setEmailError(error.message || t('auth.failedToSend'));
@@ -290,13 +306,26 @@ export default function AuthForm() {
               </div>
 
         <div className="w-full max-w-md relative z-10">
+          {/* Account Deleted Alert */}
+          {reason === 'account_deleted' && (
+            <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg flex items-start gap-3">
+              <AlertTriangle className="h-5 w-5 text-red-500 mt-0.5 shrink-0" />
+              <div>
+                <h3 className="font-medium text-red-800">Account Removed</h3>
+                <p className="text-sm text-red-600 mt-1">
+                  Your account has been deleted. Please contact support if you believe this was a mistake.
+                </p>
+              </div>
+            </div>
+          )}
+
           {/* Header */}
           <div className="text-center mb-8">
             <h1 className="text-4xl font-bold text-gray-900 mb-2 tracking-tight">
-              {t('auth.loginToAccount')}
+              {isSignupMode ? t('auth.createAccount') : t('auth.loginToAccount')}
             </h1>
             <p className="text-base text-gray-600">
-              {t('auth.subtitle')}
+              {isSignupMode ? 'Create your business account to get started' : t('auth.subtitle')}
             </p>
               </div>
 
@@ -380,7 +409,7 @@ export default function AuthForm() {
                     {t('common.loading')}
                     </>
                   ) : (
-                  t('common.continue')
+                  isSignupMode ? 'Create account' : 'Sign in'
                 )}
               </Button>
             )}
@@ -432,13 +461,44 @@ export default function AuthForm() {
               </div>
             )}
 
-            {/* Create Account Link */}
+            {/* Toggle between Login and Signup */}
             <div className="mt-6 text-center">
               <p className="text-sm text-gray-600">
-                {t('auth.noAccount')}{' '}
-                <Link href="/login" className="text-gray-900 underline font-medium hover:text-gray-700">
-                  {t('auth.createAccount')}
-                </Link>
+                {isSignupMode ? (
+                  <>
+                    {t('auth.haveAccount') || 'Already have an account? '}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsSignupMode(false);
+                        setEmailError('');
+                        setOtpSent(false);
+                        setShowOtp(false);
+                        setOtp(['', '', '', '', '', '']);
+                      }}
+                      className="text-gray-900 underline font-medium hover:text-gray-700 cursor-pointer"
+                    >
+                      {t('auth.signIn') || 'Sign in'}
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    {t('auth.noAccount')}{' '}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsSignupMode(true);
+                        setEmailError('');
+                        setOtpSent(false);
+                        setShowOtp(false);
+                        setOtp(['', '', '', '', '', '']);
+                      }}
+                      className="text-gray-900 underline font-medium hover:text-gray-700 cursor-pointer"
+                    >
+                      {t('auth.createAccount')}
+                    </button>
+                  </>
+                )}
               </p>
             </div>
               </form>

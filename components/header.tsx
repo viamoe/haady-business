@@ -24,7 +24,7 @@ const HAADY_LOGO_URL = 'https://rovphhvuuxwbhgnsifto.supabase.co/storage/v1/obje
 
 export function Header() {
   const t = useTranslations();
-  const { isRTL } = useLocale();
+  const { isRTL, locale } = useLocale();
   const { user, signOut, loading } = useAuth();
   const pathname = usePathname();
   const router = useRouter();
@@ -106,7 +106,9 @@ export function Header() {
               height={32}
               className="w-8 h-8"
             />
-            <span className="text-xl font-light tracking-tight text-foreground">Business</span>
+            <span className="text-xl font-light tracking-tight text-foreground">
+              {locale === 'ar' ? 'الأعمال' : 'Business'}
+            </span>
             {process.env.NEXT_PUBLIC_VERCEL_ENV === 'preview' && (
               <span className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-medium">
                 Preview
