@@ -199,11 +199,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
-      // Handle user deleted event
-      if (event === 'USER_DELETED') {
-        handleUserDeleted();
-        return;
-      }
+      // Note: User deletion is handled by the periodic checkUserExists function
+      // Supabase doesn't emit a USER_DELETED event, so we detect it via getUser() checks
 
       setSession(session);
       setUser(session?.user ?? null);
