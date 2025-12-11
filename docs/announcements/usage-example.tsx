@@ -135,7 +135,6 @@ export function useAutoAnnouncement() {
           "Experience the all-new Dashboard!",
           "Be the first to try our next generation dashboard. Yes, you can easily switch back.",
           {
-            id: announcementId,
             ctaText: "Try it now",
             ctaLink: "/dashboard",
             priority: 10,
