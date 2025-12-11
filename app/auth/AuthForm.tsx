@@ -100,6 +100,14 @@ export default function AuthForm({ mode, reason }: AuthFormProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [emailError, setEmailError] = useState('');
+  const [emailCheckStatus, setEmailCheckStatus] = useState<{
+    exists: boolean | null;
+    isMerchant: boolean | null;
+    shouldLogin: boolean;
+    shouldSignup: boolean;
+    message?: string;
+  } | null>(null);
+  const [isCheckingEmail, setIsCheckingEmail] = useState(false);
   const [otpSent, setOtpSent] = useState(false);
   const [otp, setOtp] = useState(['', '', '', '', '', '']);
   const [isVerifying, setIsVerifying] = useState(false);
@@ -116,6 +124,50 @@ export default function AuthForm({ mode, reason }: AuthFormProps) {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     return emailRegex.test(email.trim());
   };
+
+  // Check if email exists in the system
+  const checkEmailExists = async (emailToCheck: string) => {
+    if (!validateEmail(emailToCheck)) {
+      setEmailCheckStatus(null);
+      return;
+    }
+
+    setIsCheckingEmail(true);
+    try {
+      const response = await fetch('/api/auth/check-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: emailToCheck }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setEmailCheckStatus(data);
+      } else {
+        setEmailCheckStatus(null);
+      }
+    } catch (error) {
+      console.error('Error checking email:', error);
+      setEmailCheckStatus(null);
+    } finally {
+      setIsCheckingEmail(false);
+    }
+  };
+
+  // Debounced email check
+  useEffect(() => {
+    if (!email || !validateEmail(email)) {
+      setEmailCheckStatus(null);
+      return;
+    }
+
+    const timeoutId = setTimeout(() => {
+      checkEmailExists(email);
+    }, 800); // Wait 800ms after user stops typing
+
+    return () => clearTimeout(timeoutId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [email]); // checkEmailExists is stable, no need to include it
 
   // Clean up OTP state from URL and localStorage
   const cleanupOtpState = () => {
@@ -733,6 +785,60 @@ export default function AuthForm({ mode, reason }: AuthFormProps) {
                     <div className={`flex items-start gap-2 text-sm text-red-500 ${isRTL ? 'flex-row-reverse' : ''}`}>
                       <Mail className="h-4 w-4 mt-0.5 shrink-0" />
                       <span>{emailError}</span>
+                    </div>
+                  )}
+                  {/* Email Check Status */}
+                  {!emailError && emailCheckStatus && validateEmail(email) && !isCheckingEmail && (
+                    <div className={`flex items-start gap-2 text-sm ${isRTL ? 'flex-row-reverse' : ''} ${
+                      emailCheckStatus.shouldLogin && isSignupMode
+                        ? 'text-amber-600 bg-amber-50 border border-amber-200 rounded-lg p-3'
+                        : emailCheckStatus.shouldSignup && !isSignupMode
+                        ? 'text-blue-600 bg-blue-50 border border-blue-200 rounded-lg p-3'
+                        : 'text-gray-600'
+                    }`}>
+                      {emailCheckStatus.shouldLogin && isSignupMode ? (
+                        <>
+                          <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+                          <div className="flex-1">
+                            <p className="font-medium mb-1">{emailCheckStatus.message || 'Account already exists'}</p>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                router.push(`${loginUrl}?email=${encodeURIComponent(email)}`);
+                              }}
+                              className="mt-2 h-8 text-xs"
+                            >
+                              {t('auth.loginInstead') || 'Log in instead'}
+                            </Button>
+                          </div>
+                        </>
+                      ) : emailCheckStatus.shouldSignup && !isSignupMode ? (
+                        <>
+                          <Mail className="h-4 w-4 mt-0.5 shrink-0" />
+                          <div className="flex-1">
+                            <p className="font-medium mb-1">{t('auth.noAccountFound') || 'No account found with this email'}</p>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                router.push(`${signupUrl}?email=${encodeURIComponent(email)}`);
+                              }}
+                              className="mt-2 h-8 text-xs"
+                            >
+                              {t('auth.createAccountInstead') || 'Create account instead'}
+                            </Button>
+                          </div>
+                        </>
+                      ) : null}
+                    </div>
+                  )}
+                  {isCheckingEmail && validateEmail(email) && (
+                    <div className="flex items-center gap-2 text-sm text-gray-500">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <span>{t('auth.checkingEmail') || 'Checking...'}</span>
                     </div>
                   )}
                 </div>
