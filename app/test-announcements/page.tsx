@@ -6,6 +6,8 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Sparkles, Bell, AlertTriangle, CheckCircle2, Info, Zap, MessageSquare } from 'lucide-react';
 
+export const dynamic = 'force-dynamic';
+
 export default function TestAnnouncementsPage() {
   const { showAnnouncement, showFeatureAnnouncement, showUpdateAnnouncement } = useAnnouncement();
   const { showStickyAnnouncement, showOnboardingProgress, showNewProductAnnouncement } = useStickyAnnouncement();

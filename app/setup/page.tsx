@@ -4,6 +4,8 @@ import SetupForm from './SetupForm';
 import { cookies } from 'next/headers';
 import { getLocalizedUrlFromRequest } from '@/lib/localized-url';
 
+export const dynamic = 'force-dynamic';
+
 export default async function SetupPage() {
   const supabase = await createServerSupabase();
   

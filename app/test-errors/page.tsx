@@ -10,6 +10,8 @@ import { useLocale } from '@/i18n/context'
 import { useTranslations } from '@/lib/translations'
 import { LanguageSwitcher } from '@/components/language-switcher'
 
+export const dynamic = 'force-dynamic'
+
 export default function TestErrorsPage() {
   const { handleError: handleErrorHook, handleNetworkError, handleApiError } = useErrorHandler()
   const { locale } = useLocale()

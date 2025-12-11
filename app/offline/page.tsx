@@ -8,6 +8,9 @@ import Image from 'next/image';
 import { useNetworkStatus } from '@/lib/network-context';
 import { getLocalizedUrl } from '@/lib/localized-url';
 
+// Force dynamic rendering to avoid static generation issues with layout cookies
+export const dynamic = 'force-dynamic';
+
 const HAADY_LOGO_URL = 'https://rovphhvuuxwbhgnsifto.supabase.co/storage/v1/object/public/assets/haady-icon.svg';
 
 export default function OfflinePage() {
