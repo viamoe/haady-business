@@ -96,7 +96,11 @@
     "signInButton": "تسجيل الدخول",
     "noAccountError": "ليس لديك حساب. يرجى إنشاء حساب بدلاً من ذلك.",
     "errorOccurred": "حدث خطأ. يرجى المحاولة مرة أخرى.",
-    "googleSignInError": "حدث خطأ أثناء تسجيل الدخول مع جوجل"
+    "googleSignInError": "حدث خطأ أثناء تسجيل الدخول مع جوجل",
+    "checkingEmail": "جاري التحقق...",
+    "loginInstead": "تسجيل الدخول بدلاً من ذلك",
+    "noAccountFound": "لم يتم العثور على حساب بهذا البريد الإلكتروني",
+    "createAccountInstead": "إنشاء حساب بدلاً من ذلك"
   },
   "setup": {
     "welcome": "مرحباً بك في هادي بيزنس",

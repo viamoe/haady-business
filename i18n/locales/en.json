@@ -96,7 +96,11 @@
     "signInButton": "Sign in",
     "noAccountError": "You don't have an account. Please create one instead.",
     "errorOccurred": "An error occurred. Please try again.",
-    "googleSignInError": "An error occurred while signing in with Google"
+    "googleSignInError": "An error occurred while signing in with Google",
+    "checkingEmail": "Checking...",
+    "loginInstead": "Log in instead",
+    "noAccountFound": "No account found with this email",
+    "createAccountInstead": "Create account instead"
   },
   "setup": {
     "welcome": "Welcome to Haady Business",
