@@ -426,6 +426,12 @@ export function AdvancedLanguageSelector() {
   const displayCountry = selectedCountryCode 
     ? countryLanguages.find(c => c.countryCode === selectedCountryCode) 
     : (currentCountryLanguage || countryLanguages[0]);
+  
+  // Ensure displayCountry exists before accessing its properties
+  if (!displayCountry) {
+    return null;
+  }
+  
   const displayLanguage = displayCountry.languages.find(l => l.code === currentLanguage) || displayCountry.languages[0];
 
   return (
