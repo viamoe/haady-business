@@ -324,6 +324,61 @@ export default function AuthForm({ mode, reason }: AuthFormProps) {
     }
   };
 
+  // Actually start the OAuth flow (called directly or after redirect from haady.app)
+  const startOAuthFlow = async (preferredCountry: string, preferredLanguage: string) => {
+    const isLocalhost = window.location.hostname === 'localhost';
+    const baseRedirectUrl = isLocalhost 
+      ? 'http://localhost:3002/auth/callback'
+      : `${window.location.origin}/auth/callback`;
+    
+    const redirectUrl = new URL(baseRedirectUrl);
+    redirectUrl.searchParams.set('app_type', 'merchant');
+    redirectUrl.searchParams.set('preferred_country', preferredCountry);
+    redirectUrl.searchParams.set('preferred_language', preferredLanguage);
+    
+    console.log('🔵 Starting OAuth with redirect URL:', redirectUrl.toString());
+    
+    const { data, error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: redirectUrl.toString(),
+        queryParams: {
+          access_type: 'offline',
+          prompt: 'consent',
+        },
+      },
+    });
+
+    if (error) {
+      toast.error(t('common.error'), {
+        description: error.message || 'Failed to sign in with Google',
+        duration: 5000,
+      });
+      setIsGoogleLoading(false);
+    }
+  };
+
+  // Check if we're returning from cookie setup (for non-haady domains)
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const oauthReady = urlParams.get('oauth_ready');
+    const country = urlParams.get('preferred_country');
+    const language = urlParams.get('preferred_language');
+    
+    if (oauthReady === 'true' && country && language) {
+      // Clean up URL
+      const url = new URL(window.location.href);
+      url.searchParams.delete('oauth_ready');
+      url.searchParams.delete('preferred_country');
+      url.searchParams.delete('preferred_language');
+      window.history.replaceState({}, '', url.toString());
+      
+      // Start OAuth flow
+      setIsGoogleLoading(true);
+      startOAuthFlow(country, language);
+    }
+  }, []);
+
   const handleGoogleSignIn = async () => {
     setIsGoogleLoading(true);
     try {
@@ -347,86 +402,51 @@ export default function AuthForm({ mode, reason }: AuthFormProps) {
       }
       
       const isLocalhost = window.location.hostname === 'localhost';
-      // IMPORTANT: The base redirect URL must EXACTLY match what's in Supabase Dashboard
-      // Go to: Supabase Dashboard → Authentication → URL Configuration → Redirect URLs
-      // Add: https://business.haady.app/auth/callback (for production)
-      // Add: http://localhost:3002/auth/callback (for development)
-      // For preview deployments, use the current origin dynamically
-      const baseRedirectUrl = isLocalhost 
-        ? 'http://localhost:3002/auth/callback'
-        : `${window.location.origin}/auth/callback`;
-      
-      // Build redirect URL with query parameters
-      // Note: Supabase will append the OAuth code, so we add our params first
-      const redirectUrl = new URL(baseRedirectUrl);
-      redirectUrl.searchParams.set('app_type', 'merchant');
-      redirectUrl.searchParams.set('preferred_country', preferredCountry);
-      redirectUrl.searchParams.set('preferred_language', preferredLanguage);
-      
-      console.log('🔵 OAuth Configuration:');
-      console.log('  Base redirect URL:', baseRedirectUrl);
-      console.log('  Full redirect URL:', redirectUrl.toString());
-      console.log('  Current origin:', window.location.origin);
-      console.log('  ⚠️  Make sure this EXACT URL is in Supabase Dashboard → Authentication → URL Configuration → Redirect URLs');
-      
-      const cookieData = {
-        app_type: 'merchant',
-        preferred_country: preferredCountry,
-        preferred_language: preferredLanguage,
-        origin: window.location.origin, // Store the origin so haady.app can redirect back
-        timestamp: Date.now(),
-      };
-      
-      // Check if we're on haady.app domain (can set cookie directly)
-      // or on a different domain (Vercel preview - need API call)
       const isHaadyDomain = window.location.hostname.endsWith('.haady.app') || window.location.hostname === 'haady.app';
       
-      if (isHaadyDomain) {
-        // On haady.app domain - can set cookie directly
-        const cookieString = JSON.stringify(cookieData);
-        document.cookie = `haady_oauth_origin=${encodeURIComponent(cookieString)}; path=/; max-age=600; SameSite=Lax; domain=.haady.app; Secure`;
-        console.log('Set OAuth origin cookie (direct):', cookieData);
-      } else if (!isLocalhost) {
-        // On Vercel preview or other domain - call API to set cookie on haady.app
-        try {
-          console.log('Setting OAuth origin cookie via API for non-haady domain...');
-          const response = await fetch('https://haady.app/api/set-oauth-origin', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(cookieData),
-          });
-          if (response.ok) {
-            console.log('Set OAuth origin cookie (via API):', cookieData);
-          } else {
-            console.warn('Failed to set OAuth origin cookie via API:', await response.text());
-          }
-        } catch (apiError) {
-          console.warn('Error calling set-oauth-origin API:', apiError);
-        }
-      } else {
-        // Localhost - set cookie without domain restriction
-        const cookieString = JSON.stringify(cookieData);
-        document.cookie = `haady_oauth_origin=${encodeURIComponent(cookieString)}; path=/; max-age=600; SameSite=Lax`;
-        console.log('Set OAuth origin cookie (localhost):', cookieData);
-      }
+      console.log('🔵 OAuth Configuration:');
+      console.log('  Current origin:', window.location.origin);
+      console.log('  Is Haady domain:', isHaadyDomain);
+      console.log('  Is Localhost:', isLocalhost);
       
-      const { data, error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: redirectUrl.toString(),
-          queryParams: {
-            access_type: 'offline',
-            prompt: 'consent',
-          },
-        },
-      });
-
-      if (error) {
-        toast.error(t('common.error'), {
-          description: error.message || 'Failed to sign in with Google',
-          duration: 5000,
+      if (isHaadyDomain || isLocalhost) {
+        // On haady.app domain or localhost - can set cookie directly and start OAuth
+        const cookieData = JSON.stringify({
+          app_type: 'merchant',
+          preferred_country: preferredCountry,
+          preferred_language: preferredLanguage,
+          origin: window.location.origin,
+          timestamp: Date.now(),
         });
-        setIsGoogleLoading(false);
+        
+        if (isHaadyDomain) {
+          document.cookie = `haady_oauth_origin=${encodeURIComponent(cookieData)}; path=/; max-age=600; SameSite=Lax; domain=.haady.app; Secure`;
+        } else {
+          document.cookie = `haady_oauth_origin=${encodeURIComponent(cookieData)}; path=/; max-age=600; SameSite=Lax`;
+        }
+        console.log('Set OAuth origin cookie directly');
+        
+        // Start OAuth directly
+        await startOAuthFlow(preferredCountry, preferredLanguage);
+      } else {
+        // On Vercel preview or other non-haady domain
+        // Redirect to haady.app to set the cookie, then come back to start OAuth
+        const returnUrl = new URL(window.location.href);
+        returnUrl.searchParams.set('oauth_ready', 'true');
+        returnUrl.searchParams.set('preferred_country', preferredCountry);
+        returnUrl.searchParams.set('preferred_language', preferredLanguage);
+        
+        const oauthStartUrl = new URL('https://haady.app/api/oauth-start');
+        oauthStartUrl.searchParams.set('origin', window.location.origin);
+        oauthStartUrl.searchParams.set('app_type', 'merchant');
+        oauthStartUrl.searchParams.set('preferred_country', preferredCountry);
+        oauthStartUrl.searchParams.set('preferred_language', preferredLanguage);
+        oauthStartUrl.searchParams.set('return_url', returnUrl.toString());
+        
+        console.log('🔵 Redirecting to haady.app to set cookie:', oauthStartUrl.toString());
+        
+        // Redirect to haady.app to set the cookie
+        window.location.href = oauthStartUrl.toString();
       }
     } catch (err: any) {
       console.error('Google sign in error:', err);
