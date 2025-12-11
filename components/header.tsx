@@ -9,7 +9,14 @@ import { AdvancedLanguageSelector } from '@/components/advanced-language-selecto
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
-import { ArrowRight } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { ArrowRight, LayoutDashboard, LogOut, Settings, ChevronDown } from 'lucide-react';
 import { supabase } from '@/lib/supabase/client';
 import { useState, useEffect } from 'react';
 import * as React from 'react';
@@ -133,7 +140,7 @@ export function Header() {
             {/* Advanced Language Selector - Before user button in Arabic, after in English */}
             {locale === 'ar' && <AdvancedLanguageSelector />}
             
-            {/* User button for authenticated users - routes to dashboard */}
+            {/* User dropdown for authenticated users */}
             {showUserInfo && (() => {
               const getUserInitials = (name: string | null, email: string) => {
                 if (name) {
@@ -148,36 +155,58 @@ export function Header() {
               };
 
               return (
-                <button
-                  onClick={() => router.push(localizedUrl('/dashboard'))}
-                  className="group flex items-center gap-3 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-100/75 rounded-lg pl-2 pr-4 py-1.5 transition-colors focus:outline-none"
-                >
-                  <Avatar className="h-8 w-8 rounded-lg !border-0 !shadow-none">
-                    <AvatarImage 
-                      src={user.user_metadata?.avatar_url || user.user_metadata?.picture} 
-                      alt={businessName || user.email?.split('@')[0] || 'User'}
-                    />
-                    <AvatarFallback className="text-xs font-medium rounded-lg">
-                      {getUserInitials(businessName, user.email || '')}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="flex flex-col items-start text-left relative min-w-0">
-                    {businessName && (
-                      <>
-                        <span className="text-sm font-medium text-gray-900 leading-tight group-hover:opacity-0 transition-opacity">
-                          {businessName}
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button
+                      className="group flex items-center gap-3 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-100/75 rounded-lg pl-2 pr-3 py-1.5 transition-colors focus:outline-none"
+                    >
+                      <Avatar className="h-8 w-8 rounded-lg !border-0 !shadow-none">
+                        <AvatarImage 
+                          src={user.user_metadata?.avatar_url || user.user_metadata?.picture} 
+                          alt={businessName || user.email?.split('@')[0] || 'User'}
+                        />
+                        <AvatarFallback className="text-xs font-medium rounded-lg">
+                          {getUserInitials(businessName, user.email || '')}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="flex flex-col items-start text-left min-w-0">
+                        {businessName && (
+                          <span className="text-sm font-medium text-gray-900 leading-tight">
+                            {businessName}
+                          </span>
+                        )}
+                        <span className="text-xs text-gray-600 leading-tight">
+                          {user.email}
                         </span>
-                        <span className="absolute top-0 left-0 flex items-center gap-1.5 text-sm font-medium text-gray-900 leading-tight opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
-                          Dashboard
-                          <ArrowRight className="h-4 w-4" />
-                        </span>
-                      </>
-                    )}
-                    <span className="text-xs text-gray-600 leading-tight">
-                      {user.email}
-                    </span>
-                  </div>
-                </button>
+                      </div>
+                      <ChevronDown className="h-4 w-4 text-gray-400 group-hover:text-gray-600 transition-colors" />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-56 rounded-xl p-1">
+                    <DropdownMenuItem
+                      onClick={() => router.push(localizedUrl('/dashboard'))}
+                      className="cursor-pointer rounded-lg"
+                    >
+                      <LayoutDashboard className="h-4 w-4 mr-2" />
+                      Dashboard
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => router.push(localizedUrl('/dashboard/settings'))}
+                      className="cursor-pointer rounded-lg"
+                    >
+                      <Settings className="h-4 w-4 mr-2" />
+                      Settings
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      onClick={handleSignOut}
+                      className="cursor-pointer text-destructive focus:text-destructive focus:bg-destructive/10 rounded-lg"
+                    >
+                      <LogOut className="h-4 w-4 mr-2" />
+                      Sign Out
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               );
             })()}
             
