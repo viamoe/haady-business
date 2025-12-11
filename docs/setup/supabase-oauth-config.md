@@ -32,10 +32,19 @@ https://business.haady.app/auth/callback
 http://localhost:3002/auth/callback
 ```
 
+**Preview Deployments (Vercel):**
+```
+https://haady-business-git-develop-haady.vercel.app/auth/callback
+```
+
 **Important Notes:**
 - The redirect URL must match **EXACTLY** (including protocol, domain, and path)
 - No trailing slashes
 - Must include the full path `/auth/callback`
+- **For Preview Deployments**: You'll need to add each preview URL individually as Vercel creates them
+  - Pattern: `https://haady-business-git-{branch}-{team}.vercel.app/auth/callback`
+  - Or: `https://haady-business-{hash}.vercel.app/auth/callback`
+  - Supabase doesn't support wildcards, so add each preview URL as needed
 
 ### 3. Verify Configuration
 
