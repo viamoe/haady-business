@@ -5,6 +5,8 @@ import AuthForm from '../AuthForm';
 import { cookies } from 'next/headers';
 import { getLocalizedUrlFromRequest } from '@/lib/localized-url';
 
+export const dynamic = 'force-dynamic';
+
 interface PageProps {
   searchParams: Promise<{ reason?: string }>;
 }

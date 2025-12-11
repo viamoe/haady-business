@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, Suspense } from 'react'
 import { AppSidebar } from '@/components/app-sidebar'
 import { StoreConnectionProvider } from '@/lib/store-connection-context'
 import { OnboardingModalProvider, useOnboardingModal } from '@/lib/onboarding-modal-context'
@@ -67,7 +67,7 @@ const ECOMMERCE_PLATFORMS = [
   },
 ];
 
-function DashboardLayoutContent({
+function DashboardLayoutContentInner({
   children,
 }: {
   children: React.ReactNode
@@ -858,6 +858,27 @@ function DashboardLayoutContent({
         </DialogContent>
       </Dialog>
     </>
+  )
+}
+
+function DashboardLayoutContent({
+  children,
+}: {
+  children: React.ReactNode
+}) {
+  return (
+    <Suspense fallback={
+      <div className="flex h-screen items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto"></div>
+          <p className="mt-4 text-sm text-gray-500">Loading...</p>
+        </div>
+      </div>
+    }>
+      <DashboardLayoutContentInner>
+        {children}
+      </DashboardLayoutContentInner>
+    </Suspense>
   )
 }
 

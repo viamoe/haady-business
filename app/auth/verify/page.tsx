@@ -4,6 +4,8 @@ import OtpVerificationForm from './OtpVerificationForm';
 import { cookies } from 'next/headers';
 import { getLocalizedUrlFromRequest } from '@/lib/localized-url';
 
+export const dynamic = 'force-dynamic';
+
 export default async function OtpVerificationPage({
   searchParams,
 }: {
