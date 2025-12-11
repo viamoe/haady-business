@@ -495,7 +495,6 @@ export default function SetupForm() {
           error?.message || 
           error?.details || 
           error?.hint || 
-          error?.error || 
           (typeof error === 'string' ? error : null) ||
           JSON.stringify(error) ||
           'Failed to create merchant account';
