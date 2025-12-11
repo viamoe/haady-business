@@ -7,7 +7,7 @@ import { parseLocaleCountry, getLocaleCountryFromCookies, getDefaultLocaleCountr
 import { supabase } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Loader2, Mail, AlertTriangle } from 'lucide-react';
+import { Loader2, Mail, AlertTriangle, CheckCircle2 } from 'lucide-react';
 import { toast } from '@/lib/toast';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -108,6 +108,7 @@ export default function AuthForm({ mode, reason }: AuthFormProps) {
     message?: string;
   } | null>(null);
   const [isCheckingEmail, setIsCheckingEmail] = useState(false);
+  const [accountNotFound, setAccountNotFound] = useState(false);
   const [otpSent, setOtpSent] = useState(false);
   const [otp, setOtp] = useState(['', '', '', '', '', '']);
   const [isVerifying, setIsVerifying] = useState(false);
@@ -143,8 +144,15 @@ export default function AuthForm({ mode, reason }: AuthFormProps) {
       if (response.ok) {
         const data = await response.json();
         setEmailCheckStatus(data);
+        // Track if account is not found (for login mode)
+        if (!isSignupMode && data.shouldSignup && !data.exists) {
+          setAccountNotFound(true);
+        } else {
+          setAccountNotFound(false);
+        }
       } else {
         setEmailCheckStatus(null);
+        setAccountNotFound(false);
       }
     } catch (error) {
       console.error('Error checking email:', error);
@@ -158,6 +166,7 @@ export default function AuthForm({ mode, reason }: AuthFormProps) {
   useEffect(() => {
     if (!email || !validateEmail(email)) {
       setEmailCheckStatus(null);
+      setAccountNotFound(false);
       return;
     }
 
@@ -168,6 +177,11 @@ export default function AuthForm({ mode, reason }: AuthFormProps) {
     return () => clearTimeout(timeoutId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [email]); // checkEmailExists is stable, no need to include it
+
+  // Reset accountNotFound when email changes
+  useEffect(() => {
+    setAccountNotFound(false);
+  }, [email]);
 
   // Clean up OTP state from URL and localStorage
   const cleanupOtpState = () => {
@@ -543,29 +557,49 @@ export default function AuthForm({ mode, reason }: AuthFormProps) {
         }
       }
       
+      // Use signInWithOtp for both login and signup
+      // For signups, shouldCreateUser: true will create the user
+      // For login, shouldCreateUser: false will only work for existing users
       const { error } = await supabase.auth.signInWithOtp({ 
         email: email.trim().toLowerCase(),
         options: {
           shouldCreateUser: isSignupMode,
-          data: {
+          data: isSignupMode ? {
             app_type: 'merchant',
-            preferred_country: isSignupMode ? preferredCountry : undefined,
-            preferred_language: isSignupMode ? preferredLanguage : undefined,
-          },
+            preferred_country: preferredCountry,
+            preferred_language: preferredLanguage,
+          } : undefined,
         },
       });
       
       if (error) {
+        const errorMessage = error.message?.toLowerCase() || '';
+        
+        // Handle "signups not allowed" error - this shouldn't happen if signups are enabled
+        // But if it does, provide a helpful message
+        if (errorMessage.includes('signups not allowed') || errorMessage.includes('signup not allowed')) {
+          setEmailError('Unable to create account with email. Please use Google sign-in or contact support.');
+          toast.error('Signup Error', {
+            description: 'Email signups may be temporarily unavailable. Please try Google sign-in instead.',
+            duration: 8000,
+          });
+          setIsLoading(false);
+          return;
+        }
+        
         if (!isSignupMode) {
-          const errorMessage = error.message?.toLowerCase() || '';
+          // Check for any error indicating user doesn't exist
           if (
             errorMessage.includes('user not found') ||
             errorMessage.includes('email not found') ||
             errorMessage.includes('no user found') ||
             errorMessage.includes('user does not exist') ||
-            errorMessage.includes('email does not exist')
+            errorMessage.includes('email does not exist') ||
+            errorMessage.includes('invalid login credentials') ||
+            error.code === 'user_not_found'
           ) {
-            setEmailError(t('auth.noAccountError'));
+            setEmailError(t('auth.noAccountWithEmail'));
+            setAccountNotFound(true);
             setIsLoading(false);
             return;
           }
@@ -696,7 +730,7 @@ export default function AuthForm({ mode, reason }: AuthFormProps) {
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col items-center justify-center py-4 px-4 relative z-10 min-h-0 overflow-hidden">
-        <div className="w-full max-w-md relative z-10">
+        <div className="w-full max-w-sm relative z-10">
           {/* Account Deleted Alert */}
           {reason === 'account_deleted' && (
             <div className={`mb-6 p-4 bg-red-50 border border-red-200 rounded-lg flex items-start gap-3 ${isRTL ? 'flex-row-reverse' : ''}`}>
@@ -775,69 +809,68 @@ export default function AuthForm({ mode, reason }: AuthFormProps) {
                         setEmail(e.target.value);
                         setEmailError('');
                       }}
-                      className={`h-12 bg-white border ${emailError ? 'border-red-500' : 'border-gray-200'} rounded-md ${isRTL ? 'text-right' : 'text-left'}`}
+                      className={`h-12 bg-white border ${emailError ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : emailCheckStatus?.shouldLogin && isSignupMode && validateEmail(email) && !isCheckingEmail ? 'border-amber-500 focus:border-amber-500 focus:ring-amber-500' : (emailCheckStatus?.exists || (!isSignupMode && emailCheckStatus?.shouldLogin)) && validateEmail(email) && !isCheckingEmail ? 'border-green-500 focus:border-green-500 focus:ring-green-500' : 'border-gray-200 focus:border-gray-300 focus:ring-gray-300'} rounded-md ${isRTL ? 'text-right' : 'text-left'} ${(emailCheckStatus?.shouldLogin && isSignupMode || (emailCheckStatus?.exists || (!isSignupMode && emailCheckStatus?.shouldLogin))) && validateEmail(email) && !isCheckingEmail ? (isRTL ? 'pl-10' : 'pr-10') : ''} focus:ring-2 focus:ring-offset-0`}
                       required
                       disabled={isLoading || isGoogleLoading}
                       autoFocus
                     />
+                    {/* Amber triangle icon when account already exists (signup mode) */}
+                    {emailCheckStatus?.shouldLogin && isSignupMode && validateEmail(email) && !isCheckingEmail && !emailError && (
+                      <AlertTriangle className={`absolute top-1/2 -translate-y-1/2 h-5 w-5 text-amber-600 fill-amber-50 ${isRTL ? 'left-3' : 'right-3'}`} />
+                    )}
+                    {/* Green checkmark only when account exists */}
+                    {!emailError && !(emailCheckStatus?.shouldLogin && isSignupMode) && emailCheckStatus && (emailCheckStatus.exists === true || (!isSignupMode && emailCheckStatus.shouldLogin === true)) && validateEmail(email) && !isCheckingEmail && (
+                      <CheckCircle2 className={`absolute top-1/2 -translate-y-1/2 h-5 w-5 text-green-500 ${isRTL ? 'left-3' : 'right-3'}`} />
+                    )}
                   </div>
                   {emailError && (
-                    <div className={`flex items-start gap-2 text-sm text-red-500 ${isRTL ? 'flex-row-reverse' : ''}`}>
-                      <Mail className="h-4 w-4 mt-0.5 shrink-0" />
+                    <div className={`flex items-start gap-2 text-xs text-red-500 ${isRTL ? 'flex-row-reverse' : ''}`}>
+                      <Mail className="h-3 w-3 mt-0.5 shrink-0" />
                       <span>{emailError}</span>
                     </div>
                   )}
                   {/* Email Check Status */}
                   {!emailError && emailCheckStatus && validateEmail(email) && !isCheckingEmail && (
-                    <div className={`flex items-start gap-2 text-sm ${isRTL ? 'flex-row-reverse' : ''} ${
+                    <div className={`flex items-start gap-2 text-xs ${isRTL ? 'flex-row-reverse' : ''} ${
                       emailCheckStatus.shouldLogin && isSignupMode
-                        ? 'text-amber-600 bg-amber-50 border border-amber-200 rounded-lg p-3'
+                        ? 'text-amber-600'
                         : emailCheckStatus.shouldSignup && !isSignupMode
-                        ? 'text-blue-600 bg-blue-50 border border-blue-200 rounded-lg p-3'
+                        ? 'text-red-500'
                         : 'text-gray-600'
                     }`}>
                       {emailCheckStatus.shouldLogin && isSignupMode ? (
                         <>
-                          <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
-                          <div className="flex-1">
-                            <p className="font-medium mb-1">{emailCheckStatus.message || 'Account already exists'}</p>
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              onClick={() => {
-                                router.push(`${loginUrl}?email=${encodeURIComponent(email)}`);
-                              }}
-                              className="mt-2 h-8 text-xs"
+                          <AlertTriangle className="h-3 w-3 mt-0.5 shrink-0" />
+                          <span>
+                            {t('auth.accountExists') || 'An account with this email already exists. Please '}
+                            <Link 
+                              href={`${loginUrl}?email=${encodeURIComponent(email)}`}
+                              className="underline hover:no-underline font-medium"
                             >
-                              {t('auth.loginInstead') || 'Log in instead'}
-                            </Button>
-                          </div>
+                              {t('auth.signIn') || 'log in'}
+                            </Link>
+                            {' instead.'}
+                          </span>
                         </>
                       ) : emailCheckStatus.shouldSignup && !isSignupMode ? (
                         <>
-                          <Mail className="h-4 w-4 mt-0.5 shrink-0" />
-                          <div className="flex-1">
-                            <p className="font-medium mb-1">{t('auth.noAccountFound') || 'No account found with this email'}</p>
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              onClick={() => {
-                                router.push(`${signupUrl}?email=${encodeURIComponent(email)}`);
-                              }}
-                              className="mt-2 h-8 text-xs"
+                          <Mail className="h-3 w-3 mt-0.5 shrink-0" />
+                          <span>
+                            {t('auth.noAccountFound') || 'No account found with this email'}{' '}
+                            <Link 
+                              href={`${signupUrl}?email=${encodeURIComponent(email)}`}
+                              className="underline hover:no-underline font-medium"
                             >
-                              {t('auth.createAccountInstead') || 'Create account instead'}
-                            </Button>
-                          </div>
+                              {t('auth.createAccountButton') || 'Create account'}
+                            </Link>
+                          </span>
                         </>
                       ) : null}
                     </div>
                   )}
                   {isCheckingEmail && validateEmail(email) && (
-                    <div className="flex items-center gap-2 text-sm text-gray-500">
-                      <Loader2 className="h-4 w-4 animate-spin" />
+                    <div className="flex items-center gap-2 text-xs text-gray-500">
+                      <Loader2 className="h-3 w-3 animate-spin" />
                       <span>{t('auth.checkingEmail') || 'Checking...'}</span>
                     </div>
                   )}
@@ -847,8 +880,8 @@ export default function AuthForm({ mode, reason }: AuthFormProps) {
                 {!otpSent && (
                   <Button
                     type="submit"
-                    disabled={isLoading || isGoogleLoading || !validateEmail(email)}
-                    className="w-full h-12 bg-gray-900 hover:bg-gray-800 text-white rounded-md font-medium"
+                    disabled={isLoading || isGoogleLoading || !validateEmail(email) || accountNotFound || (emailCheckStatus?.shouldLogin && isSignupMode)}
+                    className="w-full h-12 bg-gray-900 hover:bg-gray-800 text-white rounded-md font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {isLoading ? (
                       <>

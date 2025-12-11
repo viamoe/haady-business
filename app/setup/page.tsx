@@ -24,14 +24,14 @@ export default async function SetupPage() {
     redirect(loginUrl);
   }
   
-  // Check if user already has a merchant account
+  // Check if user already has a merchant account with a merchant_id
   const { data: merchantUser } = await supabase
     .from('merchant_users')
     .select('merchant_id')
     .eq('auth_user_id', user.id)
     .single();
   
-  if (merchantUser) {
+  if (merchantUser?.merchant_id) {
     // User already has a business, redirect to dashboard
     const cookieStore = await cookies();
     const dashboardUrl = getLocalizedUrlFromRequest('/dashboard', {

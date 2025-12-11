@@ -149,7 +149,7 @@ export default function OtpVerificationForm({ email }: OtpVerificationFormProps)
           .eq('auth_user_id', data.user.id)
           .single();
 
-        if (merchantUser) {
+        if (merchantUser?.merchant_id) {
           setLoading(true, 'Redirecting to dashboard...');
           const dashboardUrl = getLocalizedUrl('/dashboard', pathname);
           router.push(dashboardUrl);

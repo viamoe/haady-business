@@ -184,14 +184,34 @@ export function Header() {
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-56 rounded-xl p-1">
                     <DropdownMenuItem
-                      onClick={() => router.push(localizedUrl('/dashboard'))}
+                      onSelect={(e) => {
+                        e.preventDefault();
+                        try {
+                          const url = localizedUrl('/dashboard');
+                          router.push(url);
+                        } catch (error) {
+                          console.error('Navigation error:', error);
+                          // Fallback to default URL
+                          router.push('/dashboard');
+                        }
+                      }}
                       className="cursor-pointer rounded-lg"
                     >
                       <LayoutDashboard className="h-4 w-4 mr-2" />
                       Dashboard
                     </DropdownMenuItem>
                     <DropdownMenuItem
-                      onClick={() => router.push(localizedUrl('/dashboard/settings'))}
+                      onSelect={(e) => {
+                        e.preventDefault();
+                        try {
+                          const url = localizedUrl('/dashboard/settings');
+                          router.push(url);
+                        } catch (error) {
+                          console.error('Navigation error:', error);
+                          // Fallback to default URL
+                          router.push('/dashboard/settings');
+                        }
+                      }}
                       className="cursor-pointer rounded-lg"
                     >
                       <Settings className="h-4 w-4 mr-2" />
@@ -199,7 +219,10 @@ export function Header() {
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem
-                      onClick={handleSignOut}
+                      onSelect={(e) => {
+                        e.preventDefault();
+                        handleSignOut();
+                      }}
                       className="cursor-pointer text-destructive focus:text-destructive focus:bg-destructive/10 rounded-lg"
                     >
                       <LogOut className="h-4 w-4 mr-2" />

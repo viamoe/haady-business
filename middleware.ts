@@ -144,15 +144,15 @@ export default async function middleware(req: NextRequest) {
         return NextResponse.redirect(redirectUrl);
       }
 
-      // Check if user has a business account
+      // Check if user has a business account with a merchant_id
       const { data: merchantUser, error: dbError } = await supabase
         .from('merchant_users')
         .select('merchant_id')
         .eq('auth_user_id', user.id)
         .single();
 
-      // If no business account, redirect to setup
-      if (dbError || !merchantUser) {
+      // If no business account or merchant_id is null, redirect to setup
+      if (dbError || !merchantUser || !merchantUser.merchant_id) {
         // Preserve locale-country prefix in redirect
         const redirectUrl = urlMatch 
           ? new URL(`/${currentLocale}-${currentCountryCode?.toLowerCase()}/setup`, req.url)
