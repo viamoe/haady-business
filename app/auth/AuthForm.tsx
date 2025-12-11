@@ -369,20 +369,46 @@ export default function AuthForm({ mode, reason }: AuthFormProps) {
       console.log('  Current origin:', window.location.origin);
       console.log('  ⚠️  Make sure this EXACT URL is in Supabase Dashboard → Authentication → URL Configuration → Redirect URLs');
       
-      const cookieData = JSON.stringify({
+      const cookieData = {
         app_type: 'merchant',
         preferred_country: preferredCountry,
         preferred_language: preferredLanguage,
         origin: window.location.origin, // Store the origin so haady.app can redirect back
         timestamp: Date.now(),
-      });
+      };
       
-      const isProduction = !isLocalhost;
-      const cookieDomain = isProduction ? '; domain=.haady.app' : '';
-      const secureCookie = isProduction ? '; Secure' : '';
-      document.cookie = `haady_oauth_origin=${encodeURIComponent(cookieData)}; path=/; max-age=600; SameSite=Lax${cookieDomain}${secureCookie}`;
+      // Check if we're on haady.app domain (can set cookie directly)
+      // or on a different domain (Vercel preview - need API call)
+      const isHaadyDomain = window.location.hostname.endsWith('.haady.app') || window.location.hostname === 'haady.app';
       
-      console.log('Set OAuth origin cookie:', cookieData);
+      if (isHaadyDomain) {
+        // On haady.app domain - can set cookie directly
+        const cookieString = JSON.stringify(cookieData);
+        document.cookie = `haady_oauth_origin=${encodeURIComponent(cookieString)}; path=/; max-age=600; SameSite=Lax; domain=.haady.app; Secure`;
+        console.log('Set OAuth origin cookie (direct):', cookieData);
+      } else if (!isLocalhost) {
+        // On Vercel preview or other domain - call API to set cookie on haady.app
+        try {
+          console.log('Setting OAuth origin cookie via API for non-haady domain...');
+          const response = await fetch('https://haady.app/api/set-oauth-origin', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(cookieData),
+          });
+          if (response.ok) {
+            console.log('Set OAuth origin cookie (via API):', cookieData);
+          } else {
+            console.warn('Failed to set OAuth origin cookie via API:', await response.text());
+          }
+        } catch (apiError) {
+          console.warn('Error calling set-oauth-origin API:', apiError);
+        }
+      } else {
+        // Localhost - set cookie without domain restriction
+        const cookieString = JSON.stringify(cookieData);
+        document.cookie = `haady_oauth_origin=${encodeURIComponent(cookieString)}; path=/; max-age=600; SameSite=Lax`;
+        console.log('Set OAuth origin cookie (localhost):', cookieData);
+      }
       
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
