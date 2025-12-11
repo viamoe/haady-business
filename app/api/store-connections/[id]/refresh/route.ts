@@ -126,14 +126,6 @@ export async function POST(
       }
     }
 
-    if (updateError) {
-      console.error('Error updating tokens:', updateError)
-      return NextResponse.json(
-        { error: 'Failed to save new tokens', details: updateError.message },
-        { status: 500 }
-      )
-    }
-
     return NextResponse.json({
       success: true,
       message: 'Token refreshed successfully',
