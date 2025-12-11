@@ -351,9 +351,10 @@ export default function AuthForm({ mode, reason }: AuthFormProps) {
       // Go to: Supabase Dashboard → Authentication → URL Configuration → Redirect URLs
       // Add: https://business.haady.app/auth/callback (for production)
       // Add: http://localhost:3002/auth/callback (for development)
+      // For preview deployments, use the current origin dynamically
       const baseRedirectUrl = isLocalhost 
         ? 'http://localhost:3002/auth/callback'
-        : 'https://business.haady.app/auth/callback';
+        : `${window.location.origin}/auth/callback`;
       
       // Build redirect URL with query parameters
       // Note: Supabase will append the OAuth code, so we add our params first
@@ -372,6 +373,7 @@ export default function AuthForm({ mode, reason }: AuthFormProps) {
         app_type: 'merchant',
         preferred_country: preferredCountry,
         preferred_language: preferredLanguage,
+        origin: window.location.origin, // Store the origin so haady.app can redirect back
         timestamp: Date.now(),
       });
       
