@@ -3,20 +3,53 @@ import type { NextRequest } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 
 export default async function middleware(req: NextRequest) {
-  const pathname = req.nextUrl.pathname;
+  let pathname = req.nextUrl.pathname;
+
+  // Handle locale and country in URL (e.g., /ar-eg/dashboard)
+  const urlMatch = pathname.match(/^\/([a-z]{2})-([a-z]{2})(\/.*)?$/i);
+  let currentLocale: string | undefined;
+  let currentCountryCode: string | undefined;
+  let newPathname: string = pathname;
+  let shouldRewrite = false;
+
+  if (urlMatch) {
+    currentLocale = urlMatch[1].toLowerCase();
+    currentCountryCode = urlMatch[2].toUpperCase();
+    newPathname = urlMatch[3] || '/'; // The rest of the path
+    shouldRewrite = true;
+    
+    // Update pathname for route checks
+    pathname = newPathname;
+  }
 
   // Allow root landing page to pass through without any checks
   if (pathname === '/' || pathname === '') {
+    if (shouldRewrite) {
+      const url = req.nextUrl.clone();
+      url.pathname = newPathname;
+      const rewrittenResponse = NextResponse.rewrite(url);
+      rewrittenResponse.cookies.set('locale', currentLocale!, { path: '/', maxAge: 31536000 });
+      rewrittenResponse.cookies.set('country', currentCountryCode!, { path: '/', maxAge: 31536000 });
+      return rewrittenResponse;
+    }
     return NextResponse.next();
   }
 
-  const isLoginPage = pathname.startsWith('/login');
-  const isLoginCallback = pathname.startsWith('/login/callback');
+  const isLoginPage = pathname.startsWith('/auth/login') || pathname.startsWith('/auth/signup');
+  const isLoginCallback = pathname.startsWith('/auth/callback');
   const isDashboard = pathname.startsWith('/dashboard');
   const isSetupPage = pathname.startsWith('/setup');
 
   // Allow login callback to pass through without checking session
   if (isLoginCallback) {
+    if (shouldRewrite) {
+      const url = req.nextUrl.clone();
+      url.pathname = newPathname;
+      const rewrittenResponse = NextResponse.rewrite(url);
+      rewrittenResponse.cookies.set('locale', currentLocale!, { path: '/', maxAge: 31536000 });
+      rewrittenResponse.cookies.set('country', currentCountryCode!, { path: '/', maxAge: 31536000 });
+      return rewrittenResponse;
+    }
     return NextResponse.next();
   }
 
@@ -45,7 +78,11 @@ export default async function middleware(req: NextRequest) {
       const { data: { user }, error: authError } = await supabase.auth.getUser();
 
       if (authError || !user) {
-        return NextResponse.redirect(new URL('/login', req.url));
+        // Preserve locale-country prefix in redirect
+        const redirectUrl = urlMatch 
+          ? new URL(`/${currentLocale}-${currentCountryCode?.toLowerCase()}/auth/login`, req.url)
+          : new URL('/auth/login', req.url);
+        return NextResponse.redirect(redirectUrl);
       }
 
       // Check if user already has a merchant account
@@ -57,13 +94,21 @@ export default async function middleware(req: NextRequest) {
 
       // If user has merchant, redirect to dashboard
       if (merchantUser) {
-        return NextResponse.redirect(new URL('/dashboard', req.url));
+        // Preserve locale-country prefix in redirect
+        const redirectUrl = urlMatch 
+          ? new URL(`/${currentLocale}-${currentCountryCode?.toLowerCase()}/dashboard`, req.url)
+          : new URL('/dashboard', req.url);
+        return NextResponse.redirect(redirectUrl);
       }
 
       // User is authenticated but no merchant - allow access to setup
     } catch (error) {
       console.error('Middleware error:', error);
-      return NextResponse.redirect(new URL('/login', req.url));
+      // Preserve locale-country prefix in redirect
+      const redirectUrl = urlMatch 
+        ? new URL(`/${currentLocale}-${currentCountryCode?.toLowerCase()}/auth/login`, req.url)
+        : new URL('/auth/login', req.url);
+      return NextResponse.redirect(redirectUrl);
     }
   }
 
@@ -92,7 +137,11 @@ export default async function middleware(req: NextRequest) {
       const { data: { user }, error: authError } = await supabase.auth.getUser();
 
       if (authError || !user) {
-        return NextResponse.redirect(new URL('/login', req.url));
+        // Preserve locale-country prefix in redirect
+        const redirectUrl = urlMatch 
+          ? new URL(`/${currentLocale}-${currentCountryCode?.toLowerCase()}/auth/login`, req.url)
+          : new URL('/auth/login', req.url);
+        return NextResponse.redirect(redirectUrl);
       }
 
       // Check if user has a business account
@@ -104,11 +153,19 @@ export default async function middleware(req: NextRequest) {
 
       // If no business account, redirect to setup
       if (dbError || !merchantUser) {
-        return NextResponse.redirect(new URL('/setup', req.url));
+        // Preserve locale-country prefix in redirect
+        const redirectUrl = urlMatch 
+          ? new URL(`/${currentLocale}-${currentCountryCode?.toLowerCase()}/setup`, req.url)
+          : new URL('/setup', req.url);
+        return NextResponse.redirect(redirectUrl);
       }
     } catch (error) {
       console.error('Middleware error:', error);
-      return NextResponse.redirect(new URL('/login', req.url));
+      // Preserve locale-country prefix in redirect
+      const redirectUrl = urlMatch 
+        ? new URL(`/${currentLocale}-${currentCountryCode?.toLowerCase()}/auth/login`, req.url)
+        : new URL('/auth/login', req.url);
+      return NextResponse.redirect(redirectUrl);
     }
   }
 
@@ -153,14 +210,32 @@ export default async function middleware(req: NextRequest) {
           .single();
 
         if (merchantUser) {
-          return NextResponse.redirect(new URL('/dashboard', req.url));
+          // Preserve locale-country prefix in redirect
+          const redirectUrl = urlMatch 
+            ? new URL(`/${currentLocale}-${currentCountryCode?.toLowerCase()}/dashboard`, req.url)
+            : new URL('/dashboard', req.url);
+          return NextResponse.redirect(redirectUrl);
         } else {
-          return NextResponse.redirect(new URL('/setup', req.url));
+          // Preserve locale-country prefix in redirect
+          const redirectUrl = urlMatch 
+            ? new URL(`/${currentLocale}-${currentCountryCode?.toLowerCase()}/setup`, req.url)
+            : new URL('/setup', req.url);
+          return NextResponse.redirect(redirectUrl);
         }
       }
     } catch (error) {
       console.error('Middleware error:', error);
     }
+  }
+
+  // If we had a URL rewrite, create the rewritten response
+  if (shouldRewrite) {
+    const url = req.nextUrl.clone();
+    url.pathname = newPathname;
+    const rewrittenResponse = NextResponse.rewrite(url);
+    rewrittenResponse.cookies.set('locale', currentLocale!, { path: '/', maxAge: 31536000 });
+    rewrittenResponse.cookies.set('country', currentCountryCode!, { path: '/', maxAge: 31536000 });
+    return rewrittenResponse;
   }
 
   return NextResponse.next();

@@ -1,6 +1,8 @@
 import { redirect } from 'next/navigation'
 import { createServerSupabase } from '@/lib/supabase/server'
 import { DashboardContent } from './dashboard-content'
+import { cookies } from 'next/headers'
+import { getLocalizedUrlFromRequest } from '@/lib/localized-url'
 
 export default async function DashboardPage() {
   const supabase = await createServerSupabase()
@@ -10,7 +12,16 @@ export default async function DashboardPage() {
   } = await supabase.auth.getUser()
 
   if (authError || !user) {
-    redirect('/login')
+    const cookieStore = await cookies();
+    const loginUrl = getLocalizedUrlFromRequest('/auth/login', {
+      cookies: {
+        get: (name: string) => {
+          const cookie = cookieStore.get(name);
+          return cookie ? { value: cookie.value } : undefined;
+        }
+      }
+    });
+    redirect(loginUrl);
   }
 
   // Check if user has completed setup and get user details
@@ -21,7 +32,16 @@ export default async function DashboardPage() {
     .maybeSingle()
 
   if (!merchantUser?.merchant_id) {
-    redirect('/setup')
+    const cookieStore = await cookies();
+    const setupUrl = getLocalizedUrlFromRequest('/setup', {
+      cookies: {
+        get: (name: string) => {
+          const cookie = cookieStore.get(name);
+          return cookie ? { value: cookie.value } : undefined;
+        }
+      }
+    });
+    redirect(setupUrl);
   }
 
   // Extract first name from full_name
@@ -61,6 +81,78 @@ export default async function DashboardPage() {
 
   const isSetupComplete = hasStore && hasProducts && hasPaymentConfigured && hasShippingConfigured
 
+  // Get store connections
+  let storeConnections: any[] = []
+  
+  try {
+    // Query store connections - RLS policies should allow users to see their own
+    // First try with all columns to see what exists
+    const { data: allData, error: testError } = await supabase
+      .from('store_connections')
+      .select('*')
+      .eq('user_id', user.id)
+      .limit(1)
+    
+    if (testError) {
+      console.error('Test query error:', testError.message)
+    } else if (allData && allData.length > 0) {
+      console.log('Available columns:', Object.keys(allData[0]))
+    }
+    
+    // Query store connections - include store_name and store_domain if they exist
+    const { data: connections, error: connectionsError } = await supabase
+      .from('store_connections')
+      .select('id, platform, store_external_id, store_name, store_domain')
+      .eq('user_id', user.id)
+    
+    // Debug: Log the connections to see what we're getting
+    if (connections && connections.length > 0) {
+      console.log('📦 Fetched connections:', JSON.stringify(connections, null, 2))
+      connections.forEach((conn: any, index: number) => {
+        console.log(`Connection ${index}:`, {
+          id: conn.id,
+          idType: typeof conn.id,
+          platform: conn.platform,
+          hasId: !!conn.id,
+        })
+      })
+    }
+
+    if (connectionsError) {
+      // Log full error details
+      const errorDetails = {
+        message: connectionsError.message,
+        details: connectionsError.details,
+        hint: connectionsError.hint,
+        code: connectionsError.code,
+        fullError: connectionsError
+      }
+      console.error('❌ Error fetching store connections:', JSON.stringify(errorDetails, null, 2))
+      
+      // Common RLS error codes
+      if (connectionsError.code === '42501' || connectionsError.message?.includes('permission denied')) {
+        console.error('🔒 RLS Policy Error: User does not have permission to read store_connections')
+        console.error('💡 Solution: Run the SQL in docs/database/fix_store_connections_rls.sql to fix RLS policies')
+      }
+    } else {
+      // Map connections with default values for management fields that may not exist yet
+      storeConnections = (connections || []).map((conn: any) => ({
+        ...conn,
+        store_name: conn.store_name || null,
+        store_domain: conn.store_domain || null,
+        connection_status: 'connected',
+        sync_status: 'idle',
+        last_sync_at: null,
+        last_error: null,
+        expires_at: null,
+        created_at: null,
+      }))
+      console.log('✅ Store connections found:', storeConnections.length, connections)
+    }
+  } catch (error: any) {
+    console.error('💥 Exception fetching store connections:', error?.message || error)
+  }
+
   return (
     <DashboardContent 
       userName={firstName}
@@ -72,6 +164,7 @@ export default async function DashboardPage() {
       hasPaymentConfigured={hasPaymentConfigured}
       hasShippingConfigured={hasShippingConfigured}
       isSetupComplete={isSetupComplete}
+      storeConnections={storeConnections}
     />
   )
 }

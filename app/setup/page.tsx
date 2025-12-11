@@ -1,6 +1,8 @@
 import { redirect } from 'next/navigation';
 import { createServerSupabase } from '@/lib/supabase/server';
 import SetupForm from './SetupForm';
+import { cookies } from 'next/headers';
+import { getLocalizedUrlFromRequest } from '@/lib/localized-url';
 
 export default async function SetupPage() {
   const supabase = await createServerSupabase();
@@ -8,7 +10,16 @@ export default async function SetupPage() {
   const { data: { user }, error } = await supabase.auth.getUser();
   
   if (error || !user) {
-    redirect('/login');
+    const cookieStore = await cookies();
+    const loginUrl = getLocalizedUrlFromRequest('/auth/login', {
+      cookies: {
+        get: (name: string) => {
+          const cookie = cookieStore.get(name);
+          return cookie ? { value: cookie.value } : undefined;
+        }
+      }
+    });
+    redirect(loginUrl);
   }
   
   // Check if user already has a merchant account
@@ -20,7 +31,16 @@ export default async function SetupPage() {
   
   if (merchantUser) {
     // User already has a business, redirect to dashboard
-    redirect('/dashboard');
+    const cookieStore = await cookies();
+    const dashboardUrl = getLocalizedUrlFromRequest('/dashboard', {
+      cookies: {
+        get: (name: string) => {
+          const cookie = cookieStore.get(name);
+          return cookie ? { value: cookie.value } : undefined;
+        }
+      }
+    });
+    redirect(dashboardUrl);
   }
   
   return <SetupForm />;

@@ -1,16 +1,19 @@
 'use client';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '@/lib/auth/auth-context';
 import { Button } from '@/components/ui/button';
 import { LogOut } from 'lucide-react';
+import { getLocalizedUrl } from '@/lib/localized-url';
 
 export function SignOutButton() {
   const router = useRouter();
+  const pathname = usePathname();
   const { signOut } = useAuth();
 
   const handleSignOut = async () => {
     await signOut();
-    router.push('/');
+    const homeUrl = getLocalizedUrl('/', pathname);
+    router.push(homeUrl);
     router.refresh();
   };
 

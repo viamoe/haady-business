@@ -5,7 +5,7 @@ import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "@/lib/utils"
 
 const buttonVariants = cva(
-  "gap-2 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 relative inline-flex items-center cursor-pointer font-medium select-none justify-center ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 whitespace-nowrap transition-opacity duration-100",
+  "gap-2 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 relative inline-flex items-center cursor-pointer font-medium select-none justify-center ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 whitespace-nowrap transition-colors duration-150",
   {
       variants: {
         variant: {
@@ -13,11 +13,11 @@ const buttonVariants = cva(
           destructive:
             "bg-destructive text-white hover:opacity-85 border-0 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40",
           outline:
-            "border-0 bg-background shadow-xs hover:bg-accent hover:text-accent-foreground dark:bg-input/30 dark:hover:bg-input/50",
+            "border-0 bg-gray-100 text-gray-900 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-100 dark:hover:bg-gray-700",
           secondary:
-            "bg-secondary text-secondary-foreground hover:opacity-85 border-0",
+            "bg-gray-100 text-gray-900 hover:bg-gray-200 border-0 dark:bg-gray-800 dark:text-gray-100 dark:hover:bg-gray-700",
           ghost:
-            "hover:bg-accent hover:text-accent-foreground dark:hover:bg-accent/50 border-0",
+            "hover:bg-gray-100 hover:text-gray-900 dark:hover:bg-gray-800 dark:hover:text-gray-100 border-0",
           link: "text-primary underline-offset-4 hover:underline border-0",
         },
       size: {

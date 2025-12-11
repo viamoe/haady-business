@@ -1,7 +1,11 @@
+'use client';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
+import { useLocalizedUrl } from '@/lib/use-localized-url';
 
 export default function NotFound() {
+    const { localizedUrl } = useLocalizedUrl();
+    
     return (
         <div className="flex h-screen w-full flex-col items-center justify-center bg-background px-4 text-center">
             <div className="space-y-4">
@@ -12,10 +16,10 @@ export default function NotFound() {
                 </p>
                 <div className="flex justify-center gap-4 pt-4">
                     <Button asChild defaultChecked>
-                        <Link href="/">Back to Home</Link>
+                        <Link href={localizedUrl('/')}>Back to Home</Link>
                     </Button>
                     <Button variant="outline" asChild>
-                        <Link href="/dashboard">Go to Dashboard</Link>
+                        <Link href={localizedUrl('/dashboard')}>Go to Dashboard</Link>
                     </Button>
                 </div>
             </div>

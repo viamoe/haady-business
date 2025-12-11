@@ -27,15 +27,54 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const checkIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // Function to check if user still exists in the database
-  const checkUserExists = useCallback(async (userId: string): Promise<boolean> => {
+  const checkUserExists = useCallback(async (userId: string): Promise<boolean | 'error' | 'offline'> => {
+    // First check if we're online - if not, don't try to verify user
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      console.log('Browser is offline, skipping user existence check');
+      return 'offline';
+    }
+
     try {
       // Verify the user still exists in Supabase Auth
       // This is the primary check - if user is deleted from auth.users, getUser() will fail
       const { data: { user: authUser }, error: authError } = await supabase.auth.getUser();
       
-      if (authError || !authUser) {
-        console.warn('User no longer exists in auth system:', authError?.message);
-        return false;
+      if (authError) {
+        // Check if this is a network/fetch error
+        const errorMessage = authError.message?.toLowerCase() || '';
+        const isNetworkError = 
+          errorMessage.includes('fetch') ||
+          errorMessage.includes('network') ||
+          errorMessage.includes('failed to fetch') ||
+          errorMessage.includes('networkerror') ||
+          errorMessage.includes('timeout') ||
+          errorMessage.includes('aborted');
+
+        if (isNetworkError) {
+          console.log('Network error during auth check, treating as offline');
+          return 'offline';
+        }
+
+        // Check if this is actually a "user deleted" error vs just auth issues
+        const isUserDeleted = 
+          errorMessage.includes('user not found') ||
+          errorMessage.includes('user has been deleted') ||
+          errorMessage.includes('invalid user');
+        
+        if (isUserDeleted) {
+          console.warn('User has been deleted:', authError.message);
+          return false;
+        }
+        
+        // For other auth errors (expired token, etc.), return 'error' 
+        // to indicate we should just refresh, not show "account deleted"
+        console.warn('Auth error (not deletion):', authError.message);
+        return 'error';
+      }
+      
+      if (!authUser) {
+        // No user but also no error - this shouldn't happen, treat as error
+        return 'error';
       }
 
       // If getUser() succeeds, user exists in auth system
@@ -45,9 +84,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return true;
     } catch (error) {
       console.error('Error checking user existence:', error);
-      // On error, assume user still exists to prevent false logouts
-      // Network issues, etc. should not trigger logout
-      return true;
+      // On network/fetch errors, treat as offline
+      const errorStr = String(error).toLowerCase();
+      if (errorStr.includes('fetch') || errorStr.includes('network')) {
+        return 'offline';
+      }
+      // On other errors, assume user still exists to prevent false logouts
+      return 'error';
     }
   }, []);
 
@@ -106,8 +149,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     // Wait a bit to ensure cookies are cleared, then redirect
     // Use replace to prevent back button from going back to logged-in state
+    // Only use account_deleted reason when user was actually deleted
     setTimeout(() => {
-      window.location.replace('/login?reason=account_deleted&logout=true');
+      window.location.replace('/auth/login?reason=account_deleted');
     }, 100);
   }, []);
 
@@ -182,10 +226,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     // Check user existence periodically
     const checkUser = async () => {
-      const exists = await checkUserExists(user.id);
-      if (!exists) {
+      const result = await checkUserExists(user.id);
+      if (result === false) {
+        // User was explicitly deleted - show the "account deleted" message
         handleUserDeleted();
+      } else if (result === 'error') {
+        // Auth error (expired token, etc.) - just sign out without the scary message
+        console.warn('Auth session invalid, signing out quietly...');
+        await supabase.auth.signOut();
+        setSession(null);
+        setUser(null);
+        setLoading(false);
+        window.location.replace('/auth/login');
+      } else if (result === 'offline') {
+        // User is offline - do nothing, the NetworkStatusOverlay will handle UI
+        console.log('User is offline, keeping session active');
       }
+      // If result === true, user exists, do nothing
     };
 
     // Set up interval

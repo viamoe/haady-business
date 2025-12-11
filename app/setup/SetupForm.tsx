@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect, useMemo, useRef } from 'react';
+import * as React from 'react';
+import { useRouter, usePathname } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -20,6 +21,8 @@ import { toast } from '@/lib/toast';
 import { useLoading } from '@/lib/loading-context';
 import { Flag } from '@/components/flag';
 import { useLocale } from '@/i18n/context';
+import { parseLocaleCountry, getLocaleCountryFromCookies } from '@/lib/localized-url';
+import { useAuth } from '@/lib/auth/auth-context';
 
 interface Country {
   id: string;
@@ -55,13 +58,6 @@ const errorMessages = {
       spaces: 'Business name cannot start or end with spaces',
       consecutiveSpaces: 'Business name cannot contain multiple consecutive spaces',
     },
-    storeName: {
-      min: 'Store name must be at least 3 characters',
-      max: 'Store name must be at most 100 characters',
-      regex: 'Store name can only contain letters, numbers, spaces, and common punctuation',
-      spaces: 'Store name cannot start or end with spaces',
-      consecutiveSpaces: 'Store name cannot contain multiple consecutive spaces',
-    },
     country: {
       required: 'Please select a country',
     },
@@ -88,13 +84,6 @@ const errorMessages = {
       regex: 'يمكن أن يحتوي اسم العمل فقط على الأحرف والأرقام والمسافات وعلامات الترقيم الشائعة',
       spaces: 'لا يمكن أن يبدأ اسم العمل أو ينتهي بمسافات',
       consecutiveSpaces: 'لا يمكن أن يحتوي اسم العمل على مسافات متتالية متعددة',
-    },
-    storeName: {
-      min: 'يجب أن يكون اسم المتجر على الأقل 3 أحرف',
-      max: 'يجب ألا يتجاوز اسم المتجر 100 حرف',
-      regex: 'يمكن أن يحتوي اسم المتجر فقط على الأحرف والأرقام والمسافات وعلامات الترقيم الشائعة',
-      spaces: 'لا يمكن أن يبدأ اسم المتجر أو ينتهي بمسافات',
-      consecutiveSpaces: 'لا يمكن أن يحتوي اسم المتجر على مسافات متتالية متعددة',
     },
     country: {
       required: 'الرجاء اختيار بلد',
@@ -147,22 +136,6 @@ const createSetupSchema = (locale: 'en' | 'ar' = 'en') => {
         (val) => !/\s{2,}/.test(val),
         errors.businessName.consecutiveSpaces
       ),
-    storeName: z
-      .string()
-      .min(3, errors.storeName.min)
-      .max(100, errors.storeName.max)
-      .regex(
-        /^[a-zA-Z0-9\u0600-\u06FF\s&.,'-]+$/,
-        errors.storeName.regex
-      )
-      .refine(
-        (val) => !/^\s|\s$/.test(val),
-        errors.storeName.spaces
-      )
-      .refine(
-        (val) => !/\s{2,}/.test(val),
-        errors.storeName.consecutiveSpaces
-      ),
     country: z
       .string()
       .min(1, errors.country.required),
@@ -193,8 +166,6 @@ const translations = {
     businessNamePlaceholder: 'Your Company Name',
     businessType: 'Business Type',
     selectBusinessType: 'Select business type',
-    storeName: 'Store Name',
-    storeNamePlaceholder: 'Main Store',
     createBusiness: 'Create Business',
     creating: 'Creating your business...',
     footer: "By continuing, you agree to Haady's Terms of Service and Privacy Policy",
@@ -211,8 +182,6 @@ const translations = {
     businessNamePlaceholder: 'اسم شركتك',
     businessType: 'نوع العمل',
     selectBusinessType: 'اختر نوع العمل',
-    storeName: 'اسم المتجر',
-    storeNamePlaceholder: 'المتجر الرئيسي',
     createBusiness: 'إنشاء العمل',
     creating: 'جاري إنشاء عملك...',
     footer: 'بالمتابعة، أنت توافق على شروط الخدمة وسياسة الخصوصية الخاصة بـ Haady',
@@ -221,8 +190,10 @@ const translations = {
 
 export default function SetupForm() {
   const router = useRouter();
+  const pathname = usePathname();
   const { setLoading } = useLoading();
   const { locale, isRTL } = useLocale();
+  const { user } = useAuth();
   const t = translations[locale] || translations.en;
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [countries, setCountries] = useState<Country[]>([]);
@@ -244,7 +215,6 @@ export default function SetupForm() {
     mode: 'onChange', // Validate on change to enable/disable button in real-time
     defaultValues: {
       businessName: '',
-      storeName: '',
       country: '',
       businessType: '',
       fullName: '',
@@ -252,62 +222,53 @@ export default function SetupForm() {
     },
   });
 
+  // Store setValue in a ref to ensure stable reference for useEffect
+  const setValueRef = useRef(setValue);
+  useEffect(() => {
+    setValueRef.current = setValue;
+  }, [setValue]);
+
   const country = watch('country');
   const selectedCountry = countries.find(c => c.id === country);
   const businessType = watch('businessType');
   const selectedBusinessType = businessTypes.find(bt => (bt.id || bt.value) === businessType);
-  const storeName = watch('storeName');
-
-  // Generate slug from store name
-  const generateSlug = (name: string): string => {
-    if (!name) return '';
-    return name
-      .toLowerCase()
-      .trim()
-      .replace(/[^\w\s-]/g, '') // Remove special characters except word chars, spaces, and hyphens
-      .replace(/[\s_]+/g, '-') // Replace spaces and underscores with hyphens
-      .replace(/-+/g, '-') // Replace multiple hyphens with single hyphen
-      .replace(/^-+|-+$/g, ''); // Remove leading/trailing hyphens
-  };
-
-  // Debounced slug state
-  const [debouncedSlug, setDebouncedSlug] = useState('');
-  const [isSlugLoading, setIsSlugLoading] = useState(false);
-
-  // Debounce slug generation - only generate if input is valid
-  useEffect(() => {
-    if (!storeName || storeName.trim() === '') {
-      setDebouncedSlug('');
-      setIsSlugLoading(false);
-      return;
-    }
-
-    // Check if storeName meets validation requirements
-    const trimmedName = storeName.trim();
-    const hasError = !!errors.storeName;
-    const meetsMinLength = trimmedName.length >= 3;
-
-    // Don't generate slug if validation fails
-    if (hasError || !meetsMinLength) {
-      setDebouncedSlug('');
-      setIsSlugLoading(false);
-      return;
-    }
-
-    setIsSlugLoading(true);
-    const timer = setTimeout(() => {
-      const slug = generateSlug(storeName);
-      setDebouncedSlug(slug);
-      setIsSlugLoading(false);
-    }, 500); // 500ms delay
-
-    return () => {
-      clearTimeout(timer);
-    };
-  }, [storeName, !!errors.storeName]);
 
   // Fetch countries from database directly using Supabase client
   useEffect(() => {
+    const getUserSelectedCountry = async (): Promise<string | null> => {
+      // 1. Try to get from URL pathname (e.g., /ar-ae/setup)
+      const urlCountry = parseLocaleCountry(pathname);
+      if (urlCountry?.country) {
+        return urlCountry.country;
+      }
+
+      // 2. Try to get from cookies
+      const cookieCountry = getLocaleCountryFromCookies();
+      if (cookieCountry?.country) {
+        return cookieCountry.country;
+      }
+
+      // 3. Try to get from user preferences in database (if logged in)
+      const userId = user?.id;
+      if (userId) {
+        try {
+          const { data, error } = await supabase
+            .from('merchant_users')
+            .select('preferred_country')
+            .eq('auth_user_id', userId)
+            .maybeSingle();
+
+          if (!error && data?.preferred_country) {
+            return data.preferred_country;
+          }
+        } catch (error) {
+          console.error('Error loading user country preference:', error);
+        }
+      }
+
+      return null;
+    };
+
     const fetchCountries = async () => {
       try {
         console.log('Fetching countries from database...');
@@ -341,11 +302,20 @@ export default function SetupForm() {
         console.log('Countries fetched from DB:', countriesData?.length || 0);
         setCountries(countriesData || []);
         
-        // Set Saudi Arabia as default country
+        // Set default country based on user's selected country
         if (countriesData && countriesData.length > 0) {
-          const saudiArabia = countriesData.find(c => c.iso2 === 'SA');
-          if (saudiArabia) {
-            setValue('country', saudiArabia.id, { shouldValidate: false });
+          const userCountryCode = await getUserSelectedCountry();
+          
+          // Find country matching user's selection
+          const defaultCountry = userCountryCode
+            ? countriesData.find(c => c.iso2 === userCountryCode.toUpperCase())
+            : null;
+          
+          // Fallback to Saudi Arabia if no user country found
+          const countryToSet = defaultCountry || countriesData.find(c => c.iso2 === 'SA');
+          
+          if (countryToSet) {
+            setValueRef.current('country', countryToSet.id, { shouldValidate: false });
           }
         }
       } catch (error: any) {
@@ -360,7 +330,7 @@ export default function SetupForm() {
     };
 
     fetchCountries();
-  }, [setValue]);
+  }, [pathname, user?.id]);
 
   // Fetch business types from business_types table
   useEffect(() => {
@@ -422,6 +392,7 @@ export default function SetupForm() {
 
     try {
       // Get country data from selected country (values.country stores the country ID)
+      // Country is still used for phone number formatting
       const selectedCountryData = countries.find(c => c.id === values.country);
       if (!selectedCountryData) {
         throw new Error('Please select a valid country');
@@ -433,31 +404,104 @@ export default function SetupForm() {
         ? `+${cleanPhoneCode}${values.mobilePhone}`
         : values.mobilePhone;
 
-      // RPC function parameters (matches the function signature)
+      // Validate all required parameters
+      if (!values.businessName?.trim()) {
+        throw new Error('Business name is required');
+      }
+      if (!values.businessType) {
+        throw new Error('Business type is required');
+      }
+      if (!values.fullName?.trim()) {
+        throw new Error('Full name is required');
+      }
+      if (!values.mobilePhone?.trim()) {
+        throw new Error('Mobile phone is required');
+      }
+
+      // Get user IP address (client-side)
+      let userIpAddress = '';
+      try {
+        // Try to get IP from a service (fallback to empty string)
+        const ipResponse = await fetch('https://api.ipify.org?format=json');
+        if (ipResponse.ok) {
+          const ipData = await ipResponse.json();
+          userIpAddress = ipData.ip || '';
+        }
+      } catch (error) {
+        console.warn('Could not fetch IP address:', error);
+        // Continue with empty string - IP is optional
+      }
+
+      // Fetch latest terms version ID (optional - can be null if not required)
+      let termVersionId: string | null = null;
+      try {
+        const { data: termsData, error: termsError } = await supabase
+          .from('terms_versions')
+          .select('id')
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (!termsError && termsData?.id) {
+          termVersionId = termsData.id;
+        }
+      } catch (error) {
+        console.warn('Could not fetch terms version:', error);
+        // Continue with null - terms version might be optional
+      }
+
+      // RPC function parameters (matches the actual function signature)
+      // Store-related fields are set to null since store setup happens later
       const rpcParams = {
-        business_name: values.businessName,
-        store_name: values.storeName,
-        selected_country_id: selectedCountryData.id,
-        selected_business_type_id: values.businessType, // UUID from business_types table
-        user_full_name: values.fullName,
+        user_full_name: values.fullName.trim(),
         user_phone: fullPhoneNumber,
+        business_name: values.businessName.trim(),
+        selected_business_type_id: values.businessType, // UUID from business_types table
+        selected_category_id: null, // Category will be set up later when creating store
+        store_name: null, // Store setup happens later
+        store_city: null, // Store setup happens later
+        store_lat: null, // Store setup happens later
+        store_lng: null, // Store setup happens later
+        store_address: null, // Store setup happens later
+        term_version_id: termVersionId, // Latest terms version or null
+        user_ip_address: userIpAddress || null, // User IP address or null
       };
 
       console.log('Creating merchant account with:', rpcParams);
+      console.log('RPC params validation:', {
+        user_full_name: typeof rpcParams.user_full_name,
+        user_phone: typeof rpcParams.user_phone,
+        business_name: typeof rpcParams.business_name,
+        selected_business_type_id: typeof rpcParams.selected_business_type_id,
+        selected_category_id: rpcParams.selected_category_id,
+        store_name: rpcParams.store_name,
+        term_version_id: rpcParams.term_version_id,
+        user_ip_address: rpcParams.user_ip_address,
+      });
 
       // Call the RPC function to create merchant and store atomically
       const { data, error } = await supabase.rpc('create_merchant_onboarding', rpcParams);
 
       if (error) {
-        console.error('RPC error:', error);
-        console.error('RPC error details:', {
-          message: error.message,
-          details: error.details,
-          hint: error.hint,
-          code: error.code,
-          fullError: JSON.stringify(error, null, 2),
-        });
-        throw new Error(error.message || error.details || error.hint || 'Failed to create merchant account');
+        // Log comprehensive error information
+        console.error('RPC error object:', error);
+        console.error('RPC error type:', typeof error);
+        console.error('RPC error keys:', Object.keys(error || {}));
+        console.error('RPC error stringified:', JSON.stringify(error, null, 2));
+        console.error('RPC error toString:', String(error));
+        
+        // Extract error message from various possible formats
+        const errorMessage = 
+          error?.message || 
+          error?.details || 
+          error?.hint || 
+          error?.error || 
+          (typeof error === 'string' ? error : null) ||
+          JSON.stringify(error) ||
+          'Failed to create merchant account';
+        
+        console.error('Final error message:', errorMessage);
+        throw new Error(errorMessage);
       }
 
       console.log('RPC response:', data);
@@ -475,13 +519,33 @@ export default function SetupForm() {
       });
       
       setLoading(true, 'Redirecting to dashboard...');
-      router.push('/dashboard');
+      // Get localized URL for dashboard
+      const { getLocalizedUrl } = await import('@/lib/localized-url');
+      const dashboardUrl = getLocalizedUrl('/dashboard', window.location.pathname);
+      router.push(dashboardUrl);
       router.refresh();
       
     } catch (err: any) {
       console.error('Error creating business:', err);
+      console.error('Error type:', typeof err);
+      console.error('Error constructor:', err?.constructor?.name);
+      console.error('Error stack:', err?.stack);
+      
+      // Extract error message from various possible formats
+      const errorMessage = 
+        err?.message || 
+        err?.error?.message ||
+        err?.details || 
+        err?.hint || 
+        err?.error ||
+        (typeof err === 'string' ? err : null) ||
+        (err?.toString && err.toString() !== '[object Object]' ? err.toString() : null) ||
+        'Failed to create business. Please try again.';
+      
+      console.error('Final error message for user:', errorMessage);
+      
       toast.error('Error', {
-        description: err.message || 'Failed to create business. Please try again.',
+        description: errorMessage,
         duration: 5000,
       });
       setLoading(false);
@@ -558,12 +622,12 @@ export default function SetupForm() {
                       <ChevronDown className="h-4 w-4 opacity-50" />
                     </Button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent className="w-[var(--radix-dropdown-menu-trigger-width)]">
+                  <DropdownMenuContent className="w-[var(--radix-dropdown-menu-trigger-width)] rounded-xl overflow-hidden p-1 ml-2">
                     {countries.map((country) => (
                       <DropdownMenuItem
                         key={country.id}
                         onClick={() => setValue('country', country.id, { shouldValidate: true })}
-                        className="cursor-pointer"
+                        className="cursor-pointer rounded-lg"
                       >
                         <Flag countryName={country.name} size="s" />
                         <span>{locale === 'ar' && country.name_ar ? country.name_ar : country.name}</span>
@@ -660,20 +724,20 @@ export default function SetupForm() {
                       <ChevronDown className="h-4 w-4 opacity-50" />
                     </Button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent className="w-[var(--radix-dropdown-menu-trigger-width)]">
+                  <DropdownMenuContent className="w-[var(--radix-dropdown-menu-trigger-width)] rounded-xl overflow-hidden p-1 ml-2">
                     {businessTypes.length > 0 ? (
                       businessTypes.map((type) => (
                         <DropdownMenuItem
                           key={type.id || type.value || type.name}
                           onClick={() => setValue('businessType', type.id || type.value || type.name || '', { shouldValidate: true })}
-                          className="cursor-pointer"
+                          className="cursor-pointer rounded-lg"
                         >
                           {type.icon && <span className="text-lg">{type.icon}</span>}
                           <span>{locale === 'ar' && type.name_ar ? type.name_ar : type.name}</span>
                         </DropdownMenuItem>
                       ))
                     ) : (
-                      <DropdownMenuItem disabled className="text-muted-foreground">
+                      <DropdownMenuItem disabled className="text-muted-foreground rounded-lg">
                         No business types available
                       </DropdownMenuItem>
                     )}
@@ -685,36 +749,6 @@ export default function SetupForm() {
               </div>
             </div>
 
-            {/* Store Name */}
-            <div className="space-y-2">
-              <Label htmlFor="storeName">
-                {t.storeName}
-              </Label>
-              <Input
-                id="storeName"
-                {...register('storeName')}
-                placeholder={t.storeNamePlaceholder}
-                className={`h-12 ${errors.storeName ? 'border-red-500 focus:ring-red-500' : ''}`}
-                disabled={isSubmitting}
-                dir={isRTL ? 'rtl' : 'ltr'}
-              />
-              {(isSlugLoading || debouncedSlug) && (
-                <div className={`flex items-center gap-2 ${isRTL ? 'mr-1' : 'ml-1'}`}>
-                  {isSlugLoading ? (
-                    <Loader2 className="h-3 w-3 animate-spin text-gray-400" />
-                  ) : (
-                    debouncedSlug && (
-                      <p className="text-xs text-gray-500 font-medium">
-                        {debouncedSlug}
-                      </p>
-                    )
-                  )}
-                </div>
-              )}
-              {errors.storeName && (
-                <p className="text-xs text-red-500">{errors.storeName.message}</p>
-              )}
-            </div>
 
 
             {/* Submit */}

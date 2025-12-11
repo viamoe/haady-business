@@ -37,7 +37,6 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 
@@ -80,26 +79,59 @@ function getUserInitials(email: string | undefined) {
   return email.substring(0, 2).toUpperCase()
 }
 
-interface Store {
+interface StoreConnection {
   id: string
-  name: string
-  slug: string
+  platform: string
+  store_external_id: string | null
+  store_name: string | null
+  store_domain: string | null
+  connection_status?: string
+  sync_status?: string
+}
+
+// Platform logos mapping
+const PLATFORM_LOGOS: Record<string, string> = {
+  salla: 'https://rovphhvuuxwbhgnsifto.supabase.co/storage/v1/object/public/assets/ecommerce/salla-icon.png',
+  zid: 'https://rovphhvuuxwbhgnsifto.supabase.co/storage/v1/object/public/assets/ecommerce/zid.svg',
+  shopify: 'https://rovphhvuuxwbhgnsifto.supabase.co/storage/v1/object/public/assets/ecommerce/shopify-icon.png',
+}
+
+// Get platform display name
+function getPlatformName(platform: string): string {
+  const names: Record<string, string> = {
+    salla: 'Salla',
+    zid: 'Zid',
+    shopify: 'Shopify',
+  }
+  return names[platform] || platform.charAt(0).toUpperCase() + platform.slice(1)
+}
+
+// Helper function to detect if text contains Arabic characters
+function containsArabic(text: string): boolean {
+  const arabicPattern = /[\u0600-\u06FF]/
+  return arabicPattern.test(text)
 }
 
 function ProjectSelector() {
   const { user } = useAuth()
   const router = useRouter()
-  const [stores, setStores] = React.useState<Store[]>([])
-  const [selectedStoreId, setSelectedStoreId] = React.useState<string | null>(null)
+  const [connections, setConnections] = React.useState<StoreConnection[]>([])
+  const [selectedConnectionId, setSelectedConnectionId] = React.useState<string | null>(null)
   const [isLoading, setIsLoading] = React.useState(true)
   const [isMounted, setIsMounted] = React.useState(false)
   const hasLoadedRef = React.useRef(false)
 
   React.useEffect(() => {
     setIsMounted(true)
+    
+    // Load selected connection from localStorage
+    const savedConnectionId = localStorage.getItem('selectedStoreConnectionId')
+    if (savedConnectionId) {
+      setSelectedConnectionId(savedConnectionId)
+    }
   }, [])
 
-  const fetchStores = React.useCallback(async () => {
+  const fetchConnections = React.useCallback(async () => {
     if (!user?.id) {
       setIsLoading(false)
       return
@@ -114,30 +146,42 @@ function ProjectSelector() {
     const minLoadingTime = hasLoadedRef.current ? 0 : 800 // Only delay on initial load
 
     try {
-      const { data: merchantUser } = await supabase
-        .from('merchant_users')
-        .select('merchant_id')
-        .eq('auth_user_id', user.id)
-        .maybeSingle()
+      // Fetch store connections
+      const { data: connectionsData, error: connectionsError } = await supabase
+        .from('store_connections')
+        .select('id, platform, store_external_id, store_name, store_domain')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
 
-      if (merchantUser?.merchant_id) {
-        // Fetch stores
-        const { data: storesData, error: storesError } = await supabase
-          .from('stores')
-          .select('id, name, slug')
-          .eq('merchant_id', merchantUser.merchant_id)
-          .order('name', { ascending: true })
-
-        if (!storesError && storesData) {
-          setStores(storesData)
-          // Set first store as selected if available and no store is currently selected
-          if (storesData.length > 0) {
-            setSelectedStoreId(prev => prev || storesData[0].id)
+      if (!connectionsError && connectionsData) {
+        setConnections(connectionsData)
+        
+        // Only auto-select on the very first load (when hasLoadedRef.current is false)
+        // After that, respect user's selection/deselection choices
+        if (connectionsData.length > 0 && !hasLoadedRef.current) {
+          const savedConnectionId = localStorage.getItem('selectedStoreConnectionId')
+          if (savedConnectionId && connectionsData.find(c => c.id === savedConnectionId)) {
+            // Restore saved selection from localStorage
+            setSelectedConnectionId(savedConnectionId)
+          } else if (!savedConnectionId) {
+            // No saved selection, auto-select first connection on initial load only
+            setSelectedConnectionId(connectionsData[0].id)
+            localStorage.setItem('selectedStoreConnectionId', connectionsData[0].id)
+          }
+        } else if (connectionsData.length > 0 && selectedConnectionId) {
+          // On subsequent fetches, verify selected connection still exists
+          const connectionExists = connectionsData.find(c => c.id === selectedConnectionId)
+          if (!connectionExists) {
+            // Selected connection no longer exists, clear selection
+            setSelectedConnectionId(null)
+            localStorage.removeItem('selectedStoreConnectionId')
           }
         }
+        // If selectedConnectionId is null and hasLoadedRef.current is true, 
+        // it means user explicitly deselected - don't auto-select
       }
     } catch (error) {
-      console.error('Error fetching stores:', error)
+      console.error('Error fetching store connections:', error)
     } finally {
       // Ensure minimum loading time to prevent glitchy blinking
       const elapsedTime = Date.now() - startTime
@@ -151,22 +195,22 @@ function ProjectSelector() {
   }, [user?.id])
 
   React.useEffect(() => {
-    fetchStores()
-  }, [fetchStores])
+    fetchConnections()
+  }, [fetchConnections])
 
-  const selectedStore = stores.find(s => s.id === selectedStoreId)
+  const selectedConnection = connections.find(c => c.id === selectedConnectionId)
 
   if (!isMounted) {
     return (
       <SidebarMenu>
         <SidebarMenuItem>
           <SidebarMenuButton size="lg" className="text-foreground opacity-100 !opacity-100" disabled>
-            <Skeleton className="size-8 rounded-lg" />
-            <div className="grid flex-1 text-left text-sm leading-tight gap-1">
+            <Skeleton className="size-8 rounded-lg shrink-0" />
+            <div className="grid flex-1 text-left text-sm leading-tight gap-1 group-data-[collapsible=icon]:hidden">
               <Skeleton className="h-4 w-24" />
               <Skeleton className="h-3 w-16" />
             </div>
-            <Skeleton className="ml-auto size-4 rounded" />
+            <Skeleton className="ml-auto size-4 rounded group-data-[collapsible=icon]:hidden" />
           </SidebarMenuButton>
         </SidebarMenuItem>
       </SidebarMenu>
@@ -181,29 +225,54 @@ function ProjectSelector() {
             <SidebarMenuButton size="lg" className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground hover:bg-sidebar-accent text-foreground opacity-100 !opacity-100" disabled={isLoading}>
               {isLoading ? (
                 <>
-                  <Skeleton className="size-8 rounded-lg" />
-                  <div className="grid flex-1 text-left text-sm leading-tight gap-1">
+                  <Skeleton className="size-8 rounded-lg shrink-0" />
+                  <div className="grid flex-1 text-left text-sm leading-tight gap-1 group-data-[collapsible=icon]:hidden">
                     <Skeleton className="h-4 w-24" />
                     <Skeleton className="h-3 w-16" />
                   </div>
-                  <Skeleton className="ml-auto size-4 rounded" />
+                  <Skeleton className="ml-auto size-4 rounded group-data-[collapsible=icon]:hidden" />
                 </>
               ) : (
-                <div className="flex items-center gap-2 w-full fade-in-content">
-                  <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
-                    <Store className="size-4" />
+                <>
+                  <div className={`flex aspect-square size-8 items-center justify-center rounded-lg shrink-0 overflow-hidden relative border border-gray-200 ${
+                    selectedConnection && PLATFORM_LOGOS[selectedConnection.platform?.toLowerCase()] 
+                      ? '' 
+                      : 'bg-white'
+                  }`}>
+                    {selectedConnection && PLATFORM_LOGOS[selectedConnection.platform?.toLowerCase()] ? (
+                      <img 
+                        src={PLATFORM_LOGOS[selectedConnection.platform?.toLowerCase()]} 
+                        alt={selectedConnection.platform}
+                        className="absolute inset-0 size-full object-cover rounded-lg"
+                      />
+                    ) : (
+                      <Store className="size-4 relative z-10 text-gray-400" />
+                    )}
                   </div>
-                  <div className="grid flex-1 text-left text-sm leading-tight">
-                    <span className="truncate font-semibold text-foreground">{selectedStore?.name || 'Select Store'}</span>
-                    <span className="truncate text-xs text-foreground">Store</span>
+                  <div className="grid flex-1 text-left text-sm leading-tight group-data-[collapsible=icon]:hidden">
+                    <span 
+                      className="truncate font-semibold text-foreground"
+                      style={selectedConnection?.store_name && containsArabic(selectedConnection.store_name)
+                        ? { fontFamily: 'var(--font-ibm-plex-arabic), sans-serif' }
+                        : undefined}
+                    >
+                      {selectedConnection 
+                        ? (selectedConnection.store_name || `${getPlatformName(selectedConnection.platform)} Store`)
+                        : 'Select Store'}
+                    </span>
+                    <span className="truncate text-xs text-gray-500">
+                      {selectedConnection 
+                        ? getPlatformName(selectedConnection.platform)
+                        : connections.length > 0 ? `${connections.length} connected` : 'No stores'}
+                    </span>
                   </div>
-                  <ChevronDown className="ml-auto size-4 text-foreground" />
-                </div>
+                  <ChevronDown className="ml-auto size-4 text-foreground group-data-[collapsible=icon]:hidden" />
+                </>
               )}
             </SidebarMenuButton>
           </DropdownMenuTrigger>
           <DropdownMenuContent
-            className="w-[--radix-dropdown-menu-trigger-width] min-w-56 rounded-lg"
+            className="w-[--radix-dropdown-menu-trigger-width] min-w-56 rounded-xl overflow-hidden p-1 ml-2"
             align="start"
             side="bottom"
             sideOffset={4}
@@ -211,7 +280,7 @@ function ProjectSelector() {
             {/* Stores */}
             {isLoading ? (
               [1, 2, 3].map((i) => (
-                <DropdownMenuItem key={i} disabled className="gap-2">
+                <DropdownMenuItem key={i} disabled className="gap-2 rounded-lg">
                   <Skeleton className="size-6 rounded-md" />
                   <div className="flex flex-col gap-1 flex-1">
                     <Skeleton className="h-4 w-32" />
@@ -220,53 +289,93 @@ function ProjectSelector() {
                 </DropdownMenuItem>
               ))
             ) : (
-              <div className="fade-in-content">
-                {stores.length > 0 ? (
-                  stores.map((store) => {
-                    const isSelected = store.id === selectedStoreId
+              <div className="fade-in-content space-y-1">
+                {connections.length > 0 ? (
+                  connections.map((connection) => {
+                    const isSelected = connection.id === selectedConnectionId
+                    const platformLogo = PLATFORM_LOGOS[connection.platform?.toLowerCase()]
                     return (
                       <DropdownMenuItem
-                        key={store.id}
-                        className={`gap-2 ${isSelected ? 'bg-sidebar-accent text-sidebar-accent-foreground' : 'cursor-pointer'}`}
+                        key={connection.id}
+                        className={`group gap-2 rounded-lg transition-colors ${
+                          isSelected 
+                            ? 'bg-[#F4610B] text-white' 
+                            : 'cursor-pointer hover:bg-[#F4610B]/10 hover:text-[#F4610B]'
+                        }`}
                         onClick={() => {
-                          if (!isSelected) {
-                            setSelectedStoreId(store.id)
-                            router.push(`/dashboard/stores/${store.id}`)
+                          if (isSelected) {
+                            // Deselect if already selected
+                            setSelectedConnectionId(null)
+                            localStorage.removeItem('selectedStoreConnectionId')
+                            window.dispatchEvent(new CustomEvent('storeConnectionChanged', { detail: null }))
+                          } else {
+                            // Select if not selected
+                            setSelectedConnectionId(connection.id)
+                            localStorage.setItem('selectedStoreConnectionId', connection.id)
+                            window.dispatchEvent(new CustomEvent('storeConnectionChanged', { detail: connection.id }))
                           }
                         }}
                       >
-                        <div className="flex size-6 items-center justify-center rounded-md border">
-                          <Store className="size-4" />
+                        <div className={`flex size-6 items-center justify-center rounded-md border overflow-hidden relative ${
+                          platformLogo ? '' : 'bg-white'
+                        }`}>
+                          {platformLogo ? (
+                            <img 
+                              src={platformLogo} 
+                              alt={connection.platform}
+                              className="absolute inset-0 size-full object-cover"
+                            />
+                          ) : (
+                            <Store className="size-4 relative z-10 text-gray-400" />
+                          )}
                         </div>
-                        <div className="flex flex-col">
-                          <span className={isSelected ? 'font-semibold' : ''}>{store.name}</span>
-                          <span className={`text-xs ${isSelected ? 'text-sidebar-accent-foreground/70' : 'text-muted-foreground'}`}>
-                            {isSelected ? 'Current store' : 'Store'}
+                        <div className="flex flex-col flex-1 min-w-0">
+                          <span 
+                            className={`truncate transition-colors ${
+                              isSelected 
+                                ? 'font-semibold text-white' 
+                                : 'group-hover:text-[#F4610B]'
+                            }`}
+                            style={connection.store_name && containsArabic(connection.store_name)
+                              ? { fontFamily: 'var(--font-ibm-plex-arabic), sans-serif' }
+                              : undefined}
+                          >
+                            {connection.store_name || `${getPlatformName(connection.platform)} Store`}
+                          </span>
+                          <span className={`text-xs truncate transition-colors ${
+                            isSelected 
+                              ? 'text-white/70' 
+                              : 'text-muted-foreground group-hover:text-[#F4610B]/70'
+                          }`}>
+                            {getPlatformName(connection.platform)}
                           </span>
                         </div>
                         {isSelected && (
-                          <div className="ml-auto size-2 rounded-full bg-sidebar-primary" />
+                          <div className="ml-auto size-2 rounded-full bg-white shrink-0" />
                         )}
                       </DropdownMenuItem>
                     )
                   })
                 ) : (
-                  <DropdownMenuItem disabled className="text-xs text-muted-foreground">
-                    No stores yet
+                  <DropdownMenuItem disabled className="text-xs text-muted-foreground rounded-lg">
+                    No connected stores
                   </DropdownMenuItem>
                 )}
                 
                 {/* Add Store Button */}
                 <DropdownMenuItem
-                  className="gap-2 cursor-pointer mt-2"
-                  onClick={() => router.push('/dashboard/stores/new')}
+                  className="gap-2 cursor-pointer mt-2 rounded-lg transition-colors hover:bg-[#F4610B]/10 hover:text-[#F4610B]"
+                  onClick={() => {
+                    // Open the onboarding modal
+                    window.dispatchEvent(new CustomEvent('openOnboardingModal'))
+                  }}
                 >
                   <div className="flex size-6 items-center justify-center rounded-md border border-dashed">
                     <Plus className="size-4" />
                   </div>
                   <div className="flex flex-col">
                     <span>Add Store</span>
-                    <span className="text-xs text-muted-foreground">Create a new store</span>
+                    <span className="text-xs text-muted-foreground">Create or connect a store</span>
                   </div>
                 </DropdownMenuItem>
               </div>
@@ -343,7 +452,7 @@ function UserFooter() {
 
   if (!user) {
     return (
-      <div className="text-xs text-muted-foreground px-2 py-1">
+      <div className="text-xs text-muted-foreground px-2 py-1 group-data-[collapsible=icon]:hidden">
         © 2024 Haady
       </div>
     )
@@ -352,19 +461,19 @@ function UserFooter() {
   return (
     <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
       <DropdownMenuTrigger asChild>
-        <button className="flex items-center gap-3 w-full px-2 py-2 rounded-lg hover:bg-sidebar-accent transition-colors group">
+        <button className="flex items-center gap-3 w-full min-w-0 px-2 py-2 rounded-lg hover:bg-sidebar-accent transition-colors group overflow-hidden group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:p-0">
           {isLoading ? (
             <>
-              <Skeleton className="h-8 w-8 rounded-full" />
-              <div className="flex-1 min-w-0 space-y-1.5">
+              <Skeleton className="h-8 w-8 rounded-full shrink-0" />
+              <div className="flex-1 min-w-0 space-y-1.5 group-data-[collapsible=icon]:hidden">
                 <Skeleton className="h-4 w-24" />
                 <Skeleton className="h-3 w-32" />
               </div>
-              <Skeleton className="h-4 w-4 rounded" />
+              <Skeleton className="h-4 w-4 rounded group-data-[collapsible=icon]:hidden" />
             </>
           ) : (
-            <div className="flex items-center gap-3 w-full fade-in-content">
-              <Avatar className="h-8 w-8 !border-0 !shadow-none">
+            <>
+              <Avatar className="h-8 w-8 !border-0 !shadow-none shrink-0">
                 <AvatarImage 
                   src={user.user_metadata?.avatar_url || user.user_metadata?.picture} 
                   alt={fullName || user.email?.split('@')[0] || 'User'}
@@ -379,7 +488,7 @@ function UserFooter() {
                   }
                 </AvatarFallback>
               </Avatar>
-              <div className="flex-1 min-w-0 text-left">
+              <div className="flex-1 min-w-0 text-left group-data-[collapsible=icon]:hidden">
                 <p className="text-sm font-medium truncate">
                   {fullName || user.email?.split('@')[0] || 'User'}
                 </p>
@@ -387,18 +496,18 @@ function UserFooter() {
                   {user.email}
                 </p>
               </div>
-              <ChevronUp className="h-4 w-4 text-muted-foreground shrink-0" />
-            </div>
+              <ChevronUp className="h-4 w-4 text-muted-foreground shrink-0 group-data-[collapsible=icon]:hidden" />
+            </>
           )}
         </button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" side="top" className="w-56 mb-2">
+      <DropdownMenuContent align="start" side="top" className="w-[--radix-dropdown-menu-trigger-width] min-w-[13rem] mb-2 ml-2 rounded-xl overflow-hidden p-1">
         <DropdownMenuItem
           onClick={() => {
             router.push('/dashboard/settings')
             setIsOpen(false)
           }}
-          className="cursor-pointer"
+          className="cursor-pointer rounded-lg"
         >
           <User className="h-4 w-4 mr-2" />
           Profile
@@ -408,18 +517,17 @@ function UserFooter() {
             router.push('/dashboard/settings')
             setIsOpen(false)
           }}
-          className="cursor-pointer"
+          className="cursor-pointer rounded-lg"
         >
           <Settings className="h-4 w-4 mr-2" />
           Settings
         </DropdownMenuItem>
-        <DropdownMenuSeparator />
         <DropdownMenuItem
           onClick={() => {
             handleSignOut()
             setIsOpen(false)
           }}
-          className="cursor-pointer text-destructive focus:text-destructive focus:bg-destructive/10"
+          className="cursor-pointer text-destructive focus:text-destructive focus:bg-destructive/10 rounded-lg"
         >
           <LogOut className="h-4 w-4 mr-2" />
           Sign Out
@@ -503,9 +611,9 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter className="p-2">
-        <SidebarMenu>
-          <SidebarMenuItem>
+      <SidebarFooter>
+        <SidebarMenu className="overflow-hidden">
+          <SidebarMenuItem className="overflow-hidden">
             <UserFooter />
           </SidebarMenuItem>
         </SidebarMenu>

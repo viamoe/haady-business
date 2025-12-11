@@ -14,6 +14,7 @@ import {
   Sparkles,
 } from 'lucide-react'
 import Link from 'next/link'
+import { useLocalizedUrl } from '@/lib/use-localized-url'
 
 interface OnboardingStep {
   id: string
@@ -31,6 +32,7 @@ interface OnboardingPanelProps {
 }
 
 export function OnboardingPanel({ steps, completedCount, totalSteps }: OnboardingPanelProps) {
+  const { localizedUrl } = useLocalizedUrl();
   const progress = (completedCount / totalSteps) * 100
 
   return (
@@ -65,10 +67,15 @@ export function OnboardingPanel({ steps, completedCount, totalSteps }: Onboardin
 
         {/* Steps List */}
         <div className="space-y-2">
-          {steps.map((step, index) => (
+          {steps.map((step, index) => {
+            // Check if href already has locale-country prefix
+            const hasPrefix = /^\/[a-z]{2}-[a-z]{2}/i.test(step.href);
+            const href = hasPrefix ? step.href : localizedUrl(step.href);
+            
+            return (
             <Link
               key={step.id}
-              href={step.href}
+              href={href}
               className="flex items-start gap-3 p-3 rounded-lg hover:bg-white/60 transition-colors group"
             >
               <div className="mt-0.5">
@@ -93,7 +100,8 @@ export function OnboardingPanel({ steps, completedCount, totalSteps }: Onboardin
                 <ArrowRight className="h-4 w-4 text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity shrink-0 mt-0.5" />
               )}
             </Link>
-          ))}
+            );
+          })}
         </div>
 
         {/* Quick Action Button */}
@@ -103,7 +111,7 @@ export function OnboardingPanel({ steps, completedCount, totalSteps }: Onboardin
             className="w-full mt-4"
             variant={completedCount === 0 ? "default" : "outline"}
           >
-            <Link href={steps.find(s => !s.completed)?.href || '/dashboard/stores'}>
+            <Link href={localizedUrl(steps.find(s => !s.completed)?.href || '/dashboard/stores')}>
               {completedCount === 0 ? 'Get Started' : 'Continue Setup'}
               <ArrowRight className="h-4 w-4 ml-2" />
             </Link>

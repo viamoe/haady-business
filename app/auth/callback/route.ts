@@ -1,0 +1,147 @@
+import { createServerClient } from '@supabase/ssr';
+import { cookies } from 'next/headers';
+import { NextResponse } from 'next/server';
+import { getLocalizedUrlFromRequest } from '@/lib/localized-url';
+
+function validateRedirectUrl(url: string, origin: string): string {
+  try {
+    const urlObj = new URL(url, origin);
+    if (urlObj.origin !== origin) {
+      return '/dashboard';
+    }
+    const allowedPaths = ['/dashboard', '/setup'];
+    if (allowedPaths.some(path => urlObj.pathname.startsWith(path))) {
+      return urlObj.pathname + urlObj.search;
+    }
+    return '/dashboard';
+  } catch {
+    return '/dashboard';
+  }
+}
+
+export async function GET(request: Request) {
+  const requestUrl = new URL(request.url);
+  const code = requestUrl.searchParams.get('code');
+  const nextParam = requestUrl.searchParams.get('next');
+  const appType = requestUrl.searchParams.get('app_type');
+  const preferredCountry = requestUrl.searchParams.get('preferred_country') || 'AE';
+  const preferredLanguage = requestUrl.searchParams.get('preferred_language') || 'en';
+  
+  if (!code) {
+    return NextResponse.redirect(new URL('/auth/login', requestUrl.origin));
+  }
+
+  const cookieStore = await cookies();
+  
+  const cookiesToSetOnResponse: Array<{ name: string; value: string; options: any }> = [];
+
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() {
+          return cookieStore.getAll().map(cookie => ({
+            name: cookie.name,
+            value: cookie.value,
+          }));
+        },
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value, options }) => {
+            cookiesToSetOnResponse.push({ name, value, options });
+          });
+        },
+      },
+    }
+  );
+
+  const { data: { session }, error } = await supabase.auth.exchangeCodeForSession(code);
+  
+  if (error) {
+    console.error('Error exchanging code for session:', error);
+    const authUrl = new URL('/auth/login', requestUrl.origin);
+    authUrl.searchParams.set('error', 'auth_failed');
+    return NextResponse.redirect(authUrl);
+  }
+  
+  if (!session || !session.user) {
+    console.error('No session or user after code exchange');
+    const authUrl = new URL('/auth/login', requestUrl.origin);
+    authUrl.searchParams.set('error', 'auth_failed');
+    return NextResponse.redirect(authUrl);
+  }
+
+  if (appType === 'merchant' && session.user) {
+    await supabase.auth.updateUser({
+      data: {
+        app_type: 'merchant',
+        preferred_country: preferredCountry,
+        preferred_language: preferredLanguage,
+      },
+    });
+  }
+
+  let { data: merchantUser, error: merchantError } = await supabase
+    .from('merchant_users')
+    .select('merchant_id')
+    .eq('auth_user_id', session.user.id)
+    .maybeSingle();
+
+  if (!merchantUser && !merchantError && appType === 'merchant') {
+    console.log('Creating merchant_user record for new Google OAuth user');
+    
+    const { data: newMerchantUser, error: createError } = await supabase
+      .from('merchant_users')
+      .insert({
+        auth_user_id: session.user.id,
+        merchant_id: null,
+        role: 'manager',
+        preferred_country: preferredCountry,
+        preferred_language: preferredLanguage,
+        is_primary_contact: true,
+      })
+      .select('merchant_id')
+      .single();
+
+    if (createError) {
+      console.error('Error creating merchant_user:', createError);
+    } else {
+      merchantUser = newMerchantUser;
+      console.log('Successfully created merchant_user record');
+    }
+  }
+
+  let redirectPath: string;
+  if (merchantUser && merchantUser.merchant_id) {
+    redirectPath = validateRedirectUrl(nextParam || '/dashboard', requestUrl.origin);
+  } else {
+    redirectPath = '/setup';
+  }
+  
+  const redirectUrl = new URL(
+    getLocalizedUrlFromRequest(redirectPath, {
+      cookies: {
+        get: (name: string) => {
+          const cookie = cookieStore.get(name);
+          return cookie ? { value: cookie.value } : undefined;
+        }
+      }
+    }),
+    requestUrl.origin
+  );
+
+  const response = NextResponse.redirect(redirectUrl);
+  
+  cookiesToSetOnResponse.forEach(({ name, value, options }) => {
+    response.cookies.set(name, value, {
+      ...options,
+      sameSite: 'lax',
+      secure: process.env.NODE_ENV === 'production',
+      httpOnly: options?.httpOnly ?? true,
+      path: '/',
+    });
+  });
+
+  return response;
+}
+

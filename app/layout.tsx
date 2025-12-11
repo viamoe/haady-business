@@ -2,7 +2,13 @@ import '@/app/globals.css';
 import { ThemeProvider } from '@/components/theme-provider';
 import { AuthProvider } from '@/lib/auth/auth-context';
 import { LoadingProvider } from '@/lib/loading-context';
+import { NetworkStatusProvider } from '@/lib/network-context';
 import { Header } from '@/components/header';
+import { NetworkStatusOverlay, SlowConnectionBanner } from '@/components/network-status-overlay';
+import { OfflineGuard } from '@/components/offline-guard';
+import { AnnouncementProvider } from '@/lib/announcement-context';
+import { AnnouncementModal } from '@/components/announcement-modal';
+import { StickyAnnouncementProvider, StickyAnnouncementBanner } from '@/components/sticky-announcement';
 import { NextIntlClientProvider } from 'next-intl';
 import { getLocale, getMessages } from 'next-intl/server';
 import { LocaleProvider } from '@/i18n/context';
@@ -43,14 +49,26 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <NextIntlClientProvider messages={messages}>
           <LocaleProvider initialLocale={locale}>
             <ThemeProvider defaultTheme="light" storageKey="haady-theme">
-              <LoadingProvider>
-                <AuthProvider>
-                  <Header />
-                    {children}
-                  <Toaster />
-                </AuthProvider>
-              </LoadingProvider>
-        </ThemeProvider>
+              <NetworkStatusProvider>
+                <AnnouncementProvider>
+                  <StickyAnnouncementProvider>
+                    <LoadingProvider>
+                      <AuthProvider>
+                        <OfflineGuard>
+                          <Header />
+                          {children}
+                          <Toaster />
+                          <NetworkStatusOverlay />
+                          <SlowConnectionBanner />
+                          <AnnouncementModal />
+                          <StickyAnnouncementBanner />
+                        </OfflineGuard>
+                      </AuthProvider>
+                    </LoadingProvider>
+                  </StickyAnnouncementProvider>
+                </AnnouncementProvider>
+              </NetworkStatusProvider>
+            </ThemeProvider>
           </LocaleProvider>
         </NextIntlClientProvider>
       </body>

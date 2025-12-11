@@ -1,6 +1,7 @@
 'use client';
 
 import { toast as sonnerToast } from 'sonner';
+import { ErrorType } from './error-handler';
 
 interface ToastOptions {
   description?: string;
@@ -9,6 +10,8 @@ interface ToastOptions {
     label: string;
     onClick: () => void;
   };
+  className?: string;
+  errorType?: ErrorType;
 }
 
 // Custom toast wrapper functions
@@ -21,6 +24,7 @@ export const toast = {
         label: options.action.label,
         onClick: options.action.onClick,
       } : undefined,
+      className: options?.className,
     });
   },
 
@@ -32,6 +36,7 @@ export const toast = {
         label: options.action.label,
         onClick: options.action.onClick,
       } : undefined,
+      className: options?.className,
     });
   },
 
@@ -43,6 +48,7 @@ export const toast = {
         label: options.action.label,
         onClick: options.action.onClick,
       } : undefined,
+      className: options?.className,
     });
   },
 
@@ -54,6 +60,7 @@ export const toast = {
         label: options.action.label,
         onClick: options.action.onClick,
       } : undefined,
+      className: options?.className,
     });
   },
 };

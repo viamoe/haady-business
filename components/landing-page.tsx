@@ -5,10 +5,12 @@ import { useLocale } from '@/i18n/context';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Building2, Store, TrendingUp, Shield, Zap, Users, ArrowRight } from 'lucide-react';
+import { useLocalizedUrl } from '@/lib/use-localized-url';
 
 export default function LandingPage() {
   const t = useTranslations();
   const { isRTL } = useLocale();
+  const { localizedUrl } = useLocalizedUrl();
   return (
     <div className="min-h-screen bg-background">
       {/* Hero Section */}
@@ -22,13 +24,13 @@ export default function LandingPage() {
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center items-center pt-4">
             <Button asChild size="lg" className="text-lg px-8">
-              <Link href="/login">
+              <Link href={localizedUrl('/auth/signup')} suppressHydrationWarning>
                 {t('landing.getStarted')}
                 <ArrowRight className={isRTL ? 'mr-2 rotate-180' : 'ml-2'} style={{ transform: isRTL ? 'rotate(180deg)' : 'none' }} />
               </Link>
             </Button>
             <Button asChild variant="outline" size="lg" className="text-lg px-8">
-              <Link href="/login">{t('landing.learnMore')}</Link>
+              <Link href={localizedUrl('/auth/signup')} suppressHydrationWarning>{t('landing.learnMore')}</Link>
             </Button>
           </div>
         </div>
@@ -130,7 +132,7 @@ export default function LandingPage() {
             </CardHeader>
             <CardContent className="flex justify-center pt-6">
               <Button asChild size="lg" className="text-lg px-8">
-                <Link href="/login">
+                <Link href={localizedUrl('/auth/signup')} suppressHydrationWarning>
                   {t('landing.startFreeTrial')}
                   <ArrowRight className={isRTL ? 'mr-2 rotate-180' : 'ml-2'} style={{ transform: isRTL ? 'rotate(180deg)' : 'none' }} />
                 </Link>
@@ -148,10 +150,10 @@ export default function LandingPage() {
               {t('landing.footer.copyright', { year: new Date().getFullYear() })}
             </p>
             <div className={`flex gap-6 mt-4 md:mt-0 ${isRTL ? 'flex-row-reverse' : ''}`}>
-              <Link href="/login" className="text-sm text-muted-foreground hover:text-foreground">
+              <Link href={localizedUrl('/auth/signup')} className="text-sm text-muted-foreground hover:text-foreground" suppressHydrationWarning>
                 {t('common.getStarted')}
               </Link>
-              <Link href="/login" className="text-sm text-muted-foreground hover:text-foreground">
+              <Link href={localizedUrl('/auth/login')} className="text-sm text-muted-foreground hover:text-foreground" suppressHydrationWarning>
                 {t('landing.footer.signIn')}
               </Link>
             </div>

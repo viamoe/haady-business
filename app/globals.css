@@ -234,6 +234,79 @@ div.text-red-500 {
   animation-duration: 0s !important;
 }
 
+/* Smooth sidebar collapse/expand animations */
+[data-slot="sidebar-container"] {
+  transition: width 0.5s cubic-bezier(0.25, 0.1, 0.25, 1),
+              left 0.5s cubic-bezier(0.25, 0.1, 0.25, 1),
+              right 0.5s cubic-bezier(0.25, 0.1, 0.25, 1) !important;
+}
+
+[data-slot="sidebar-gap"] {
+  transition: width 0.5s cubic-bezier(0.25, 0.1, 0.25, 1) !important;
+}
+
+/* Smooth transitions for sidebar content */
+[data-slot="sidebar-inner"] {
+  transition: opacity 0.4s ease-in-out;
+}
+
+[data-slot="sidebar-menu-button"] {
+  transition: width 0.5s cubic-bezier(0.25, 0.1, 0.25, 1),
+              height 0.5s cubic-bezier(0.25, 0.1, 0.25, 1),
+              padding 0.5s cubic-bezier(0.25, 0.1, 0.25, 1),
+              opacity 0.4s ease-in-out !important;
+}
+
+[data-slot="sidebar-menu-button"] > span:last-child {
+  transition: opacity 0.4s ease-in-out, visibility 0.4s ease-in-out;
+}
+
+/* Style text in expanded sidebar menu buttons */
+[data-slot="sidebar"][data-state="expanded"] [data-slot="sidebar-menu-button"],
+[data-slot="sidebar"]:not([data-state="collapsed"]) [data-slot="sidebar-menu-button"] {
+  font-size: 12px !important;
+  font-weight: 500 !important;
+}
+
+[data-slot="sidebar"][data-state="expanded"] [data-slot="sidebar-menu-button"] span,
+[data-slot="sidebar"]:not([data-state="collapsed"]) [data-slot="sidebar-menu-button"] span {
+  font-size: 12px !important;
+  font-weight: 500 !important;
+}
+
+/* Prevent horizontal scrollbar in entire sidebar */
+[data-slot="sidebar"],
+[data-slot="sidebar-container"],
+[data-slot="sidebar-inner"],
+[data-slot="sidebar-content"],
+[data-slot="sidebar-footer"],
+[data-slot="sidebar-header"],
+[data-slot="sidebar-menu"],
+[data-slot="sidebar-menu-item"],
+[data-slot="sidebar-group"] {
+  overflow-x: hidden !important;
+}
+
+[data-slot="sidebar-footer"] {
+  min-width: 0 !important;
+}
+
+[data-slot="sidebar-footer"] *,
+[data-slot="sidebar-menu"] *,
+[data-slot="sidebar-menu-item"] * {
+  min-width: 0 !important;
+  max-width: 100% !important;
+}
+
+/* Disable transitions on initial load */
+[data-slot="sidebar"][data-initial-load="true"] [data-slot="sidebar-container"],
+[data-slot="sidebar"][data-initial-load="true"] [data-slot="sidebar-gap"],
+[data-slot="sidebar"][data-initial-load="true"] [data-slot="sidebar-inner"],
+[data-slot="sidebar"][data-initial-load="true"] [data-slot="sidebar-menu-button"] {
+  transition-duration: 0s !important;
+}
+
+
 /* Smooth fade-in animation for content */
 @keyframes fadeIn {
   from {
@@ -268,3 +341,443 @@ input[type="submit"]:disabled,
 input[type="button"]:disabled {
   cursor: not-allowed;
 }
+
+/* Product intro animation - spring pop-up effect */
+@keyframes productIntro {
+  0% {
+    opacity: 0;
+    transform: scale(0.3) translateY(30px);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.15) translateY(-5px);
+  }
+  70% {
+    transform: scale(0.95) translateY(2px);
+  }
+  85% {
+    transform: scale(1.05) translateY(-1px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+/* Product floating/flow animation - gentle continuous vertical movement */
+@keyframes productFloat {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-12px);
+  }
+}
+
+.animate-product-intro {
+  opacity: 0;
+}
+
+.animate-product-intro.animate-product-float {
+  /* Combined animations: intro first, then float continuously */
+  animation: 
+    productIntro 0.9s cubic-bezier(0.68, -0.55, 0.265, 1.55) forwards,
+    productFloat 6s ease-in-out infinite;
+  animation-delay: 
+    var(--intro-delay, 0s),
+    var(--float-delay, 1s);
+}
+
+/* Error Toast Custom Styles - Applied via className on Sonner toast */
+.error-toast-custom {
+  @apply rounded-xl;
+}
+
+/* Error Toasts - Match Success Toast Style (Clean white background, colored icons only) */
+
+/* Network Error - Amber icon */
+.error-toast-network [data-icon],
+.error-toast-network svg {
+  @apply !text-amber-600;
+}
+
+.error-toast-network [data-title],
+.error-toast-network [data-sonner-title] {
+  @apply !text-gray-950;
+}
+
+.error-toast-network [data-description],
+.error-toast-network [data-sonner-description] {
+  @apply !text-gray-500;
+}
+
+/* Auth Error - Red icon */
+.error-toast-auth [data-icon],
+.error-toast-auth svg {
+  @apply !text-red-600;
+}
+
+.error-toast-auth [data-title],
+.error-toast-auth [data-sonner-title] {
+  @apply !text-gray-950;
+}
+
+.error-toast-auth [data-description],
+.error-toast-auth [data-sonner-description] {
+  @apply !text-gray-500;
+}
+
+/* Permission Error - Haady Orange icon */
+.error-toast-permission [data-icon],
+.error-toast-permission svg {
+  @apply !text-[#F4610B];
+}
+
+.error-toast-permission [data-title],
+.error-toast-permission [data-sonner-title] {
+  @apply !text-gray-950;
+}
+
+.error-toast-permission [data-description],
+.error-toast-permission [data-sonner-description] {
+  @apply !text-gray-500;
+}
+
+/* Validation Error - Yellow icon */
+.error-toast-validation [data-icon],
+.error-toast-validation svg {
+  @apply !text-yellow-600;
+}
+
+.error-toast-validation [data-title],
+.error-toast-validation [data-sonner-title] {
+  @apply !text-gray-950;
+}
+
+.error-toast-validation [data-description],
+.error-toast-validation [data-sonner-description] {
+  @apply !text-gray-500;
+}
+
+/* Not Found Error - Blue icon */
+.error-toast-not-found [data-icon],
+.error-toast-not-found svg {
+  @apply !text-blue-600;
+}
+
+.error-toast-not-found [data-title],
+.error-toast-not-found [data-sonner-title] {
+  @apply !text-gray-950;
+}
+
+.error-toast-not-found [data-description],
+.error-toast-not-found [data-sonner-description] {
+  @apply !text-gray-500;
+}
+
+/* Server Error - Red icon */
+.error-toast-server [data-icon],
+.error-toast-server svg {
+  @apply !text-red-600;
+}
+
+.error-toast-server [data-title],
+.error-toast-server [data-sonner-title] {
+  @apply !text-gray-950;
+}
+
+.error-toast-server [data-description],
+.error-toast-server [data-sonner-description] {
+  @apply !text-gray-500;
+}
+
+/* API Error - Red icon */
+.error-toast-api [data-icon],
+.error-toast-api svg {
+  @apply !text-red-600;
+}
+
+.error-toast-api [data-title],
+.error-toast-api [data-sonner-title] {
+  @apply !text-gray-950;
+}
+
+.error-toast-api [data-description],
+.error-toast-api [data-sonner-description] {
+  @apply !text-gray-500;
+}
+
+/* Unknown Error - Gray icon */
+.error-toast-unknown [data-icon],
+.error-toast-unknown svg {
+  @apply !text-gray-600;
+}
+
+.error-toast-unknown [data-title],
+.error-toast-unknown [data-sonner-title] {
+  @apply !text-gray-950;
+}
+
+.error-toast-unknown [data-description],
+.error-toast-unknown [data-sonner-description] {
+  @apply !text-gray-500;
+}
+
+/* Success Toast - Animated Check Icon */
+/* Ensure success toast icon is green and properly sized */
+[data-sonner-toast][data-type="success"] [data-icon] svg,
+[data-sonner-toast][data-type="success"] svg {
+  color: rgb(34 197 94) !important; /* green-500 */
+  width: 28px !important; /* size-10 */
+  height: 28px !important;
+  animation: checkmark-appear 0.6s ease-in-out forwards;
+}
+
+/* Animation for check icon when toast appears */
+@keyframes checkmark-appear {
+  0% {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+  50% {
+    transform: scale(1.1);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Animate the checkmark path */
+[data-sonner-toast][data-type="success"] [data-icon] svg path,
+[data-sonner-toast][data-type="success"] svg path {
+  stroke-dasharray: 20;
+  stroke-dashoffset: 20;
+  animation: checkmark-draw 0.6s ease-in-out forwards;
+}
+
+@keyframes checkmark-draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+/* Make all toast icons bigger */
+[data-sonner-toast] [data-icon] svg,
+[data-sonner-toast] svg {
+  width: 28px !important; /* size-10 */
+  height: 28px !important;
+}
+
+/* Align all Sonner toast icons to the first line of text */
+[data-sonner-toast] {
+  @apply !items-start;
+  gap: 1.5rem !important; /* 24px spacing between icon and text */
+  border-radius: 1rem !important; /* 16px - more rounded corners */
+}
+
+/* Override Sonner's border-radius CSS variable */
+[data-sonner-toast],
+[data-sonner-toast] * {
+  --border-radius: 1rem !important;
+  border-radius: 1rem !important;
+}
+
+[data-sonner-toast] [data-icon] {
+  @apply !self-start !mt-0.5;
+  align-items: flex-start !important;
+  margin-right: 0.2rem !important; /* Additional spacing - 16px */
+}
+
+/* Ensure icon container aligns with title */
+[data-sonner-toast] > div:first-child {
+  @apply !items-start;
+  gap: 1.5rem !important; /* 24px spacing between icon and text */
+}
+
+/* Align content wrapper to start */
+[data-sonner-toast] [data-content] {
+  @apply !items-start;
+}
+
+/* Increase spacing in toast content area */
+[data-sonner-toast] > div {
+  gap: 1.5rem !important; /* 24px spacing between icon and text */
+}
+
+/* Sonner Title - Bold and Big size */
+[data-sonner-toast] [data-title],
+[data-sonner-toast] [data-sonner-title] {
+  @apply !font-bold !text-lg;
+  font-size: 0.9rem !important; /* 18px */
+  font-weight: 500 !important;
+  line-height: 1.5 !important;
+  margin-bottom: 0.125rem !important; /* Reduced spacing - 2px */
+}
+
+/* Sonner Description/Message - Regular and smaller size */
+[data-sonner-toast] [data-description],
+[data-sonner-toast] [data-sonner-description] {
+  @apply !font-normal !text-xs;
+  font-size: 0.75rem !important; /* 12px */
+  font-weight: 400 !important;
+  line-height: 1.5 !important;
+  margin-top: 0 !important; /* Remove default margin */
+  color: rgb(107 114 128) !important; /* gray-500 - match error toast text color */
+}
+
+/* Ensure success toast description matches error toast text color */
+[data-sonner-toast][data-type="success"] [data-description],
+[data-sonner-toast][data-type="success"] [data-sonner-description] {
+  color: rgb(107 114 128) !important; /* gray-500 */
+}
+
+/* Apply Arabic font to toasts when locale is Arabic */
+html[dir="rtl"] [data-sonner-toast],
+html[lang="ar"] [data-sonner-toast],
+.font-arabic [data-sonner-toast],
+[data-sonner-toast].font-arabic {
+  font-family: var(--font-ibm-plex-arabic), sans-serif !important;
+}
+
+html[dir="rtl"] [data-sonner-toast] [data-title],
+html[dir="rtl"] [data-sonner-toast] [data-sonner-title],
+html[lang="ar"] [data-sonner-toast] [data-title],
+html[lang="ar"] [data-sonner-toast] [data-sonner-title],
+.font-arabic [data-sonner-toast] [data-title],
+.font-arabic [data-sonner-toast] [data-sonner-title] {
+  font-family: var(--font-ibm-plex-arabic), sans-serif !important;
+}
+
+html[dir="rtl"] [data-sonner-toast] [data-description],
+html[dir="rtl"] [data-sonner-toast] [data-sonner-description],
+html[lang="ar"] [data-sonner-toast] [data-description],
+html[lang="ar"] [data-sonner-toast] [data-sonner-description],
+.font-arabic [data-sonner-toast] [data-description],
+.font-arabic [data-sonner-toast] [data-sonner-description] {
+  font-family: var(--font-ibm-plex-arabic), sans-serif !important;
+}
+
+html[dir="rtl"] [data-sonner-toast] button,
+html[lang="ar"] [data-sonner-toast] button,
+.font-arabic [data-sonner-toast] button {
+  font-family: var(--font-ibm-plex-arabic), sans-serif !important;
+}
+
+/* Action button styling - light gray background, black on hover */
+[data-sonner-toast] [data-action="true"],
+[data-sonner-toast] button[data-action="true"] {
+  background-color: rgb(243 244 246) !important; /* gray-100 */
+  color: rgb(17 24 39) !important; /* gray-900 - black text */
+  border-color: #F4610B !important;
+}
+
+[data-sonner-toast] [data-action="true"]:hover,
+[data-sonner-toast] button[data-action="true"]:hover {
+  background-color: rgb(17 24 39) !important; /* gray-900 */
+  color: white !important;
+}
+
+/* Reduce spacing in content wrapper */
+[data-sonner-toast] [data-content] {
+  gap: 0.125rem !important; /* 2px spacing between title and description */
+}
+
+/* Custom scrollbar styling - Gray thumb, no track */
+.scrollbar-custom {
+  scrollbar-width: thin !important;
+  scrollbar-color: #9CA3AF transparent !important;
+}
+
+.scrollbar-custom::-webkit-scrollbar {
+  width: 8px !important;
+  height: 8px !important;
+}
+
+.scrollbar-custom::-webkit-scrollbar-track {
+  background: transparent !important;
+}
+
+.scrollbar-custom::-webkit-scrollbar-thumb {
+  background: #9CA3AF !important;
+  border-radius: 4px !important;
+  border: none !important;
+}
+
+.scrollbar-custom::-webkit-scrollbar-thumb:hover {
+  background: #6B7280 !important;
+}
+
+/* Force gray scrollbar in modals - more specific selectors */
+[role="dialog"][data-state="open"] [class*="overflow-y-auto"]::-webkit-scrollbar {
+  width: 8px !important;
+}
+
+[role="dialog"][data-state="open"] [class*="overflow-y-auto"]::-webkit-scrollbar-track {
+  background: transparent !important;
+}
+
+[role="dialog"][data-state="open"] [class*="overflow-y-auto"]::-webkit-scrollbar-thumb {
+  background: #9CA3AF !important;
+  border-radius: 4px !important;
+}
+
+[role="dialog"][data-state="open"] [class*="overflow-y-auto"]::-webkit-scrollbar-thumb:hover {
+  background: #6B7280 !important;
+}
+
+/* Firefox scrollbar for modals */
+[role="dialog"][data-state="open"] [class*="overflow-y-auto"] {
+  scrollbar-width: thin !important;
+  scrollbar-color: #9CA3AF transparent !important;
+}
+
+/* Logo pulse animation on hover */
+@keyframes logoPulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.15);
+  }
+}
+
+.hover\:animate-logo-pulse:hover {
+  animation: logoPulse 1.5s ease-in-out infinite;
+}
+
+/* Sidebar scrollbar styling - Gray thumb, no track, always visible */
+[data-slot="sidebar-content"],
+[data-slot="sidebar-inner"],
+[data-sidebar="content"] {
+  scrollbar-width: thin !important;
+  scrollbar-color: #9CA3AF transparent !important;
+}
+
+[data-slot="sidebar-content"]::-webkit-scrollbar,
+[data-slot="sidebar-inner"]::-webkit-scrollbar,
+[data-sidebar="content"]::-webkit-scrollbar {
+  width: 8px !important;
+  height: 8px !important;
+}
+
+[data-slot="sidebar-content"]::-webkit-scrollbar-track,
+[data-slot="sidebar-inner"]::-webkit-scrollbar-track,
+[data-sidebar="content"]::-webkit-scrollbar-track {
+  background: transparent !important;
+}
+
+[data-slot="sidebar-content"]::-webkit-scrollbar-thumb,
+[data-slot="sidebar-inner"]::-webkit-scrollbar-thumb,
+[data-sidebar="content"]::-webkit-scrollbar-thumb {
+  background: #9CA3AF !important;
+  border-radius: 4px !important;
+  border: none !important;
+}
+
+[data-slot="sidebar-content"]::-webkit-scrollbar-thumb:hover,
+[data-slot="sidebar-inner"]::-webkit-scrollbar-thumb:hover,
+[data-sidebar="content"]::-webkit-scrollbar-thumb:hover {
+  background: #6B7280 !important;
+}
+

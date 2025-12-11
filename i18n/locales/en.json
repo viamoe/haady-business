@@ -56,7 +56,7 @@
   "auth": {
     "createAccount": "Create your account",
     "loginToAccount": "Login to your account",
-    "subtitle": "Get paid the same day — no matter how your clients pays.",
+    "subtitle": "Welcome back — let's get you signed in.",
     "signIn": "Sign in to Haady Business",
     "enterEmail": "Enter your email to receive a verification code and get started.",
     "emailAddress": "Email address",
@@ -79,6 +79,7 @@
     "resendIn": "Resend code in {seconds}s",
     "resending": "Sending...",
     "useDifferentEmail": "Use a different email",
+    "changeEmail": "Change email",
     "invalidCode": "Please enter the complete 6-digit code.",
     "codeExpired": "This verification code has expired or is invalid. Please request a new code.",
     "verificationFailed": "Verification Failed",
@@ -86,7 +87,16 @@
     "signedIn": "You have been signed in successfully.",
     "haveAccount": "Have an account?",
     "noAccount": "Don't have an account?",
-    "joinBusinesses": "Join 1,200+ businesses & freelancers in 129+ countries"
+    "joinBusinesses": "Haady plugs into your e-commerce platform in minutes.",
+    "accountRemoved": "Account Removed",
+    "accountRemovedDescription": "Your account has been deleted. Please contact support if you believe this was a mistake.",
+    "createAccountSubtitle": "Join Haady Business — it only takes a moment.",
+    "or": "OR",
+    "createAccountButton": "Create account",
+    "signInButton": "Sign in",
+    "noAccountError": "You don't have an account. Please create one instead.",
+    "errorOccurred": "An error occurred. Please try again.",
+    "googleSignInError": "An error occurred while signing in with Google"
   },
   "setup": {
     "welcome": "Welcome to Haady Business",
@@ -109,6 +119,57 @@
     "websitePlaceholder": "https://example.com",
     "description": "Description",
     "descriptionPlaceholder": "Tell us about your business..."
+  },
+  "footer": {
+    "copyright": "© {year} Haady Business. All rights reserved."
+  },
+  "toast": {
+    "errors": {
+      "network": {
+        "title": "Network Error",
+        "message": "Network connection failed. Please check your internet connection and try again.",
+        "messageSlow": "Connection timeout. Your internet connection is too slow. Please check your connection and try again.",
+        "action": "Refresh"
+      },
+      "auth": {
+        "title": "Authentication Error",
+        "message": "Authentication failed. Please sign in again.",
+        "action": "Login"
+      },
+      "permission": {
+        "title": "Permission Denied",
+        "message": "You don't have permission to perform this action.",
+        "action": "Contact Support"
+      },
+      "validation": {
+        "title": "Validation Error",
+        "message": "Please check your input and try again."
+      },
+      "notFound": {
+        "title": "Not Found",
+        "message": "The requested resource was not found."
+      },
+      "server": {
+        "title": "Server Error",
+        "message": "Server error occurred. Please try again later or contact support.",
+        "action": "Refresh"
+      },
+      "api": {
+        "title": "Request Failed",
+        "message": "Request failed. Please try again.",
+        "action": "Retry"
+      },
+      "unknown": {
+        "title": "Error",
+        "message": "An unexpected error occurred. Please try again."
+      }
+    },
+    "success": {
+      "syncCompleted": "Sync completed",
+      "productsUpdated": "20 products updated",
+      "retrySuccessful": "Retry successful",
+      "operationCompleted": "Operation completed after retry"
+    }
   }
 }
 
