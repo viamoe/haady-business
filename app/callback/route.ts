@@ -77,8 +77,6 @@ export async function GET(request: Request) {
     return NextResponse.redirect(dashboardUrl);
   }
 
-  const cookieStore = await cookies();
-
   // Create Supabase client to verify the user
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
