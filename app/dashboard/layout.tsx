@@ -1032,8 +1032,8 @@ function DashboardLayoutContentInner({
               <div
                 className={cn(
                   'flex items-center gap-2 transition-opacity',
-                  isHoveringSync ? 'duration-0' : 'duration-500 ease-out',
-                  (isSyncing || (lastSyncTime && !isHoveringSync))
+                  'duration-500 ease-out',
+                  (isSyncing || lastSyncTime)
                     ? 'opacity-100 mr-2'
                     : 'opacity-0 mr-0'
                 )}
