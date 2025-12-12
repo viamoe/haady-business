@@ -18,11 +18,11 @@ Currently, `merchant_user` records are created during the setup/onboarding proce
 ### Available Data:
 - ✅ `auth_user_id` - Available immediately after OTP verification
 - ✅ `preferred_country` - Can be extracted from:
-  - URL pathname (e.g., `/en-ae/login` → `AE`)
+  - URL pathname (e.g., `/en-sa/login` → `SA`)
   - Cookies (`country` cookie)
-  - Default: `AE` (UAE)
+  - Default: `SA` (Saudi Arabia)
 - ✅ `preferred_language` - Can be extracted from:
-  - URL pathname (e.g., `/en-ae/login` → `en`)
+  - URL pathname (e.g., `/en-sa/login` → `en`)
   - Cookies (`locale` cookie)
   - Default: `en` (English)
 - ❌ `merchant_id` - Not available (will be NULL until setup)
