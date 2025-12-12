@@ -616,10 +616,39 @@ export async function safeFetch(
     }
 
     try {
+      console.log('🌐 Fetching:', url, { method: options?.method || 'GET' })
       const response = await fetch(url, fetchOptions)
       clearTimeout(timeoutId)
 
+      console.log('📡 Response received:', {
+        url,
+        status: response.status,
+        statusText: response.statusText,
+        ok: response.ok,
+        headers: Object.fromEntries(response.headers.entries()),
+      })
+
       if (!response.ok) {
+        // Log error response before handling
+        const responseClone = response.clone()
+        try {
+          const errorData = await responseClone.json().catch(() => null)
+          console.error('❌ API Error Response:', {
+            url,
+            status: response.status,
+            statusText: response.statusText,
+            errorData,
+          })
+        } catch (e) {
+          const errorText = await responseClone.text().catch(() => 'Could not read response')
+          console.error('❌ API Error Response (text):', {
+            url,
+            status: response.status,
+            statusText: response.statusText,
+            errorText,
+          })
+        }
+        
         await handleFetchError(response, errorOptions?.context, errorOptions?.locale)
         // handleFetchError throws, so this won't execute
         return response

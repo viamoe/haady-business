@@ -648,21 +648,33 @@ function StoreConnectionCard({
 
     setIsSyncing(true)
     try {
-      console.log('Syncing selected products:', selectedProductIds.length, 'products')
+      console.log('🔄 Starting product sync:', {
+        connectionId: connection.id,
+        platform: connection.platform,
+        productCount: selectedProductIds.length,
+        selectedProductIds: selectedProductIds.slice(0, 5), // Log first 5 IDs
+      })
+      
+      const requestBody = { 
+        type: 'all',
+        selectedProductIds: selectedProductIds,
+      }
+      
+      console.log('📤 Sync request body:', requestBody)
+      
       const response = await safeFetch(
         `/api/store-connections/${connection.id}/sync`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ 
-            type: 'all',
-            selectedProductIds: selectedProductIds,
-          }),
+          body: JSON.stringify(requestBody),
         },
         { context: 'Sync selected products' }
       )
 
+      console.log('📥 Sync response status:', response.status, response.statusText)
       const data = await response.json()
+      console.log('📥 Sync response data:', data)
       
       if (!data.success) {
         // Include error details in the error message
