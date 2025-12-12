@@ -28,12 +28,14 @@ BEGIN
     -- onboarding_step default 1, is_onboarded default false,
     -- profile_completion default 0, created_at default now(),
     -- updated_at default now(), username is NULL
+    -- Insert new user record with data from auth.users
+    -- Only include safe fields - let database defaults handle the rest
+    -- Note: country field is skipped as it may be an enum type with constraints
     INSERT INTO public.users (
       id, 
       full_name, 
       avatar_url,
-      preferred_language,
-      country
+      preferred_language
     )
     VALUES (
       NEW.id, 
@@ -50,10 +52,6 @@ BEGIN
       COALESCE(
         NEW.raw_user_meta_data->>'preferred_language',
         'en'
-      ),
-      COALESCE(
-        NEW.raw_user_meta_data->>'preferred_country',
-        'AE'
       )
     );
   END IF;
@@ -80,7 +78,7 @@ CREATE TRIGGER on_auth_user_created
 -- ================================
 
 COMMENT ON FUNCTION public.handle_new_user() IS 
-'Automatically creates a public.users row when a new user signs up via OAuth (Google) or OTP. Extracts full_name, avatar_url, preferred_language, and preferred_country from user metadata. This ensures the public.users record exists for all merchant users.';
+'Automatically creates a public.users row when a new user signs up via OAuth (Google) or OTP. Extracts full_name, avatar_url, and preferred_language from user metadata. Country field is skipped to avoid enum constraint issues. This ensures the public.users record exists for all merchant users.';
 
 -- Note: Cannot add comment to trigger in auth schema (permission restricted)
 -- Trigger: on_auth_user_created fires after INSERT on auth.users
