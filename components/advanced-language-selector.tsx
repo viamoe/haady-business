@@ -29,6 +29,7 @@ import { useAuth } from '@/lib/auth/auth-context';
 import { cn } from '@/lib/utils';
 import { useRouter, usePathname } from 'next/navigation';
 import { useStickyAnnouncement } from '@/lib/use-sticky-announcement';
+import { UserPreferencesCookies, NavigationCookies, UXCookies } from '@/lib/cookies';
 
 // Country-Language mappings
 interface CountryLanguage {
@@ -400,6 +401,10 @@ export function AdvancedLanguageSelector() {
     
     // Update URL with new country and language
     updateURL(countryCode, language);
+    
+    // Save preferences to cookies immediately
+    UserPreferencesCookies.setCountry(countryCode);
+    UserPreferencesCookies.setLocale(language);
     
     // Save preferences to database
     if (user?.id) {

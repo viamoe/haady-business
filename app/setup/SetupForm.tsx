@@ -23,6 +23,7 @@ import { Flag } from '@/components/flag';
 import { useLocale } from '@/i18n/context';
 import { parseLocaleCountry, getLocaleCountryFromCookies } from '@/lib/localized-url';
 import { useAuth } from '@/lib/auth/auth-context';
+import { FormStateCookies, NavigationCookies, UXCookies, UserPreferencesCookies } from '@/lib/cookies';
 
 interface Country {
   id: string;
@@ -594,6 +595,32 @@ export default function SetupForm() {
         if ('success' in data && data.success === false) {
           throw new Error((data as { error?: string }).error || 'Failed to create business');
         }
+        
+        // Clear form draft on successful submission
+        FormStateCookies.clearFormDraft('business_setup');
+        
+        // Save last form data for future reference
+        FormStateCookies.saveLastFormData('business_setup', values);
+        
+        // Save preferences to cookies
+        UserPreferencesCookies.setCountry(preferredCountry);
+        UserPreferencesCookies.setLocale(preferredLanguage);
+        
+        // Mark onboarding as complete
+        UXCookies.setOnboardingComplete(true);
+        
+        // Clear form draft on successful submission
+        FormStateCookies.clearFormDraft('business_setup');
+        
+        // Save last form data for future reference
+        FormStateCookies.saveLastFormData('business_setup', values);
+        
+        // Save preferences to cookies
+        UserPreferencesCookies.setCountry(preferredCountry);
+        UserPreferencesCookies.setLocale(preferredLanguage);
+        
+        // Mark onboarding as complete
+        UXCookies.setOnboardingComplete(true);
         
         // If RPC returned success, trust it - the database transaction is atomic
         if ('success' in data && data.success === true) {

@@ -11,6 +11,7 @@ import { ICON_BUTTON_CLASSES, DEFAULT_ICON_SIZE } from "@/lib/ui-constants"
 
 import { useIsMobile } from "@/hooks/use-mobile"
 import { cn } from "@/lib/utils"
+import { UIStateCookies } from "@/lib/cookies"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Separator } from "@/components/ui/separator"
@@ -100,8 +101,8 @@ function SidebarProvider({
         _setOpen(openState)
       }
 
-      // This sets the cookie to keep the sidebar state.
-      document.cookie = `${SIDEBAR_COOKIE_NAME}=${openState}; path=/; max-age=${SIDEBAR_COOKIE_MAX_AGE}`
+      // This sets the cookie to keep the sidebar state using cookie utility
+      UIStateCookies.setSidebarOpen(openState);
     },
     [setOpenProp, open]
   )

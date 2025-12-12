@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import type { Locale } from './request';
+import { UserPreferencesCookies } from '@/lib/cookies';
 
 interface LocaleContextType {
   locale: Locale;
@@ -26,8 +27,8 @@ export function LocaleProvider({
 
   const setLocale = useCallback((newLocale: Locale) => {
     setLocaleState(newLocale);
-    // Set cookie for server-side
-    document.cookie = `locale=${newLocale};path=/;max-age=31536000`;
+    // Set cookie for server-side using cookie utility
+    UserPreferencesCookies.setLocale(newLocale);
     // Reload to apply new locale
     window.location.reload();
   }, []);
