@@ -71,6 +71,13 @@ export async function GET(request: Request) {
     return NextResponse.redirect(authUrl);
   }
 
+  // Extract full name from Google OAuth user metadata
+  const userFullName = session.user.user_metadata?.full_name || 
+                       session.user.user_metadata?.name ||
+                       session.user.raw_user_meta_data?.full_name ||
+                       session.user.raw_user_meta_data?.name ||
+                       null;
+
   if (appType === 'merchant' && session.user) {
     await supabase.auth.updateUser({
       data: {
@@ -83,7 +90,7 @@ export async function GET(request: Request) {
 
   let { data: merchantUser, error: merchantError } = await supabase
     .from('merchant_users')
-    .select('merchant_id')
+    .select('merchant_id, full_name')
     .eq('auth_user_id', session.user.id)
     .maybeSingle();
 
@@ -98,16 +105,30 @@ export async function GET(request: Request) {
         role: 'manager',
         preferred_country: preferredCountry,
         preferred_language: preferredLanguage,
+        full_name: userFullName,
         is_primary_contact: true,
       })
-      .select('merchant_id')
+      .select('merchant_id, full_name')
       .single();
 
     if (createError) {
       console.error('Error creating merchant_user:', createError);
     } else {
       merchantUser = newMerchantUser;
-      console.log('Successfully created merchant_user record');
+      console.log('Successfully created merchant_user record with full_name:', userFullName);
+    }
+  } else if (merchantUser && userFullName && !merchantUser.full_name) {
+    // Update existing merchant_user with full_name if it's missing
+    console.log('Updating merchant_user with full_name from Google OAuth');
+    const { error: updateError } = await supabase
+      .from('merchant_users')
+      .update({ full_name: userFullName })
+      .eq('auth_user_id', session.user.id);
+
+    if (updateError) {
+      console.error('Error updating merchant_user full_name:', updateError);
+    } else {
+      console.log('Successfully updated merchant_user full_name:', userFullName);
     }
   }
 
