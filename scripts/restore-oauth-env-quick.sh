@@ -5,6 +5,9 @@
 
 set -e
 
+# Disable exit on error for the add_env function to handle errors gracefully
+set +e
+
 echo "🚀 Quick OAuth Environment Variables Restore"
 echo "============================================="
 echo ""
@@ -29,9 +32,24 @@ add_env() {
         return
     fi
     
-    echo "$value" | vercel env add "$var_name" "$env" 2>/dev/null || {
-        echo "⚠️  $var_name might already exist for $env, skipping..."
-    }
+    # Use printf with newline and pipe to vercel env add
+    # Add a small delay to ensure input is processed
+    printf '%s\n' "$value" | timeout 30 vercel env add "$var_name" "$env" 2>&1
+    local exit_code=$?
+    
+    if [ $exit_code -eq 0 ]; then
+        echo "✅ Added $var_name to $env"
+    elif [ $exit_code -eq 124 ]; then
+        echo "⚠️  Timeout adding $var_name to $env (might already exist or need manual input)"
+    else
+        # Check if it's because the variable already exists
+        if vercel env ls 2>/dev/null | grep -q "^$var_name.*$env"; then
+            echo "⚠️  $var_name already exists for $env, skipping..."
+        else
+            echo "❌ Failed to add $var_name for $env (exit code: $exit_code)"
+            echo "   Try running manually: vercel env add $var_name $env"
+        fi
+    fi
 }
 
 # Get values from user
@@ -53,8 +71,11 @@ REDIRECT_URI="https://business.haady.app/callback"
 # Add to Production
 echo ""
 echo "📦 Adding to Production environment..."
+echo "Adding Shopify Client ID..."
 add_env "NEXT_PUBLIC_SHOPIFY_CLIENT_ID" "$SHOPIFY_CLIENT_ID" "production"
+echo "Adding Shopify Client Secret..."
 add_env "SHOPIFY_CLIENT_SECRET" "$SHOPIFY_CLIENT_SECRET" "production"
+echo "Adding Shopify Redirect URI..."
 add_env "NEXT_PUBLIC_SHOPIFY_REDIRECT_URI" "$REDIRECT_URI" "production"
 
 add_env "NEXT_PUBLIC_ZID_CLIENT_ID" "$ZID_CLIENT_ID" "production"
