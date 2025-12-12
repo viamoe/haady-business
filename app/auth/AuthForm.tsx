@@ -448,7 +448,7 @@ export default function AuthForm({ mode, reason }: AuthFormProps) {
   const handleGoogleSignIn = async () => {
     setIsGoogleLoading(true);
     try {
-      let preferredCountry = 'AE';
+      let preferredCountry = 'SA';
       let preferredLanguage = locale;
       
       const urlCountry = parseLocaleCountry(pathname);
@@ -536,7 +536,7 @@ export default function AuthForm({ mode, reason }: AuthFormProps) {
     setIsLoading(true);
     
     try {
-      let preferredCountry = 'AE';
+      let preferredCountry = 'SA';
       let preferredLanguage = locale;
       
       if (isSignupMode) {
@@ -701,7 +701,7 @@ export default function AuthForm({ mode, reason }: AuthFormProps) {
   // Parse locale-country from pathname first, then use locale from context as fallback
   const parsedLocaleCountry = useMemo(() => parseLocaleCountry(pathname), [pathname]);
   const currentLocale = parsedLocaleCountry?.locale || locale;
-  const currentCountry = parsedLocaleCountry?.country || 'AE';
+  const currentCountry = parsedLocaleCountry?.country || 'SA';
   
   const loginUrl = useMemo(() => {
     const cleanPath = '/auth/login'.replace(/^\/[a-z]{2}-[a-z]{2}/i, '') || '/';

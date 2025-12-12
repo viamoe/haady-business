@@ -45,7 +45,7 @@ DECLARE
   v_country_id UUID;
 BEGIN
   -- Store parameter values in variables to avoid ambiguity with column names
-  v_preferred_country := COALESCE(preferred_country, 'AE');
+  v_preferred_country := COALESCE(preferred_country, 'SA');
   v_preferred_language := COALESCE(preferred_language, 'en');
   
   -- Look up country_id from countries table (try countries_master first, then countries)
@@ -62,18 +62,18 @@ BEGIN
     LIMIT 1;
   END IF;
   
-  -- If country not found, try to get default (AE) or first available country
+  -- If country not found, try to get default (SA) or first available country
   IF v_country_id IS NULL THEN
     SELECT id INTO v_country_id
     FROM public.countries_master
-    WHERE iso2 = 'AE'
+    WHERE iso2 = 'SA'
     LIMIT 1;
     
     -- If still not found in countries_master, try countries
     IF v_country_id IS NULL THEN
       SELECT id INTO v_country_id
       FROM public.countries
-      WHERE iso2 = 'AE'
+      WHERE iso2 = 'SA'
       LIMIT 1;
     END IF;
     

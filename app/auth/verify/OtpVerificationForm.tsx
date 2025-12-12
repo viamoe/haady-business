@@ -146,7 +146,7 @@ export default function OtpVerificationForm({ email }: OtpVerificationFormProps)
         // Extract locale and country from pathname or use defaults
         const pathMatch = pathname.match(/^\/([a-z]{2})-([a-z]{2})/i);
         const preferredLanguage = pathMatch ? pathMatch[1] : 'en';
-        const preferredCountry = pathMatch ? pathMatch[2].toUpperCase() : 'AE';
+        const preferredCountry = pathMatch ? pathMatch[2].toUpperCase() : 'SA';
 
         // Create public.users record via API (uses admin client to bypass RLS)
         try {

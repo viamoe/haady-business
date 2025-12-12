@@ -529,7 +529,7 @@ export default function SetupForm() {
       }
 
       // Ensure we have valid values (fallback to defaults)
-      preferredCountry = preferredCountry || selectedCountryData.iso2 || 'AE';
+      preferredCountry = preferredCountry || selectedCountryData.iso2 || 'SA';
       preferredLanguage = preferredLanguage || locale || 'en';
 
       // RPC function parameters (matches the actual function signature)

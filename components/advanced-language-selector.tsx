@@ -234,7 +234,7 @@ export function AdvancedLanguageSelector() {
   useEffect(() => {
     if (isDialogOpen && countryLanguages.length > 0) {
       // Compute current country code
-      const currentCountryCode = selectedCountryCode || userPreferences?.countryCode || countryLanguages[0]?.countryCode || 'AE';
+      const currentCountryCode = selectedCountryCode || userPreferences?.countryCode || countryLanguages[0]?.countryCode || 'SA';
       setTempCountryCode(currentCountryCode);
       setTempLanguage(currentLanguage);
     }

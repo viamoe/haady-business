@@ -25,7 +25,7 @@ export async function GET(request: Request) {
   const code = requestUrl.searchParams.get('code');
   const nextParam = requestUrl.searchParams.get('next');
   const appType = requestUrl.searchParams.get('app_type');
-  const preferredCountry = requestUrl.searchParams.get('preferred_country') || 'AE';
+  const preferredCountry = requestUrl.searchParams.get('preferred_country') || 'SA';
   const preferredLanguage = requestUrl.searchParams.get('preferred_language') || 'en';
   
   if (!code) {

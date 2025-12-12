@@ -40,7 +40,7 @@ export function getLocaleCountryFromCookies(): { locale: Locale; country: string
  * Get default locale and country
  */
 export function getDefaultLocaleCountry(): { locale: Locale; country: string } {
-  return { locale: 'en', country: 'AE' }; // Default to English, UAE
+  return { locale: 'en', country: 'SA' }; // Default to English, Saudi Arabia
 }
 
 /**
@@ -88,7 +88,7 @@ export function getLocalizedUrlFromRequest(
   const countryCookie = request.cookies.get('country');
   
   const locale = (localeCookie?.value || 'en') as Locale;
-  const country = countryCookie?.value || 'AE';
+  const country = countryCookie?.value || 'SA';
   
   const cleanPath = path.replace(/^\/[a-z]{2}-[a-z]{2}/i, '') || '/';
   return `/${locale}-${country.toLowerCase()}${cleanPath === '/' ? '' : cleanPath}`;
