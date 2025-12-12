@@ -25,7 +25,21 @@ SALLA_CLIENT_SECRET=your_salla_client_secret
 NEXT_PUBLIC_SALLA_REDIRECT_URI=https://business.haady.app/callback
 ```
 
-## Adding via Vercel CLI
+## Quick Restore (Recommended)
+
+Use the helper script to restore all OAuth variables interactively:
+
+```bash
+cd haady-business
+./scripts/restore-oauth-env-quick.sh
+```
+
+This script will:
+- Prompt you for all Client IDs and Secrets
+- Automatically set redirect URIs to `https://business.haady.app/callback`
+- Add variables to Production, Preview, and Development environments
+
+## Adding via Vercel CLI (Manual)
 
 Run these commands in the `haady-business` directory:
 
