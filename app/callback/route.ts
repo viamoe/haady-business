@@ -171,9 +171,29 @@ export async function GET(request: Request) {
 
     if (!clientId || !clientSecret) {
       console.error(`Missing ${platform} OAuth credentials`);
+      console.error(`Environment check:`, {
+        platform,
+        clientId: clientId ? `${clientId.substring(0, 8)}...` : 'MISSING',
+        clientSecret: clientSecret ? '***' + clientSecret.slice(-4) : 'MISSING',
+        redirectUri,
+        envVars: {
+          shopify: {
+            clientId: process.env.NEXT_PUBLIC_SHOPIFY_CLIENT_ID ? 'SET' : 'MISSING',
+            secret: process.env.SHOPIFY_CLIENT_SECRET ? 'SET' : 'MISSING',
+          },
+          zid: {
+            clientId: process.env.NEXT_PUBLIC_ZID_CLIENT_ID ? 'SET' : 'MISSING',
+            secret: process.env.ZID_CLIENT_SECRET ? 'SET' : 'MISSING',
+          },
+          salla: {
+            clientId: process.env.NEXT_PUBLIC_SALLA_CLIENT_ID ? 'SET' : 'MISSING',
+            secret: process.env.SALLA_CLIENT_SECRET ? 'SET' : 'MISSING',
+          },
+        }
+      });
       const dashboardUrl = getDashboardUrl();
       dashboardUrl.searchParams.set('error', `${platform}_connection_failed`);
-      dashboardUrl.searchParams.set('message', 'Server configuration error');
+      dashboardUrl.searchParams.set('message', encodeURIComponent(`OAuth credentials not configured. Please set ${platform.toUpperCase()}_CLIENT_ID and ${platform.toUpperCase()}_CLIENT_SECRET in your .env.local file. See docs/troubleshooting/localhost-oauth-setup.md`));
       return NextResponse.redirect(dashboardUrl);
     }
 
