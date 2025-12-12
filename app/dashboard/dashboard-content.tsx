@@ -700,31 +700,62 @@ function StoreConnectionCard({
         last_error: null,
       }))
     } catch (error: any) {
-      // Log the full error for debugging
-      console.error('❌ Sync error details:', {
-        message: error?.message,
-        error: error?.error,
-        details: error?.details,
-        originalError: error?.originalError,
-        type: error?.type,
-        statusCode: error?.statusCode,
-        fullError: error,
-      })
+      // Log the full error for debugging - extract all possible error properties
+      const errorInfo: any = {}
+      
+      // Try to extract all possible error properties
+      try {
+        errorInfo.message = error?.message
+        errorInfo.error = error?.error
+        errorInfo.details = error?.details
+        errorInfo.originalError = error?.originalError
+        errorInfo.type = error?.type
+        errorInfo.statusCode = error?.statusCode
+        errorInfo.status = error?.status
+        errorInfo.name = error?.name
+        errorInfo.code = error?.code
+        errorInfo.context = error?.context
+        errorInfo.retryable = error?.retryable
+        
+        // Try to stringify the full error
+        try {
+          errorInfo.fullErrorString = JSON.stringify(error, Object.getOwnPropertyNames(error))
+        } catch (e) {
+          errorInfo.fullErrorString = 'Could not stringify error'
+        }
+        
+        // Try to get error as string
+        errorInfo.errorString = String(error)
+        errorInfo.errorToString = error?.toString?.()
+      } catch (extractError) {
+        errorInfo.extractionError = String(extractError)
+      }
+      
+      console.error('❌ Sync error details:', errorInfo)
+      console.error('❌ Raw error object:', error)
+      
+      // Extract error message from various possible locations
+      const errorMessage = 
+        error?.message || 
+        error?.error || 
+        error?.details?.message || 
+        error?.details?.error ||
+        error?.originalError?.message ||
+        error?.originalError?.error ||
+        'Failed to sync products'
       
       // Handle specific error cases
-      if (error?.originalError?.requiresReauth || error?.details?.requiresReauth) {
+      if (error?.originalError?.requiresReauth || error?.details?.requiresReauth || error?.requiresReauth) {
         handleError(error, {
           context: 'Sync selected products',
           showToast: true,
           fallbackMessage: 'Token expired. Please reconnect your store.',
         })
       } else {
-        // Extract the actual error message from the API response if available
-        const apiErrorMessage = error?.details?.message || error?.error || error?.message
         handleError(error, {
           context: 'Sync selected products',
           showToast: true,
-          fallbackMessage: apiErrorMessage || 'Failed to sync products. Please try again.',
+          fallbackMessage: errorMessage,
         })
       }
       
