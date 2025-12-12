@@ -12,10 +12,58 @@ export interface CookieOptions {
 }
 
 /**
+ * Get a cookie value by name
+ */
+export function getCookie(name: string): string | null {
+  if (typeof window === 'undefined') return null;
+
+  const cookies = document.cookie.split('; ');
+  const cookie = cookies.find(row => row.startsWith(`${encodeURIComponent(name)}=`));
+
+  if (cookie) {
+    return decodeURIComponent(cookie.split('=')[1]);
+  }
+
+  return null;
+}
+
+/**
+ * Check if user has given cookie consent
+ * Used internally to respect user preferences
+ */
+function hasCookieConsent(): boolean {
+  if (typeof window === 'undefined') return true; // Server-side: allow cookies
+  const consent = getCookie('cookie_consent');
+  return consent === 'accepted';
+}
+
+/**
+ * Check if user has given cookie consent
+ * This function is exported and can be used by components
+ */
+export function checkCookieConsent(): boolean {
+  return hasCookieConsent();
+}
+
+/**
  * Set a cookie with options
+ * Respects user's cookie consent preference for non-essential cookies
  */
 export function setCookie(name: string, value: string, options: CookieOptions = {}): void {
   if (typeof window === 'undefined') return;
+
+  // Check if this is an essential cookie (always allowed)
+  const essentialCookies = [
+    'sb-access-token',
+    'sb-refresh-token',
+    'cookie_consent',
+    COOKIE_NAMES.OAUTH_ORIGIN,
+  ];
+
+  // If not essential and user hasn't consented, don't set the cookie
+  if (!essentialCookies.includes(name) && !hasCookieConsent()) {
+    return;
+  }
 
   const {
     maxAge = 31536000, // 1 year default
@@ -51,21 +99,6 @@ export function setCookie(name: string, value: string, options: CookieOptions = 
   document.cookie = cookieString;
 }
 
-/**
- * Get a cookie value by name
- */
-export function getCookie(name: string): string | null {
-  if (typeof window === 'undefined') return null;
-
-  const cookies = document.cookie.split('; ');
-  const cookie = cookies.find(row => row.startsWith(`${encodeURIComponent(name)}=`));
-
-  if (cookie) {
-    return decodeURIComponent(cookie.split('=')[1]);
-  }
-
-  return null;
-}
 
 /**
  * Delete a cookie

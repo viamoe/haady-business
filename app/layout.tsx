@@ -9,6 +9,7 @@ import { OfflineGuard } from '@/components/offline-guard';
 import { AnnouncementProvider } from '@/lib/announcement-context';
 import { AnnouncementModal } from '@/components/announcement-modal';
 import { StickyAnnouncementProvider, StickyAnnouncementBanner } from '@/components/sticky-announcement';
+import { CookieConsent } from '@/components/cookie-consent';
 import { NextIntlClientProvider } from 'next-intl';
 import { getLocale, getMessages } from 'next-intl/server';
 import { LocaleProvider } from '@/i18n/context';
@@ -62,6 +63,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                           <SlowConnectionBanner />
                           <AnnouncementModal />
                           <StickyAnnouncementBanner />
+                          <CookieConsent />
                         </OfflineGuard>
                       </AuthProvider>
                     </LoadingProvider>
