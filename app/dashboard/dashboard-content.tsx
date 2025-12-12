@@ -665,7 +665,10 @@ function StoreConnectionCard({
       const data = await response.json()
       
       if (!data.success) {
-        throw new Error(data.error || 'Sync failed')
+        // Include error details in the error message
+        const errorMessage = data.error || data.message || 'Sync failed'
+        const errorDetails = data.details ? ` Details: ${JSON.stringify(data.details)}` : ''
+        throw new Error(`${errorMessage}${errorDetails}`)
       }
       
       // Show detailed success message
@@ -697,24 +700,38 @@ function StoreConnectionCard({
         last_error: null,
       }))
     } catch (error: any) {
+      // Log the full error for debugging
+      console.error('❌ Sync error details:', {
+        message: error?.message,
+        error: error?.error,
+        details: error?.details,
+        originalError: error?.originalError,
+        type: error?.type,
+        statusCode: error?.statusCode,
+        fullError: error,
+      })
+      
       // Handle specific error cases
-      if (error?.originalError?.requiresReauth) {
+      if (error?.originalError?.requiresReauth || error?.details?.requiresReauth) {
         handleError(error, {
           context: 'Sync selected products',
           showToast: true,
           fallbackMessage: 'Token expired. Please reconnect your store.',
         })
       } else {
+        // Extract the actual error message from the API response if available
+        const apiErrorMessage = error?.details?.message || error?.error || error?.message
         handleError(error, {
           context: 'Sync selected products',
           showToast: true,
+          fallbackMessage: apiErrorMessage || 'Failed to sync products. Please try again.',
         })
       }
       
       setLocalConnection(prev => ({
         ...prev,
         sync_status: 'error',
-        last_error: error?.message || 'Unknown error',
+        last_error: error?.message || error?.error || 'Unknown error',
       }))
       throw error // Re-throw to prevent modal from closing
     } finally {

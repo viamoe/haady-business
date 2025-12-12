@@ -231,10 +231,16 @@ export async function POST(
       stack: error.stack,
     }
 
+    // Include more context in the error response
     return NextResponse.json(
       { 
+        success: false,
         error: errorMessage,
         details: errorDetails,
+        // Include platform and sync type for debugging
+        platform: connection?.platform,
+        syncType,
+        selectedProductIdsCount: selectedProductIds?.length || 0,
       },
       { status: 500 }
     )
