@@ -123,6 +123,40 @@
   body {
     @apply bg-background text-foreground;
   }
+  
+  /* Apply IBM Plex Sans Arabic font to all Arabic text by default */
+  html[lang="ar"] *,
+  html[dir="rtl"] *,
+  [lang="ar"],
+  [lang="ar"] *,
+  [dir="rtl"],
+  [dir="rtl"] * {
+    font-family: var(--font-ibm-plex-arabic), sans-serif !important;
+  }
+  
+  /* Apply IBM font to elements containing Arabic characters */
+  *:lang(ar),
+  *[lang="ar"] {
+    font-family: var(--font-ibm-plex-arabic), sans-serif !important;
+  }
+  
+  /* Apply IBM font to all text elements when Arabic locale is active */
+  html[lang="ar"] body,
+  html[lang="ar"] body *,
+  html[dir="rtl"] body,
+  html[dir="rtl"] body * {
+    font-family: var(--font-ibm-plex-arabic), sans-serif !important;
+  }
+  
+  /* Apply IBM font to elements with Arabic data attributes or classes */
+  [data-arabic="true"],
+  [data-arabic="true"] *,
+  .arabic-text,
+  .arabic-text *,
+  [class*="arabic"],
+  [class*="Arabic"] {
+    font-family: var(--font-ibm-plex-arabic), sans-serif !important;
+  }
 }
 
 @keyframes fadeInUp {
@@ -272,6 +306,63 @@ div.text-red-500 {
 [data-slot="sidebar"]:not([data-state="collapsed"]) [data-slot="sidebar-menu-button"] span {
   font-size: 14px !important;
   font-weight: 500 !important;
+}
+
+/* Fix sidebar menu button hover and active states */
+[data-slot="sidebar-menu-button"] {
+  opacity: 1 !important;
+}
+
+/* Non-selected items: muted with hover effect */
+[data-slot="sidebar-menu-button"]:not([data-active="true"]) {
+  color: hsl(var(--muted-foreground)) !important;
+}
+
+[data-slot="sidebar-menu-button"]:not([data-active="true"]) span,
+[data-slot="sidebar-menu-button"]:not([data-active="true"]) svg,
+[data-slot="sidebar-menu-button"]:not([data-active="true"]) a {
+  color: hsl(var(--muted-foreground)) !important;
+}
+
+[data-slot="sidebar-menu-button"]:not([data-active="true"]):hover {
+  background-color: hsl(var(--sidebar-accent)) !important;
+}
+
+[data-slot="sidebar-menu-button"]:not([data-active="true"]):hover span,
+[data-slot="sidebar-menu-button"]:not([data-active="true"]):hover svg,
+[data-slot="sidebar-menu-button"]:not([data-active="true"]):hover a {
+  color: hsl(var(--sidebar-foreground)) !important;
+}
+
+/* Selected item: subtle gray background */
+[data-slot="sidebar-menu-button"][data-active="true"] {
+  background-color: rgb(243 244 246) !important; /* gray-100 */
+  font-weight: 600 !important;
+}
+
+[data-slot="sidebar-menu-button"][data-active="true"] span,
+[data-slot="sidebar-menu-button"][data-active="true"] svg,
+[data-slot="sidebar-menu-button"][data-active="true"] a {
+  color: hsl(var(--sidebar-foreground)) !important;
+}
+
+[data-slot="sidebar-menu-button"][data-active="true"]:hover {
+  background-color: rgb(243 244 246) !important; /* gray-100 */
+}
+
+[data-slot="sidebar-menu-button"][data-active="true"]:hover span,
+[data-slot="sidebar-menu-button"][data-active="true"]:hover svg,
+[data-slot="sidebar-menu-button"][data-active="true"]:hover a {
+  color: hsl(var(--sidebar-foreground)) !important;
+}
+
+/* Dark mode support */
+.dark [data-slot="sidebar-menu-button"][data-active="true"] {
+  background-color: rgb(31 41 55) !important; /* gray-800 */
+}
+
+.dark [data-slot="sidebar-menu-button"][data-active="true"]:hover {
+  background-color: rgb(31 41 55) !important; /* gray-800 */
 }
 
 /* Prevent horizontal scrollbar in entire sidebar */

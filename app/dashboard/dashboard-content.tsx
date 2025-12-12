@@ -24,13 +24,7 @@ import {
   Users,
   CreditCard,
   Truck,
-  Link2,
   ExternalLink,
-  RefreshCw,
-  X,
-  AlertCircle,
-  Clock,
-  Loader2,
 } from 'lucide-react'
 import Image from 'next/image'
 import Link from 'next/link'
@@ -39,18 +33,8 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { useState, useEffect, useRef, useMemo, useCallback, memo } from 'react'
 import { usePathname } from 'next/navigation'
 import { toast } from '@/lib/toast'
-import { handleError, safeFetch } from '@/lib/error-handler'
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog'
-import { ProductApprovalModal, ProductPreview } from '@/components/product-approval-modal'
+import { useStoreConnection } from '@/lib/store-connection-context'
+import { supabase } from '@/lib/supabase/client'
 
 interface StoreConnection {
   id: string
@@ -173,22 +157,111 @@ const ECOMMERCE_STORAGE_URL = 'https://rovphhvuuxwbhgnsifto.supabase.co/storage/
 export function DashboardContent({ 
   userName, 
   merchantName, 
-  storeCount,
-  productCount,
-  hasStore,
-  hasProducts,
+  storeCount: initialStoreCount,
+  productCount: initialProductCount,
+  hasStore: initialHasStore,
+  hasProducts: initialHasProducts,
   hasPaymentConfigured,
   hasShippingConfigured,
-  isSetupComplete,
+  isSetupComplete: initialIsSetupComplete,
   storeConnections = [],
 }: DashboardContentProps) {
   const pathname = usePathname()
+  const { selectedConnectionId } = useStoreConnection()
   const [isLoading, setIsLoading] = useState(true)
+  const [storeCount, setStoreCount] = useState(initialStoreCount)
+  const [productCount, setProductCount] = useState(initialProductCount)
+  const [hasStore, setHasStore] = useState(initialHasStore)
+  const [hasProducts, setHasProducts] = useState(initialHasProducts)
+  const [isSetupComplete, setIsSetupComplete] = useState(initialIsSetupComplete)
   const hasLoadedRef = useRef(false)
   
   // Get page name from pathname
   const pageName = pathname.split('/').filter(Boolean).pop() || 'Dashboard'
   const capitalizedPageName = pageName.charAt(0).toUpperCase() + pageName.slice(1)
+
+  // Fetch store-specific data when selected connection changes
+  useEffect(() => {
+    const fetchStoreData = async () => {
+      if (!selectedConnectionId) {
+        // No store selected, show all data
+        setStoreCount(initialStoreCount)
+        setProductCount(initialProductCount)
+        setHasStore(initialHasStore)
+        setHasProducts(initialHasProducts)
+        setIsSetupComplete(initialIsSetupComplete)
+        return
+      }
+
+      try {
+        // Fetch stores for this connection
+        const { data: storeRecords, error: storesError, count: storeCount } = await supabase
+          .from('stores')
+          .select('id', { count: 'exact' })
+          .eq('store_connection_id', selectedConnectionId)
+          .eq('is_active', true)
+
+        if (storesError) {
+          console.error('Error fetching stores:', storesError)
+          // If error, fall back to showing all data
+          setStoreCount(initialStoreCount)
+          setProductCount(initialProductCount)
+          setHasStore(initialHasStore)
+          setHasProducts(initialHasProducts)
+          setIsSetupComplete(initialIsSetupComplete)
+          return
+        }
+
+        const storeCountForConnection = storeCount || 0
+        const storeIds = storeRecords?.map(s => s.id) || []
+
+        // If no stores found, return early
+        if (storeCountForConnection === 0 || storeIds.length === 0) {
+          setStoreCount(0)
+          setProductCount(0)
+          setHasStore(false)
+          setHasProducts(false)
+          setIsSetupComplete(false)
+          return
+        }
+
+        // Fetch products for stores from this connection
+        const { count: productCount, error: productsError } = await supabase
+          .from('products')
+          .select('id', { count: 'exact', head: true })
+          .in('store_id', storeIds)
+
+        if (productsError) {
+          console.error('Error fetching products:', productsError)
+          // If products query fails, still set store count but set products to 0
+          setStoreCount(storeCountForConnection)
+          setProductCount(0)
+          setHasStore(storeCountForConnection > 0)
+          setHasProducts(false)
+          setIsSetupComplete(false)
+          return
+        }
+
+        const productCountForConnection = productCount || 0
+
+        setStoreCount(storeCountForConnection)
+        setProductCount(productCountForConnection)
+        setHasStore(storeCountForConnection > 0)
+        setHasProducts(productCountForConnection > 0)
+        setIsSetupComplete(storeCountForConnection > 0 && productCountForConnection > 0 && hasPaymentConfigured && hasShippingConfigured)
+      } catch (error) {
+        console.error('Error fetching store data:', error)
+        // Fall back to showing all data on error
+        setStoreCount(initialStoreCount)
+        setProductCount(initialProductCount)
+        setHasStore(initialHasStore)
+        setHasProducts(initialHasProducts)
+        setIsSetupComplete(initialIsSetupComplete)
+      }
+    }
+
+    fetchStoreData()
+  }, [selectedConnectionId, initialStoreCount, initialProductCount, initialHasStore, initialHasProducts, initialIsSetupComplete, hasPaymentConfigured, hasShippingConfigured])
 
   useEffect(() => {
     // Only show skeleton on initial mount, not on subsequent renders
@@ -272,718 +345,26 @@ export function DashboardContent({
                 {getGreeting()}, {userName}! 👋
               </h1>
               <p className="text-muted-foreground mt-1">
-                Here's what's happening with <span className="font-medium text-foreground">{merchantName}</span> today.
+                {selectedConnectionId ? (
+                  <>
+                    Viewing dashboard for <span className="font-medium text-foreground">
+                      {storeConnections.find(c => c.id === selectedConnectionId)?.store_name || 
+                       storeConnections.find(c => c.id === selectedConnectionId)?.platform || 
+                       'selected store'}
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    Here's what's happening with <span className="font-medium text-foreground">{merchantName}</span> today.
+                  </>
+                )}
               </p>
             </div>
           </div>
 
-          {/* Store Connections Card */}
-          {storeConnections.length > 0 && (
-            <Card className="border-2 border-emerald-100 bg-emerald-50/50">
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Link2 className="h-5 w-5 text-emerald-600" />
-                    <CardTitle className="text-lg">Connected Stores</CardTitle>
-                  </div>
-                  <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200">
-                    {storeConnections.length} {storeConnections.length === 1 ? 'Store' : 'Stores'}
-                  </Badge>
-                </div>
-                <CardDescription>
-                  Your e-commerce platforms are synced and ready to use
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {storeConnections.map((connection) => {
-                    if (!connection.id) {
-                      if (process.env.NODE_ENV === 'development') {
-                        console.error('Connection missing ID:', connection)
-                      }
-                      return null
-                    }
-                    return (
-                      <StoreConnectionCard
-                        key={connection.id}
-                        connection={connection}
-                        onDisconnect={() => window.location.reload()}
-                      />
-                    )
-                  })}
-                </div>
-              </CardContent>
-            </Card>
-          )}
         </div>
       )}
     </div>
   )
 }
-
-// Store Connection Card Component - Memoized to prevent unnecessary re-renders
-const StoreConnectionCard = memo(function StoreConnectionCard({
-  connection,
-  onDisconnect,
-}: {
-  connection: StoreConnection
-  onDisconnect: () => void
-}) {
-  const [isDisconnecting, setIsDisconnecting] = useState(false)
-  const [isSyncing, setIsSyncing] = useState(false)
-  const [isRefreshing, setIsRefreshing] = useState(false)
-  const [isRefreshingStoreInfo, setIsRefreshingStoreInfo] = useState(false)
-  const [showDisconnectDialog, setShowDisconnectDialog] = useState(false)
-  const [localConnection, setLocalConnection] = useState(connection)
-  const [showApprovalModal, setShowApprovalModal] = useState(false)
-  const [previewProducts, setPreviewProducts] = useState<ProductPreview[]>([])
-  const [isLoadingPreview, setIsLoadingPreview] = useState(false)
-
-  // Memoize callback functions to prevent unnecessary re-renders
-  const handleRefreshStoreInfo = useCallback(async () => {
-    if (!connection.id) return
-
-    setIsRefreshingStoreInfo(true)
-    try {
-      const response = await safeFetch(
-        `/api/store-connections/${connection.id}/refresh-store-info`,
-        { method: 'POST' },
-        { context: 'Refresh store info', showToast: false } // Don't show toast for auto-fetch
-      )
-
-      const data = await response.json()
-      toast.success(`Store info refreshed: ${data.store_name || 'Updated'}`)
-      
-      // Update local connection state
-      setLocalConnection(prev => ({
-        ...prev,
-        store_name: data.store_name || prev.store_name,
-        store_domain: data.store_domain || prev.store_domain,
-        store_external_id: data.store_external_id || prev.store_external_id,
-      }))
-      
-      // Trigger parent refresh to update the list
-      onDisconnect() // This will trigger a refresh
-    } catch (error: any) {
-      // Only show error if it's not a network error (to avoid spam for auto-fetch)
-      if (error?.type !== 'NETWORK') {
-        handleError(error, {
-          context: 'Refresh store information',
-          showToast: true,
-        })
-      } else {
-        // Silently log network errors for auto-fetch - only in development
-        if (process.env.NODE_ENV === 'development') {
-          console.debug('Auto-fetch store info failed (network unavailable):', error)
-        }
-      }
-    } finally {
-      setIsRefreshingStoreInfo(false)
-    }
-  }, [connection.id, onDisconnect])
-
-  // Auto-fetch store info if missing on mount - combined with memoized callback
-  useEffect(() => {
-    // Only fetch if store_name is missing and we have a connection ID
-    if (connection.id && (!connection.store_name || !connection.store_external_id)) {
-      // Only log in development
-      if (process.env.NODE_ENV === 'development') {
-        console.log('🔄 Auto-fetching store info for connection:', connection.id)
-      }
-      // Use a small delay to avoid race conditions
-      const timer = setTimeout(() => {
-        handleRefreshStoreInfo().catch((error) => {
-          // Silently handle auto-fetch errors - only log in development
-          if (process.env.NODE_ENV === 'development') {
-            console.debug('Auto-fetch store info failed:', error)
-          }
-        })
-      }, 1000)
-      return () => clearTimeout(timer)
-    }
-  }, [connection.id, connection.store_name, connection.store_external_id]) // Proper dependencies
-
-  // Memoize platform logo and health status calculations
-  const platformLogo = useMemo(() => {
-    const platform = localConnection.platform?.toLowerCase()
-    if (platform === 'salla') return `${ECOMMERCE_STORAGE_URL}/salla-logo.png`
-    if (platform === 'zid') return `${ECOMMERCE_STORAGE_URL}/zid-logo.png`
-    if (platform === 'shopify') return `${ECOMMERCE_STORAGE_URL}/shopify-logo.png`
-    return null
-  }, [localConnection.platform])
-
-  // Memoize connection health calculations
-  const { isExpired, healthStatus, syncStatus } = useMemo(() => {
-    const isExpired = localConnection.expires_at 
-      ? new Date(localConnection.expires_at) < new Date()
-      : false
-
-    const healthStatus = isExpired 
-      ? 'expired' 
-      : localConnection.connection_status === 'error' || localConnection.last_error
-      ? 'error'
-      : localConnection.connection_status === 'disconnected'
-      ? 'disconnected'
-      : 'connected'
-
-    const syncStatus = localConnection.sync_status || 'idle'
-
-    return { isExpired, healthStatus, syncStatus }
-  }, [localConnection.expires_at, localConnection.connection_status, localConnection.last_error, localConnection.sync_status])
-
-  // Memoize date formatting to avoid recalculation on every render
-  const lastSyncTime = useMemo(() => {
-    if (!localConnection.last_sync_at) return null
-    return new Date(localConnection.last_sync_at).toLocaleString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    })
-  }, [localConnection.last_sync_at])
-
-  const connectedDate = useMemo(() => {
-    if (!localConnection.created_at) return 'Recently'
-    return new Date(localConnection.created_at).toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-    })
-  }, [localConnection.created_at])
-
-  // Status indicator component
-  const StatusIndicator = () => {
-    if (healthStatus === 'expired') {
-      return (
-        <div className="flex items-center gap-1.5">
-          <AlertCircle className="h-3.5 w-3.5 text-amber-500" />
-          <span className="text-xs text-amber-600 font-medium">Expired</span>
-        </div>
-      )
-    }
-    if (healthStatus === 'error') {
-      return (
-        <div className="flex items-center gap-1.5">
-          <AlertCircle className="h-3.5 w-3.5 text-red-500" />
-          <span className="text-xs text-red-600 font-medium">Error</span>
-        </div>
-      )
-    }
-    if (syncStatus === 'syncing') {
-      return (
-        <div className="flex items-center gap-1.5">
-          <Loader2 className="h-3.5 w-3.5 text-blue-500 animate-spin" />
-          <span className="text-xs text-blue-600 font-medium">Syncing</span>
-        </div>
-      )
-    }
-    if (healthStatus === 'connected') {
-      return (
-        <div className="flex items-center gap-1.5">
-          <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
-          <span className="text-xs text-emerald-600 font-medium">Connected</span>
-        </div>
-      )
-    }
-    return null
-  }
-
-  const handleDisconnect = useCallback(async () => {
-    if (!connection.id) {
-      handleError(new Error('Connection ID is missing'), {
-        context: 'Disconnect store',
-        showToast: true,
-        fallbackMessage: 'Connection ID is missing. Please refresh the page.',
-      })
-      if (process.env.NODE_ENV === 'development') {
-        console.error('❌ Connection missing ID:', connection)
-      }
-      return
-    }
-
-    setIsDisconnecting(true)
-    try {
-      if (process.env.NODE_ENV === 'development') {
-        console.log('🔌 Disconnecting connection:', connection.id, connection.platform)
-      }
-      const response = await safeFetch(
-        `/api/store-connections/${connection.id}`,
-        { method: 'DELETE' },
-        { context: 'Disconnect store' }
-      )
-
-      toast.success(`${localConnection.platform} store disconnected successfully`)
-      setShowDisconnectDialog(false)
-      onDisconnect()
-    } catch (error: any) {
-      handleError(error, {
-        context: 'Disconnect store',
-        showToast: true,
-      })
-    } finally {
-      setIsDisconnecting(false)
-    }
-  }, [connection.id, localConnection.platform, onDisconnect])
-
-  const handleSync = useCallback(async () => {
-    if (!connection.id) {
-      handleError(new Error('Connection ID is missing'), {
-        context: 'Sync store',
-        showToast: true,
-        fallbackMessage: 'Connection ID is missing. Please refresh the page.',
-      })
-      if (process.env.NODE_ENV === 'development') {
-        console.error('Connection object:', connection)
-      }
-      return
-    }
-
-    // First, fetch preview of products
-    setIsLoadingPreview(true)
-    try {
-      if (process.env.NODE_ENV === 'development') {
-        console.log('Fetching product preview for connection:', connection.id, connection.platform)
-      }
-      const previewResponse = await safeFetch(
-        `/api/store-connections/${connection.id}/sync/preview`,
-        { method: 'GET' },
-        { context: 'Preview products' }
-      )
-
-      const previewData = await previewResponse.json()
-      
-      if (!previewData.success || !previewData.products) {
-        throw new Error(previewData.error || 'Failed to preview products')
-      }
-
-      // Show approval modal with products
-      setPreviewProducts(previewData.products)
-      setShowApprovalModal(true)
-    } catch (error: any) {
-      // If preview fails, fall back to direct sync (for platforms without preview support)
-      if (error?.message?.includes('not yet implemented')) {
-        // Fall back to direct sync
-        await performDirectSync()
-      } else {
-        handleError(error, {
-          context: 'Preview products',
-          showToast: true,
-        })
-      }
-    } finally {
-      setIsLoadingPreview(false)
-    }
-  }, [connection.id, connection.platform])
-
-  const performDirectSync = useCallback(async () => {
-    if (!connection.id) return
-
-    setIsSyncing(true)
-    try {
-      if (process.env.NODE_ENV === 'development') {
-        console.log('Syncing connection:', connection.id, connection.platform)
-      }
-      const response = await safeFetch(
-        `/api/store-connections/${connection.id}/sync`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ type: 'all' }),
-        },
-        { context: 'Sync store' }
-      )
-
-      const data = await response.json()
-      
-      // Handle "coming soon" case
-      if (data.comingSoon) {
-        toast.info('Feature coming soon', {
-          description: data.message || 'This feature is being developed and will be available soon.',
-        })
-        return
-      }
-      
-      // Show detailed success message
-      if (data.details) {
-        const { productsCreated, productsUpdated } = data.details
-        let title = 'Sync completed successfully!'
-        let description = 'Your products have been synchronized'
-        
-        if (productsCreated > 0 && productsUpdated > 0) {
-          description = `${productsCreated} new products created, ${productsUpdated} products updated`
-        } else if (productsCreated > 0) {
-          description = `${productsCreated} new products added to your store`
-        } else if (productsUpdated > 0) {
-          description = `${productsUpdated} products updated successfully`
-        }
-        
-        toast.success(title, { description })
-      } else {
-        toast.success('Sync completed successfully!', { 
-          description: 'Your products have been synchronized' 
-        })
-      }
-      
-      // Update local state
-      setLocalConnection(prev => ({
-        ...prev,
-        sync_status: 'success',
-        last_sync_at: data.syncedAt,
-        last_error: null,
-      }))
-    } catch (error: any) {
-      // Handle specific error cases
-      if (error?.originalError?.requiresReauth) {
-        handleError(error, {
-          context: 'Sync store',
-          showToast: true,
-          fallbackMessage: 'Token expired. Please reconnect your store.',
-        })
-      } else {
-        handleError(error, {
-          context: 'Sync store',
-          showToast: true,
-        })
-      }
-      
-      setLocalConnection(prev => ({
-        ...prev,
-        sync_status: 'error',
-        last_error: error?.message || 'Unknown error',
-      }))
-    } finally {
-      setIsSyncing(false)
-    }
-  }, [connection.id, connection.platform])
-
-  const handleApproveProducts = useCallback(async (selectedProductIds: string[]) => {
-    if (!connection.id) return
-
-    setIsSyncing(true)
-    try {
-      if (process.env.NODE_ENV === 'development') {
-        console.log('🔄 Starting product sync:', {
-          connectionId: connection.id,
-          platform: connection.platform,
-          productCount: selectedProductIds.length,
-          selectedProductIds: selectedProductIds.slice(0, 5), // Log first 5 IDs
-        })
-      }
-      
-      const requestBody = { 
-        type: 'all',
-        selectedProductIds: selectedProductIds,
-      }
-      
-      if (process.env.NODE_ENV === 'development') {
-        console.log('📤 Sync request body:', requestBody)
-      }
-      
-      const response = await safeFetch(
-        `/api/store-connections/${connection.id}/sync`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(requestBody),
-        },
-        { context: 'Sync selected products' }
-      )
-
-      const data = await response.json()
-      if (process.env.NODE_ENV === 'development') {
-        console.log('📥 Sync response status:', response.status, response.statusText)
-        console.log('📥 Sync response data:', data)
-      }
-      
-      if (!data.success) {
-        // Include error details in the error message
-        const errorMessage = data.error || data.message || 'Sync failed'
-        const errorDetails = data.details ? ` Details: ${JSON.stringify(data.details)}` : ''
-        throw new Error(`${errorMessage}${errorDetails}`)
-      }
-      
-      // Show detailed success message
-      if (data.details) {
-        const { productsCreated, productsUpdated } = data.details
-        let title = 'Sync completed successfully!'
-        let description = `${selectedProductIds.length} products synchronized`
-        
-        if (productsCreated > 0 && productsUpdated > 0) {
-          description = `${productsCreated} new products created, ${productsUpdated} products updated`
-        } else if (productsCreated > 0) {
-          description = `${productsCreated} new products added to your store`
-        } else if (productsUpdated > 0) {
-          description = `${productsUpdated} products updated successfully`
-        }
-        
-        toast.success(title, { description })
-      } else {
-        toast.success('Sync completed successfully!', { 
-          description: `${selectedProductIds.length} products synchronized` 
-        })
-      }
-      
-      // Update local state
-      setLocalConnection(prev => ({
-        ...prev,
-        sync_status: 'success',
-        last_sync_at: data.syncedAt,
-        last_error: null,
-      }))
-    } catch (error: any) {
-      // Log the full error for debugging - extract all possible error properties
-      const errorInfo: any = {}
-      
-      // Try to extract all possible error properties
-      try {
-        errorInfo.message = error?.message
-        errorInfo.error = error?.error
-        errorInfo.details = error?.details
-        errorInfo.originalError = error?.originalError
-        errorInfo.type = error?.type
-        errorInfo.statusCode = error?.statusCode
-        errorInfo.status = error?.status
-        errorInfo.name = error?.name
-        errorInfo.code = error?.code
-        errorInfo.context = error?.context
-        errorInfo.retryable = error?.retryable
-        
-        // Try to stringify the full error
-        try {
-          errorInfo.fullErrorString = JSON.stringify(error, Object.getOwnPropertyNames(error))
-        } catch (e) {
-          errorInfo.fullErrorString = 'Could not stringify error'
-        }
-        
-        // Try to get error as string
-        errorInfo.errorString = String(error)
-        errorInfo.errorToString = error?.toString?.()
-      } catch (extractError) {
-        errorInfo.extractionError = String(extractError)
-      }
-      
-      if (process.env.NODE_ENV === 'development') {
-        console.error('❌ Sync error details:', errorInfo)
-        console.error('❌ Raw error object:', error)
-      }
-      
-      // Extract error message from various possible locations
-      const errorMessage = 
-        error?.message || 
-        error?.error || 
-        error?.details?.message || 
-        error?.details?.error ||
-        error?.originalError?.message ||
-        error?.originalError?.error ||
-        'Failed to sync products'
-      
-      // Handle specific error cases
-      if (error?.originalError?.requiresReauth || error?.details?.requiresReauth || error?.requiresReauth) {
-        handleError(error, {
-          context: 'Sync selected products',
-          showToast: true,
-          fallbackMessage: 'Token expired. Please reconnect your store.',
-        })
-      } else {
-        handleError(error, {
-          context: 'Sync selected products',
-          showToast: true,
-          fallbackMessage: errorMessage,
-        })
-      }
-      
-      setLocalConnection(prev => ({
-        ...prev,
-        sync_status: 'error',
-        last_error: error?.message || error?.error || 'Unknown error',
-      }))
-      throw error // Re-throw to prevent modal from closing
-    } finally {
-      setIsSyncing(false)
-    }
-  }, [connection.id, connection.platform])
-
-  const handleRefreshToken = useCallback(async () => {
-    setIsRefreshing(true)
-    try {
-      const response = await safeFetch(
-        `/api/store-connections/${connection.id}/refresh`,
-        { method: 'POST' },
-        { context: 'Refresh token' }
-      )
-
-      toast.success('Token refreshed successfully')
-      setLocalConnection(prev => ({
-        ...prev,
-        connection_status: 'connected',
-        last_error: null,
-      }))
-    } catch (error: any) {
-      if (error?.originalError?.requiresReauth) {
-        handleError(error, {
-          context: 'Refresh token',
-          showToast: true,
-          fallbackMessage: 'Token refresh failed. Please reconnect your store.',
-        })
-      } else {
-        handleError(error, {
-          context: 'Refresh token',
-          showToast: true,
-        })
-      }
-    } finally {
-      setIsRefreshing(false)
-    }
-  }, [connection.id])
-
-  return (
-    <>
-      <div className="flex items-start gap-4 p-4 bg-white rounded-lg border border-gray-200 hover:border-gray-300 transition-colors">
-        {platformLogo && (
-          <div className="flex-shrink-0">
-            <Image
-              src={platformLogo}
-              alt={localConnection.platform}
-              width={60}
-              height={24}
-              className="h-6 w-auto object-contain"
-              priority={false}
-              loading="lazy"
-            />
-          </div>
-        )}
-        <div className="flex-1 min-w-0">
-          <div className="flex items-start justify-between gap-2">
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 mb-1">
-                <h3 className="font-semibold text-gray-900 capitalize">
-                  {localConnection.platform}
-                </h3>
-                <StatusIndicator />
-              </div>
-              {localConnection.store_external_id && (
-                <p className="text-sm text-gray-600 mt-0.5">
-                  Store ID: {localConnection.store_external_id}
-                </p>
-              )}
-              <div className="flex items-center gap-4 mt-2 text-xs text-gray-500">
-                {lastSyncTime && (
-                  <div className="flex items-center gap-1">
-                    <Clock className="h-3 w-3" />
-                    <span>Last sync: {lastSyncTime}</span>
-                  </div>
-                )}
-                <span>Connected: {connectedDate}</span>
-              </div>
-              {localConnection.last_error && (
-                <p className="text-xs text-red-600 mt-1 flex items-center gap-1">
-                  <AlertCircle className="h-3 w-3" />
-                  {localConnection.last_error}
-                </p>
-              )}
-            </div>
-            <div className="flex items-center gap-2 flex-shrink-0">
-              {healthStatus === 'expired' && (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={handleRefreshToken}
-                  disabled={isRefreshing}
-                  className="h-8 text-xs"
-                >
-                  {isRefreshing ? (
-                    <Loader2 className="h-3 w-3 animate-spin mr-1" />
-                  ) : (
-                    <RefreshCw className="h-3 w-3 mr-1" />
-                  )}
-                  Refresh
-                </Button>
-              )}
-              {(!localConnection.store_name || !localConnection.store_external_id) && (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={handleRefreshStoreInfo}
-                  disabled={isRefreshingStoreInfo}
-                  className="h-8 text-xs"
-                  title="Refresh store information from platform"
-                >
-                  {isRefreshingStoreInfo ? (
-                    <Loader2 className="h-3 w-3 animate-spin mr-1" />
-                  ) : (
-                    <Link2 className="h-3 w-3 mr-1" />
-                  )}
-                  Fetch Store Info
-                </Button>
-              )}
-              {syncStatus !== 'syncing' && healthStatus !== 'expired' && (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={handleSync}
-                  disabled={isSyncing || isLoadingPreview}
-                  className="h-8 text-xs"
-                >
-                  {(isSyncing || isLoadingPreview) ? (
-                    <Loader2 className="h-3 w-3 animate-spin mr-1" />
-                  ) : (
-                    <RefreshCw className="h-3 w-3 mr-1" />
-                  )}
-                  Sync
-                </Button>
-              )}
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={() => setShowDisconnectDialog(true)}
-                disabled={isDisconnecting}
-                className="h-8 w-8 p-0 text-gray-400 hover:text-red-600"
-              >
-                <X className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <AlertDialog open={showDisconnectDialog} onOpenChange={setShowDisconnectDialog}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Disconnect {localConnection.platform}?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This will remove the connection to your {localConnection.platform} store. 
-              You can reconnect it later, but syncing will stop until you do.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={isDisconnecting}>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleDisconnect}
-              disabled={isDisconnecting}
-              className="bg-red-600 hover:bg-red-700"
-            >
-              {isDisconnecting ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                  Disconnecting...
-                </>
-              ) : (
-                'Disconnect'
-              )}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      <ProductApprovalModal
-        open={showApprovalModal}
-        onOpenChange={setShowApprovalModal}
-        products={previewProducts}
-        platform={localConnection.platform}
-        onApprove={handleApproveProducts}
-        isLoading={isSyncing}
-      />
-    </>
-  )
-})
 

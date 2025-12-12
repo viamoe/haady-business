@@ -117,6 +117,7 @@ export async function POST(request: Request) {
         const result = await syncSallaProducts(
           user.id,
           connection.access_token,
+          connection.id,
           connection.store_name || undefined,
           connection.store_domain || undefined,
           selectedProductIds
@@ -170,6 +171,7 @@ export async function POST(request: Request) {
         const result = await syncShopifyProducts(
           user.id,
           connection.access_token,
+          connection.id,
           connection.store_name || undefined,
           connection.store_domain || undefined,
           selectedProductIds

@@ -535,6 +535,72 @@ export async function GET(request: Request) {
       } else {
         console.warn('⚠️ Store name was not available in API response');
       }
+
+      // Create a store for this connection if it doesn't exist
+      if (savedConnection && savedConnection[0]?.id) {
+        try {
+          // Get merchant_id from merchant_users
+          const { data: merchantUser } = await supabase
+            .from('merchant_users')
+            .select('merchant_id')
+            .eq('auth_user_id', user.id)
+            .single()
+
+          if (merchantUser?.merchant_id) {
+            // Check if store already exists for this connection
+            const { data: existingStore } = await supabase
+              .from('stores')
+              .select('id')
+              .eq('store_connection_id', savedConnection[0].id)
+              .maybeSingle()
+
+            if (!existingStore) {
+              // Create store using admin client to bypass RLS
+              const { createClient } = await import('@supabase/supabase-js')
+              const adminClient = createClient(
+                process.env.NEXT_PUBLIC_SUPABASE_URL!,
+                process.env.SUPABASE_SERVICE_ROLE_KEY!,
+                {
+                  auth: {
+                    autoRefreshToken: false,
+                    persistSession: false,
+                  },
+                }
+              )
+
+              const storeNameToUse = storeName || `${platform.charAt(0).toUpperCase() + platform.slice(1)} Store`
+              const slug = storeNameToUse
+                .toLowerCase()
+                .replace(/[^a-z0-9]+/g, '-')
+                .replace(/^-+|-+$/g, '')
+
+              const { data: newStore, error: storeError } = await adminClient
+                .from('stores')
+                .insert({
+                  merchant_id: merchantUser.merchant_id,
+                  store_connection_id: savedConnection[0].id,
+                  name: storeNameToUse,
+                  slug: `${slug}-${Date.now()}`,
+                  store_type: 'online',
+                  is_active: true,
+                })
+                .select('id')
+                .single()
+
+              if (storeError) {
+                console.error('❌ Error creating store:', storeError)
+              } else {
+                console.log('✅ Store created for connection:', newStore.id)
+              }
+            } else {
+              console.log('✅ Store already exists for this connection:', existingStore.id)
+            }
+          }
+        } catch (storeCreationError) {
+          console.error('❌ Error in store creation process:', storeCreationError)
+          // Don't fail the whole callback if store creation fails
+        }
+      }
     }
 
     // Redirect to dashboard with success message

@@ -207,18 +207,18 @@ export function Header() {
                       onSelect={(e) => {
                         e.preventDefault();
                         try {
-                          const url = localizedUrl('/dashboard/settings');
+                          const url = localizedUrl('/dashboard/settings/account');
                           router.push(url);
                         } catch (error) {
                           console.error('Navigation error:', error);
                           // Fallback to default URL
-                          router.push('/dashboard/settings');
+                          router.push('/dashboard/settings/account');
                         }
                       }}
                       className="cursor-pointer rounded-lg"
                     >
                       <Settings className="h-4 w-4 mr-2" />
-                      Settings
+                      Account Settings
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem

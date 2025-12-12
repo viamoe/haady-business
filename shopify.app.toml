@@ -1,0 +1,20 @@
+# Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
+
+client_id = "81f302424f06a6bbbaffa7022160da25"
+name = "Haady"
+application_url = "https://business.haady.app"
+embedded = true
+
+[webhooks]
+api_version = "2025-10"
+
+[access_scopes]
+# Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
+scopes = "read_customers,read_fulfillments,write_fulfillments,write_inventory,read_inventory,read_orders,write_orders,read_products,write_products,read_shipping"
+optional_scopes = [ ]
+use_legacy_install_flow = false
+
+[auth]
+redirect_urls = [
+  "https://business.haady.app/callback-http://localhost:3002/callback"
+]

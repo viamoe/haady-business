@@ -146,6 +146,7 @@ export async function POST(
     const syncResult = await performSync(
       connection.platform,
       connection.access_token,
+      connectionId,
       syncType,
       user.id,
       fullConnectionData?.store_name,
@@ -222,20 +223,36 @@ export async function POST(
         .from('store_connections')
         .update({
           sync_status: 'error',
-          last_error: error.message || 'Unknown error',
+          last_error: error?.message || 'Unknown error',
           updated_at: new Date().toISOString(),
         })
         .eq('id', connectionId)
     } catch (updateError: any) {
       // Columns might not exist yet, that's okay
-      console.log('Note: sync status columns may not exist yet:', updateError.message)
+      console.log('Note: sync status columns may not exist yet:', updateError?.message)
     }
 
-    const errorMessage = error.message || error.toString() || 'Internal server error'
+    const errorMessage = error?.message || error?.toString() || 'Internal server error'
     const errorDetails = {
       message: errorMessage,
-      name: error.name,
-      stack: error.stack,
+      name: error?.name || 'Error',
+      ...(error?.stack && { stack: error.stack }),
+    }
+
+    // Get connection info if available
+    let platform = 'unknown'
+    try {
+      const supabase = await createServerSupabase()
+      const resolvedParams = params instanceof Promise ? await params : params
+      const connectionId = resolvedParams.id
+      const { data: connData } = await supabase
+        .from('store_connections')
+        .select('platform')
+        .eq('id', connectionId)
+        .single()
+      if (connData) platform = connData.platform
+    } catch (e) {
+      // Ignore errors getting connection info
     }
 
     // Include more context in the error response
@@ -245,8 +262,8 @@ export async function POST(
         error: errorMessage,
         details: errorDetails,
         // Include platform and sync type for debugging
-        platform: connection?.platform,
-        syncType,
+        platform,
+        syncType: syncType || 'unknown',
         selectedProductIdsCount: selectedProductIds?.length || 0,
       },
       { status: 500 }
@@ -258,6 +275,7 @@ export async function POST(
 async function performSync(
   platform: string,
   accessToken: string,
+  connectionId: string,
   syncType: string,
   userId: string,
   storeName?: string,
@@ -268,7 +286,7 @@ async function performSync(
     switch (platform) {
       case 'salla':
         if (syncType === 'products' || syncType === 'all') {
-          const result = await syncSallaProducts(userId, accessToken, storeName, storeDomain, selectedProductIds)
+          const result = await syncSallaProducts(userId, accessToken, connectionId, storeName, storeDomain, selectedProductIds)
           
           if (!result.success) {
             return {
@@ -334,7 +352,7 @@ async function performSync(
       case 'shopify':
         if (syncType === 'products' || syncType === 'all') {
           console.log('🛍️ Calling syncShopifyProducts...')
-          const result = await syncShopifyProducts(userId, accessToken, storeName, storeDomain, selectedProductIds)
+          const result = await syncShopifyProducts(userId, accessToken, connectionId, storeName, storeDomain, selectedProductIds)
           console.log('🛍️ Shopify sync result:', {
             success: result.success,
             productsSynced: result.productsSynced,

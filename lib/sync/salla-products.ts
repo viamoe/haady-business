@@ -87,29 +87,30 @@ async function fetchSallaProducts(
 }
 
 /**
- * Get or create a store for the merchant
+ * Get or create a store for the merchant and connection
  * Uses admin client to bypass RLS for store creation
+ * Each store_connection should have its own store
  */
 async function getOrCreateStore(
   supabase: any,
   merchantId: string,
   storeName: string,
+  storeConnectionId: string,
   storeDomain?: string
 ): Promise<string> {
-  // First, try to find an existing store for this merchant (using regular client)
+  // First, try to find an existing store for this connection (using regular client)
   const { data: existingStore } = await supabase
     .from('stores')
     .select('id')
-    .eq('merchant_id', merchantId)
+    .eq('store_connection_id', storeConnectionId)
     .eq('is_active', true)
-    .limit(1)
-    .single()
+    .maybeSingle()
 
   if (existingStore) {
     return existingStore.id
   }
 
-  // Create a new store if none exists - use admin client to bypass RLS
+  // Create a new store for this connection - use admin client to bypass RLS
   const adminClient = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
@@ -130,6 +131,7 @@ async function getOrCreateStore(
     .from('stores')
     .insert({
       merchant_id: merchantId,
+      store_connection_id: storeConnectionId,
       name: storeName,
       slug: `${slug}-${Date.now()}`,
       store_type: 'online',
@@ -228,6 +230,7 @@ export async function previewSallaProducts(
 export async function syncSallaProducts(
   userId: string,
   accessToken: string,
+  storeConnectionId: string,
   storeName?: string,
   storeDomain?: string,
   selectedProductIds?: string[]
@@ -266,11 +269,12 @@ export async function syncSallaProducts(
 
     const merchantId = merchantUser.merchant_id
 
-    // Get or create store
+    // Get or create store for this connection
     const storeId = await getOrCreateStore(
       supabase,
       merchantId,
       storeName || 'Salla Store',
+      storeConnectionId,
       storeDomain
     )
 
@@ -363,12 +367,13 @@ export async function syncSallaProducts(
           slug: sallaProduct.slug,
         }
 
-        // Check if product source already exists (by platform and platform_product_id)
+        // Check if product source already exists (by platform and platform_product_id) for THIS STORE
         // Use adminClient to bypass RLS for reliable duplicate detection
         let existingSource: { product_id: string } | null = null
         
         try {
-          const { data, error: sourceCheckError } = await adminClient
+          // First find product_sources by platform and platform_product_id
+          const { data: sourceData, error: sourceCheckError } = await adminClient
             .from('product_sources')
             .select('product_id')
             .eq('platform', 'salla')
@@ -382,8 +387,22 @@ export async function syncSallaProducts(
             } else if (sourceCheckError.code !== 'PGRST116') {
               console.error('Error checking for existing product source:', sourceCheckError)
             }
-          } else {
-            existingSource = data
+          } else if (sourceData) {
+            // Verify the product belongs to the current store
+            const { data: productData } = await adminClient
+              .from('products')
+              .select('id, store_id')
+              .eq('id', sourceData.product_id)
+              .eq('store_id', storeId)
+              .maybeSingle()
+            
+            if (productData) {
+              // Product exists and belongs to this store - it's a duplicate
+              existingSource = sourceData
+            } else {
+              // Product exists but in a different store - allow it (not a duplicate for this store)
+              console.log(`ℹ️ Product with platform_product_id ${sallaProduct.id} exists in a different store, creating new product for this store`)
+            }
           }
         } catch (err) {
           console.log('Error querying product_sources, using product table fallback:', err)

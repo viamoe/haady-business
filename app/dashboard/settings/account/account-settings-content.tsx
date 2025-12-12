@@ -1,0 +1,213 @@
+'use client'
+
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Skeleton } from '@/components/ui/skeleton'
+import { useState, useEffect, useRef } from 'react'
+import { useLocale } from '@/i18n/context'
+import { User, Building2, Store, Calendar, Mail } from 'lucide-react'
+
+interface AccountSettingsContentProps {
+  merchant: {
+    id: string
+    name: string
+    status: string
+    created_at: string
+  } | null
+  merchantUser: {
+    merchant_id: string
+    full_name: string | null
+  } | null
+  storeCount: number
+}
+
+export function AccountSettingsContent({ 
+  merchant, 
+  merchantUser,
+  storeCount 
+}: AccountSettingsContentProps) {
+  const { locale, isRTL } = useLocale()
+  const [isLoading, setIsLoading] = useState(true)
+  const hasLoadedRef = useRef(false)
+  
+  // Helper function to detect if text contains Arabic characters
+  const containsArabic = (text: string | null | undefined): boolean => {
+    if (!text) return false
+    const arabicPattern = /[\u0600-\u06FF]/
+    return arabicPattern.test(text)
+  }
+
+  useEffect(() => {
+    if (hasLoadedRef.current) {
+      setIsLoading(false)
+      return
+    }
+
+    const timer = setTimeout(() => {
+      setIsLoading(false)
+      hasLoadedRef.current = true
+    }, 800)
+
+    return () => clearTimeout(timer)
+  }, [])
+
+  if (isLoading) {
+    return (
+      <div className="space-y-4">
+        <Skeleton className="h-32 w-full" />
+        <Skeleton className="h-32 w-full" />
+      </div>
+    )
+  }
+
+  return (
+    <div className="h-full space-y-6" lang={locale} dir={isRTL ? 'rtl' : 'ltr'}>
+      {/* Page Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">
+            {locale === 'ar' ? 'إعدادات الحساب' : 'Account Settings'}
+          </h1>
+          <p className="text-muted-foreground mt-1">
+            {locale === 'ar' 
+              ? 'إدارة إعدادات حساب التاجر الخاص بك'
+              : 'Manage your merchant account settings'}
+          </p>
+        </div>
+      </div>
+      {/* Account Information */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <User className="h-5 w-5 text-primary" />
+            <CardTitle>
+              {locale === 'ar' ? 'معلومات الحساب' : 'Account Information'}
+            </CardTitle>
+          </div>
+          <CardDescription>
+            {locale === 'ar' 
+              ? 'معلومات حساب التاجر الخاص بك'
+              : 'Your merchant account information'}
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="text-sm font-medium text-muted-foreground">
+                {locale === 'ar' ? 'الاسم الكامل' : 'Full Name'}
+              </label>
+              <p className="text-sm font-medium mt-1">
+                {merchantUser?.full_name || locale === 'ar' ? 'غير متوفر' : 'Not available'}
+              </p>
+            </div>
+            <div>
+              <label className="text-sm font-medium text-muted-foreground">
+                {locale === 'ar' ? 'معرف التاجر' : 'Merchant ID'}
+              </label>
+              <p className="text-sm font-medium mt-1 font-mono">
+                {merchantUser?.merchant_id || '-'}
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Business Information */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <Building2 className="h-5 w-5 text-primary" />
+            <CardTitle>
+              {locale === 'ar' ? 'معلومات العمل' : 'Business Information'}
+            </CardTitle>
+          </div>
+          <CardDescription>
+            {locale === 'ar' 
+              ? 'معلومات عملك التجاري'
+              : 'Your business information'}
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="text-sm font-medium text-muted-foreground">
+                {locale === 'ar' ? 'اسم العمل' : 'Business Name'}
+              </label>
+              <p 
+                className="text-sm font-medium mt-1"
+                lang={containsArabic(merchant?.name) ? 'ar' : locale}
+              >
+                {merchant?.name || locale === 'ar' ? 'غير متوفر' : 'Not available'}
+              </p>
+            </div>
+            <div>
+              <label className="text-sm font-medium text-muted-foreground">
+                {locale === 'ar' ? 'الحالة' : 'Status'}
+              </label>
+              <div className="mt-1">
+                <Badge 
+                  variant={merchant?.status === 'active' ? 'default' : 'secondary'}
+                  className="mt-1"
+                >
+                  {merchant?.status || 'unknown'}
+                </Badge>
+              </div>
+            </div>
+            <div>
+              <label className="text-sm font-medium text-muted-foreground">
+                {locale === 'ar' ? 'عدد المتاجر' : 'Number of Stores'}
+              </label>
+              <p className="text-sm font-medium mt-1">
+                {storeCount} {locale === 'ar' ? 'متجر' : 'store(s)'}
+              </p>
+            </div>
+            <div>
+              <label className="text-sm font-medium text-muted-foreground">
+                {locale === 'ar' ? 'تاريخ الإنشاء' : 'Created At'}
+              </label>
+              <p className="text-sm font-medium mt-1">
+                {merchant?.created_at 
+                  ? new Date(merchant.created_at).toLocaleDateString(locale === 'ar' ? 'ar-SA' : 'en-US', {
+                      year: 'numeric',
+                      month: 'long',
+                      day: 'numeric',
+                    })
+                  : locale === 'ar' ? 'غير متوفر' : 'Not available'}
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Quick Actions */}
+      <Card>
+        <CardHeader>
+          <CardTitle>
+            {locale === 'ar' ? 'إجراءات سريعة' : 'Quick Actions'}
+          </CardTitle>
+          <CardDescription>
+            {locale === 'ar' 
+              ? 'إدارة حسابك بسرعة'
+              : 'Quickly manage your account'}
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          <Button variant="outline" className="w-full justify-start">
+            <Store className="h-4 w-4 mr-2" />
+            {locale === 'ar' ? 'إدارة المتاجر' : 'Manage Stores'}
+          </Button>
+          <Button variant="outline" className="w-full justify-start">
+            <Mail className="h-4 w-4 mr-2" />
+            {locale === 'ar' ? 'تغيير البريد الإلكتروني' : 'Change Email'}
+          </Button>
+          <Button variant="outline" className="w-full justify-start">
+            <User className="h-4 w-4 mr-2" />
+            {locale === 'ar' ? 'تحديث الملف الشخصي' : 'Update Profile'}
+          </Button>
+        </CardContent>
+      </Card>
+    </div>
+  )
+}
+

@@ -64,7 +64,7 @@ const navItems = [
   },
   {
     title: "Settings",
-    url: "/dashboard/settings",
+    url: "/dashboard/settings/store",
     icon: Settings,
   },
 ]
@@ -504,7 +504,7 @@ function UserFooter() {
       <DropdownMenuContent align="start" side="top" className="w-[--radix-dropdown-menu-trigger-width] min-w-[13rem] mb-2 ml-2 rounded-xl overflow-hidden p-1">
         <DropdownMenuItem
           onClick={() => {
-            router.push('/dashboard/settings')
+            router.push('/dashboard/settings/account')
             setIsOpen(false)
           }}
           className="cursor-pointer rounded-lg"
@@ -514,13 +514,13 @@ function UserFooter() {
         </DropdownMenuItem>
         <DropdownMenuItem
           onClick={() => {
-            router.push('/dashboard/settings')
+            router.push('/dashboard/settings/account')
             setIsOpen(false)
           }}
           className="cursor-pointer rounded-lg"
         >
           <Settings className="h-4 w-4 mr-2" />
-          Settings
+          Account Settings
         </DropdownMenuItem>
         <DropdownMenuItem
           onClick={() => {
