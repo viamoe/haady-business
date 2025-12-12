@@ -207,11 +207,33 @@ export async function GET(request: Request) {
       console.error(`   Status: ${tokenResponse.status}`);
       console.error(`   Response: ${errorText}`);
       console.error(`   Token Endpoint: ${tokenEndpoint}`);
-      console.error(`   Client ID: ${clientId}`);
+      console.error(`   Client ID: ${clientId ? clientId.substring(0, 8) + '...' : 'MISSING'}`);
       console.error(`   Client Secret: ${clientSecret ? '***' + clientSecret.slice(-4) : 'MISSING'}`);
+      console.error(`   Redirect URI: ${redirectUri}`);
+      
+      // Parse error message for better user feedback
+      let errorMessage = `Failed to authenticate with ${platform}`;
+      try {
+        const errorData = JSON.parse(errorText);
+        if (errorData.error_description) {
+          errorMessage = errorData.error_description;
+        } else if (errorData.error) {
+          errorMessage = errorData.error;
+        }
+      } catch {
+        // If not JSON, use the text as-is if it's helpful
+        if (errorText.includes('unknown client') || errorText.includes('does not exist')) {
+          errorMessage = `OAuth app not configured. Please set ${platform.toUpperCase()}_CLIENT_ID and ${platform.toUpperCase()}_CLIENT_SECRET environment variables and ensure the OAuth app exists in ${platform}.`;
+        } else if (errorText.includes('redirect_uri')) {
+          errorMessage = `Redirect URI mismatch. Please ensure the redirect URI in your ${platform} OAuth app matches: ${redirectUri}`;
+        } else {
+          errorMessage = errorText.substring(0, 200); // Limit length
+        }
+      }
+      
       const dashboardUrl = getDashboardUrl();
       dashboardUrl.searchParams.set('error', `${platform}_connection_failed`);
-      dashboardUrl.searchParams.set('message', `Failed to authenticate with ${platform}`);
+      dashboardUrl.searchParams.set('message', encodeURIComponent(errorMessage));
       return NextResponse.redirect(dashboardUrl);
     }
 
