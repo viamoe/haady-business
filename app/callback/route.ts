@@ -78,6 +78,9 @@ export async function GET(request: Request) {
   }
 
   // Create Supabase client to verify the user
+  // Store cookies to set on response
+  const cookiesToSet: Array<{ name: string; value: string; options: any }> = [];
+  
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -89,18 +92,32 @@ export async function GET(request: Request) {
             value: cookie.value,
           }));
         },
-        setAll() {
-          // No-op for route handlers
+        setAll(cookiesToSetParam) {
+          // Store cookies to set on the response
+          cookiesToSetParam.forEach(({ name, value, options }) => {
+            cookiesToSet.push({ name, value, options });
+          });
         },
       },
     }
   );
 
   // Verify the user exists and matches the state
+  // This will also refresh the session if needed
   const { data: { user }, error: authError } = await supabase.auth.getUser();
 
   if (authError || !user) {
-    console.error('User not authenticated:', authError);
+    console.error('❌ User not authenticated in OAuth callback:', {
+      error: authError?.message,
+      errorCode: authError?.status,
+      hasCookies: cookieStore.getAll().length > 0,
+      cookieNames: cookieStore.getAll().map(c => c.name),
+      allCookies: cookieStore.getAll().map(c => ({ name: c.name, hasValue: !!c.value })),
+      state: state,
+      platform: platform,
+      url: requestUrl.toString(),
+    });
+    
     const loginPath = getLocalizedUrlFromRequest('/auth/login', {
       cookies: {
         get: (name: string) => {
@@ -111,7 +128,20 @@ export async function GET(request: Request) {
     });
     const loginUrl = new URL(loginPath, requestUrl.origin);
     loginUrl.searchParams.set('error', 'auth_required');
-    return NextResponse.redirect(loginUrl);
+    loginUrl.searchParams.set('message', 'Please sign in to connect a store. Your session may have expired during the OAuth flow.');
+    
+    // Create response with cookies if any were set
+    const response = NextResponse.redirect(loginUrl);
+    cookiesToSet.forEach(({ name, value, options }) => {
+      response.cookies.set(name, value, {
+        ...options,
+        sameSite: 'lax',
+        secure: process.env.NODE_ENV === 'production',
+        httpOnly: true,
+        path: '/',
+      });
+    });
+    return response;
   }
 
   // Extract user ID from state (format: "userId" or "userId:platform")
