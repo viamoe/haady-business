@@ -83,8 +83,14 @@ export function ProductApprovalModal({
     try {
       await onApprove(Array.from(selectedProducts))
       onOpenChange(false)
-    } catch (error) {
-      console.error('Error approving products:', error)
+    } catch (error: any) {
+      // Properly log the error with message and stack
+      console.error('Error approving products:', {
+        message: error?.message || 'Unknown error',
+        name: error?.name,
+        stack: error?.stack,
+        error: error,
+      })
     } finally {
       setIsSubmitting(false)
     }
