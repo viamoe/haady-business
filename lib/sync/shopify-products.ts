@@ -304,6 +304,17 @@ export async function syncShopifyProducts(
   selectedProductIds?: string[]
 ): Promise<SyncResult> {
   const supabase = await createServerSupabase()
+  // Create admin client for product operations to bypass RLS
+  const adminClient = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+      },
+    }
+  )
   const result: SyncResult = {
     success: true,
     productsSynced: 0,
@@ -522,7 +533,7 @@ export async function syncShopifyProducts(
           productId = existingSource.product_id
           console.log(`🔄 Updating existing product: ${shopifyProduct.title} (ID: ${productId})`)
 
-          const { error: updateError } = await supabase
+          const { error: updateError } = await adminClient
             .from('products')
             .update({
               ...productData,
@@ -540,7 +551,7 @@ export async function syncShopifyProducts(
           console.log(`✅ Updated product: ${productId}`)
 
           // Update product source
-          const { error: sourceUpdateError } = await supabase
+          const { error: sourceUpdateError } = await adminClient
             .from('product_sources')
             .update({
               platform_sku: mainVariant.sku || shopifyProduct.id.toString(),
@@ -560,7 +571,7 @@ export async function syncShopifyProducts(
           // Product exists by SKU but no product_source - update product and create source
           productId = existingProductBySku.id
 
-          const { error: updateError } = await supabase
+          const { error: updateError } = await adminClient
             .from('products')
             .update({
               ...productData,
@@ -575,7 +586,7 @@ export async function syncShopifyProducts(
 
           // Try to create product source
           try {
-            await supabase
+            await adminClient
               .from('product_sources')
               .insert({
                 product_id: productId,
@@ -600,7 +611,7 @@ export async function syncShopifyProducts(
             price: productData.price,
           })
           
-          const { data: newProduct, error: insertError } = await supabase
+          const { data: newProduct, error: insertError } = await adminClient
             .from('products')
             .insert(productData)
             .select('id')
@@ -621,7 +632,7 @@ export async function syncShopifyProducts(
 
           // Create product source record
           try {
-            const { error: sourceError } = await supabase
+            const { error: sourceError } = await adminClient
               .from('product_sources')
               .insert({
                 product_id: productId,
@@ -787,7 +798,19 @@ export async function syncShopifyInventory(
           updated_at: new Date().toISOString(),
         }
 
-        const { error: updateError } = await supabase
+        // Create admin client for inventory sync operations
+        const adminClient = createClient(
+          process.env.NEXT_PUBLIC_SUPABASE_URL!,
+          process.env.SUPABASE_SERVICE_ROLE_KEY!,
+          {
+            auth: {
+              autoRefreshToken: false,
+              persistSession: false,
+            },
+          }
+        )
+
+        const { error: updateError } = await adminClient
           .from('products')
           .update(updateData)
           .eq('id', productId)

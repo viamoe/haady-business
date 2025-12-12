@@ -233,6 +233,17 @@ export async function syncSallaProducts(
   selectedProductIds?: string[]
 ): Promise<SyncResult> {
   const supabase = await createServerSupabase()
+  // Create admin client for product operations to bypass RLS
+  const adminClient = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+      },
+    }
+  )
   const result: SyncResult = {
     success: true,
     productsSynced: 0,
@@ -402,7 +413,7 @@ export async function syncSallaProducts(
           // Product source exists, update the product and source
           productId = existingSource.product_id
 
-          const { error: updateError } = await supabase
+          const { error: updateError } = await adminClient
             .from('products')
             .update({
               ...productData,
@@ -416,7 +427,7 @@ export async function syncSallaProducts(
           }
 
           // Update product source
-          const { error: sourceUpdateError } = await supabase
+          const { error: sourceUpdateError } = await adminClient
             .from('product_sources')
             .update({
               platform_sku: sallaProduct.sku,
@@ -436,7 +447,7 @@ export async function syncSallaProducts(
           // Product exists by SKU but no product_source - update product and create source
           productId = existingProductBySku.id
 
-          const { error: updateError } = await supabase
+          const { error: updateError } = await adminClient
             .from('products')
             .update({
               ...productData,
@@ -451,7 +462,7 @@ export async function syncSallaProducts(
 
           // Try to create product source (might fail if table doesn't exist, that's okay)
           try {
-            await supabase
+            await adminClient
               .from('product_sources')
               .insert({
                 product_id: productId,
@@ -470,7 +481,7 @@ export async function syncSallaProducts(
           result.productsUpdated++
         } else {
           // New product - create both product and product_source
-          const { data: newProduct, error: insertError } = await supabase
+          const { data: newProduct, error: insertError } = await adminClient
             .from('products')
             .insert(productData)
             .select('id')
@@ -487,7 +498,7 @@ export async function syncSallaProducts(
 
           // Create product source record (might fail if table doesn't exist, that's okay)
           try {
-            const { error: sourceError } = await supabase
+            const { error: sourceError } = await adminClient
               .from('product_sources')
               .insert({
                 product_id: productId,
@@ -539,6 +550,17 @@ export async function syncSallaInventory(
   accessToken: string
 ): Promise<InventorySyncResult> {
   const supabase = await createServerSupabase()
+  // Create admin client for product operations to bypass RLS
+  const adminClient = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+      },
+    }
+  )
   const result: InventorySyncResult = {
     success: true,
     productsUpdated: 0,
@@ -615,7 +637,7 @@ export async function syncSallaInventory(
           updated_at: new Date().toISOString(),
         }
 
-        const { error: updateError } = await supabase
+        const { error: updateError } = await adminClient
           .from('products')
           .update(updateData)
           .eq('id', productId)
@@ -628,7 +650,7 @@ export async function syncSallaInventory(
         // Update platform_data quantity in product_sources if it exists
         try {
           // First, get the existing platform_data
-          const { data: existingSource } = await supabase
+          const { data: existingSource } = await adminClient
             .from('product_sources')
             .select('platform_data')
             .eq('product_id', productId)
@@ -642,7 +664,7 @@ export async function syncSallaInventory(
               quantity: stock,
             }
 
-            await supabase
+            await adminClient
               .from('product_sources')
               .update({
                 platform_data: updatedPlatformData,
