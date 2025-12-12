@@ -22,7 +22,7 @@ export default async function SignupPage({ searchParams }: PageProps) {
       .from('merchant_users')
       .select('merchant_id')
       .eq('auth_user_id', user.id)
-      .single();
+      .maybeSingle();
 
     if (merchantUser?.merchant_id) {
       const cookieStore = await cookies();

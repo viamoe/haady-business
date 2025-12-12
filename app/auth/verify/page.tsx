@@ -20,7 +20,7 @@ export default async function OtpVerificationPage({
       .from('merchant_users')
       .select('merchant_id')
       .eq('auth_user_id', user.id)
-      .single();
+      .maybeSingle();
 
     const cookieStore = await cookies();
     if (merchantUser?.merchant_id) {
