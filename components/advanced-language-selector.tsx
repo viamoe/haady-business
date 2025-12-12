@@ -62,78 +62,36 @@ const getFlagUrl = (countryCode: string): string => {
   return flagMap[countryCode] || `${FLAG_BASE_URL}/default.png`;
 };
 
-const countryLanguages: CountryLanguage[] = [
-  {
-    countryCode: 'SA',
-    countryName: 'Saudi Arabia',
-    countryNameAr: 'المملكة العربية السعودية',
-    flagUrl: getFlagUrl('SA'),
+// Helper function to convert database country to CountryLanguage format
+const convertCountryToCountryLanguage = (country: {
+  id: string;
+  name: string;
+  iso2: string;
+  iso3?: string;
+  phone_code?: string;
+}): CountryLanguage => {
+  // Map country names to Arabic (fallback if name_ar doesn't exist in DB)
+  const arabicNames: Record<string, string> = {
+    'SA': 'المملكة العربية السعودية',
+    'AE': 'الإمارات العربية المتحدة',
+    'KW': 'الكويت',
+    'QA': 'قطر',
+    'BH': 'البحرين',
+    'OM': 'عُمان',
+    'EG': 'مصر',
+  };
+  
+  return {
+    countryCode: country.iso2,
+    countryName: country.name,
+    countryNameAr: arabicNames[country.iso2] || country.name, // Fallback to English name if Arabic not available
+    flagUrl: getFlagUrl(country.iso2),
     languages: [
       { code: 'ar', name: 'Arabic', nativeName: 'العربية' },
       { code: 'en', name: 'English', nativeName: 'English' },
     ],
-  },
-  {
-    countryCode: 'AE',
-    countryName: 'United Arab Emirates',
-    countryNameAr: 'الإمارات العربية المتحدة',
-    flagUrl: getFlagUrl('AE'),
-    languages: [
-      { code: 'ar', name: 'Arabic', nativeName: 'العربية' },
-      { code: 'en', name: 'English', nativeName: 'English' },
-    ],
-  },
-  {
-    countryCode: 'KW',
-    countryName: 'Kuwait',
-    countryNameAr: 'الكويت',
-    flagUrl: getFlagUrl('KW'),
-    languages: [
-      { code: 'ar', name: 'Arabic', nativeName: 'العربية' },
-      { code: 'en', name: 'English', nativeName: 'English' },
-    ],
-  },
-  {
-    countryCode: 'QA',
-    countryName: 'Qatar',
-    countryNameAr: 'قطر',
-    flagUrl: getFlagUrl('QA'),
-    languages: [
-      { code: 'ar', name: 'Arabic', nativeName: 'العربية' },
-      { code: 'en', name: 'English', nativeName: 'English' },
-    ],
-  },
-  {
-    countryCode: 'BH',
-    countryName: 'Bahrain',
-    countryNameAr: 'البحرين',
-    flagUrl: getFlagUrl('BH'),
-    languages: [
-      { code: 'ar', name: 'Arabic', nativeName: 'العربية' },
-      { code: 'en', name: 'English', nativeName: 'English' },
-    ],
-  },
-  {
-    countryCode: 'OM',
-    countryName: 'Oman',
-    countryNameAr: 'عُمان',
-    flagUrl: getFlagUrl('OM'),
-    languages: [
-      { code: 'ar', name: 'Arabic', nativeName: 'العربية' },
-      { code: 'en', name: 'English', nativeName: 'English' },
-    ],
-  },
-  {
-    countryCode: 'EG',
-    countryName: 'Egypt',
-    countryNameAr: 'مصر',
-    flagUrl: getFlagUrl('EG'),
-    languages: [
-      { code: 'ar', name: 'Arabic', nativeName: 'العربية' },
-      { code: 'en', name: 'English', nativeName: 'English' },
-    ],
-  },
-];
+  };
+};
 
 interface UserPreferences {
   countryCode: string;
@@ -153,15 +111,47 @@ export function AdvancedLanguageSelector() {
   const [tempLanguage, setTempLanguage] = useState<Locale | null>(null);
   const [userPreferences, setUserPreferences] = useState<UserPreferences | null>(null);
   const [isLoadingPreferences, setIsLoadingPreferences] = useState(true);
+  const [countryLanguages, setCountryLanguages] = useState<CountryLanguage[]>([]);
+  const [isLoadingCountries, setIsLoadingCountries] = useState(true);
   const [pendingCountryChange, setPendingCountryChange] = useState<{
     newCountryCode: string;
     previousCountryCode: string;
     newCountryName: string;
   } | null>(null);
 
+  // Fetch countries from database
+  useEffect(() => {
+    const fetchCountries = async () => {
+      try {
+        setIsLoadingCountries(true);
+        const response = await fetch('/api/countries');
+        
+        if (!response.ok) {
+          throw new Error('Failed to fetch countries');
+        }
+        
+        const { countries } = await response.json();
+        
+        if (countries && countries.length > 0) {
+          // Convert database countries to CountryLanguage format
+          const convertedCountries = countries.map(convertCountryToCountryLanguage);
+          setCountryLanguages(convertedCountries);
+        } else {
+          console.warn('No countries found in database');
+        }
+      } catch (error) {
+        console.error('Error fetching countries:', error);
+      } finally {
+        setIsLoadingCountries(false);
+      }
+    };
+
+    fetchCountries();
+  }, []);
+
   // Parse URL on mount to get country and language
   useEffect(() => {
-    if (typeof window === 'undefined') return;
+    if (typeof window === 'undefined' || countryLanguages.length === 0) return;
     
     const path = pathname;
     // Check if URL has format /{lang}-{country} (e.g., /ar-eg, /en-ae)
@@ -187,7 +177,7 @@ export function AdvancedLanguageSelector() {
         }
       }
     }
-  }, [pathname, locale]); // Run when pathname or locale changes
+  }, [pathname, locale, countryLanguages]); // Run when pathname, locale, or countries change
 
   // Load user preferences from database
   useEffect(() => {
@@ -241,13 +231,13 @@ export function AdvancedLanguageSelector() {
 
   // Initialize temp values when dialog opens
   useEffect(() => {
-    if (isDialogOpen) {
+    if (isDialogOpen && countryLanguages.length > 0) {
       // Compute current country code
       const currentCountryCode = selectedCountryCode || userPreferences?.countryCode || countryLanguages[0]?.countryCode || 'AE';
       setTempCountryCode(currentCountryCode);
       setTempLanguage(currentLanguage);
     }
-  }, [isDialogOpen, selectedCountryCode, userPreferences?.countryCode, currentLanguage]);
+  }, [isDialogOpen, selectedCountryCode, userPreferences?.countryCode, currentLanguage, countryLanguages]);
   const currentCountry = selectedCountryCode 
     ? countryLanguages.find(c => c.countryCode === selectedCountryCode)
     : currentCountryLanguage;
@@ -456,8 +446,19 @@ export function AdvancedLanguageSelector() {
     : (currentCountryLanguage || countryLanguages[0]);
   
   // Ensure displayCountry exists before accessing its properties
-  if (!displayCountry) {
-    return null;
+  // Also check if countries are still loading
+  if (!displayCountry || isLoadingCountries || countryLanguages.length === 0) {
+    // Return a loading state while countries are loading
+    return (
+      <Button
+        variant="ghost"
+        size="sm"
+        className="h-8 w-8 rounded-full p-0"
+        disabled
+      >
+        <Globe className="h-4 w-4" />
+      </Button>
+    );
   }
   
   const displayLanguage = displayCountry.languages.find(l => l.code === currentLanguage) || displayCountry.languages[0];
@@ -661,26 +662,36 @@ export function AdvancedLanguageSelector() {
                 </SelectValue>
               </SelectTrigger>
               <SelectContent>
-                {countryLanguages.map((country) => (
-                  <SelectItem key={country.countryCode} value={country.countryCode}>
-                    <div className={`flex items-center gap-2 ${isRTL ? 'flex-row-reverse' : ''}`}>
-                      <Image
-                        src={country.flagUrl}
-                        alt={country.countryName}
-                        width={20}
-                        height={20}
-                        className="h-5 w-5 object-contain rounded"
-                        unoptimized
-                      />
-                      <span style={isRTL 
-                        ? { fontFamily: 'var(--font-ibm-plex-arabic), sans-serif' }
-                        : { fontFamily: 'var(--font-inter), sans-serif' }
-                      }>
-                        {getCountryDisplayName(country)}
-                      </span>
-                    </div>
-                  </SelectItem>
-                ))}
+                {isLoadingCountries ? (
+                  <div className="p-4 text-center text-sm text-gray-500">
+                    {isRTL ? 'جاري التحميل...' : 'Loading countries...'}
+                  </div>
+                ) : countryLanguages.length === 0 ? (
+                  <div className="p-4 text-center text-sm text-gray-500">
+                    {isRTL ? 'لا توجد دول متاحة' : 'No countries available'}
+                  </div>
+                ) : (
+                  countryLanguages.map((country) => (
+                    <SelectItem key={country.countryCode} value={country.countryCode}>
+                      <div className={`flex items-center gap-2 ${isRTL ? 'flex-row-reverse' : ''}`}>
+                        <Image
+                          src={country.flagUrl}
+                          alt={country.countryName}
+                          width={20}
+                          height={20}
+                          className="h-5 w-5 object-contain rounded"
+                          unoptimized
+                        />
+                        <span style={isRTL 
+                          ? { fontFamily: 'var(--font-ibm-plex-arabic), sans-serif' }
+                          : { fontFamily: 'var(--font-inter), sans-serif' }
+                        }>
+                          {getCountryDisplayName(country)}
+                        </span>
+                      </div>
+                    </SelectItem>
+                  ))
+                )}
               </SelectContent>
             </Select>
           </div>
