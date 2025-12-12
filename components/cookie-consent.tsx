@@ -126,7 +126,7 @@ export function CookieConsent({ onConsentChange }: CookieConsentProps) {
               <p
                 id="cookie-consent-description"
                 className={cn(
-                  'text-sm text-gray-700',
+                  'text-base text-gray-700',
                   isRTL ? 'text-right' : 'text-left'
                 )}
               >
@@ -144,14 +144,14 @@ export function CookieConsent({ onConsentChange }: CookieConsentProps) {
               variant="outline"
               onClick={handleDeny}
               size="sm"
-              className="h-9 px-4 text-sm"
+              className="h-9 px-4 text-base"
             >
               {t.deny}
             </Button>
             <Button
               onClick={handleAccept}
               size="sm"
-              className="h-9 px-4 text-sm bg-black hover:bg-gray-900 text-white"
+              className="h-9 px-4 text-base bg-black hover:bg-gray-900 text-white"
             >
               {t.accept}
             </Button>
