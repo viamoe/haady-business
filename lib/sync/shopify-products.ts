@@ -485,10 +485,11 @@ export async function syncShopifyProducts(
         }
 
         // Check if product source already exists (by platform and platform_product_id)
+        // Use adminClient to bypass RLS for reliable duplicate detection
         let existingSource: { product_id: string } | null = null
         
         try {
-          const { data, error: sourceCheckError } = await supabase
+          const { data, error: sourceCheckError } = await adminClient
             .from('product_sources')
             .select('product_id')
             .eq('platform', 'shopify')
@@ -497,7 +498,7 @@ export async function syncShopifyProducts(
 
           if (sourceCheckError) {
             if (sourceCheckError.code === '42P01' || sourceCheckError.message?.includes('does not exist')) {
-              console.log('product_sources table may not exist, using SKU fallback')
+              console.log('product_sources table may not exist, using product table fallback')
             } else if (sourceCheckError.code !== 'PGRST116') {
               console.error('Error checking for existing product source:', sourceCheckError)
             }
@@ -505,14 +506,14 @@ export async function syncShopifyProducts(
             existingSource = data
           }
         } catch (err) {
-          console.log('Error querying product_sources, using SKU fallback:', err)
+          console.log('Error querying product_sources, using product table fallback:', err)
         }
 
-        // Fallback: Check by SKU if product_sources check didn't work
+        // Fallback: Check by SKU within the same store (most reliable fallback)
         let existingProductBySku: { id: string } | null = null
         if (!existingSource) {
           try {
-            const { data: skuProduct } = await supabase
+            const { data: skuProduct } = await adminClient
               .from('products')
               .select('id')
               .eq('store_id', storeId)
@@ -520,8 +521,48 @@ export async function syncShopifyProducts(
               .maybeSingle()
             
             existingProductBySku = skuProduct
+            
+            // If found by SKU, also check if product_source exists for this product
+            if (existingProductBySku) {
+              const { data: existingSourceForProduct } = await adminClient
+                .from('product_sources')
+                .select('product_id, platform, platform_product_id')
+                .eq('product_id', existingProductBySku.id)
+                .eq('platform', 'shopify')
+                .maybeSingle()
+              
+              // If product_source exists but with different platform_product_id, it's a different product
+              // This prevents linking the same product to multiple platform products
+              if (existingSourceForProduct && existingSourceForProduct.platform_product_id !== shopifyProduct.id.toString()) {
+                console.log(`⚠️ Product with SKU ${productData.sku} exists but is linked to different Shopify product (${existingSourceForProduct.platform_product_id}), skipping to prevent duplicate`)
+                result.errors.push(`Product with SKU ${productData.sku} already exists and is linked to a different Shopify product`)
+                continue
+              }
+            }
           } catch (err) {
             console.error('Error checking by SKU:', err)
+          }
+        }
+        
+        // Additional check: Verify product doesn't exist by name and SKU (additional safety check)
+        if (!existingSource && !existingProductBySku) {
+          try {
+            // Check if any product in this store has the same name and SKU
+            const { data: duplicateCheck } = await adminClient
+              .from('products')
+              .select('id, sku, name_en, name_ar')
+              .eq('store_id', storeId)
+              .or(`name_en.eq.${productData.name_en || ''},name_ar.eq.${productData.name_ar || ''}`)
+              .maybeSingle()
+            
+            if (duplicateCheck && duplicateCheck.sku === productData.sku) {
+              console.log(`⚠️ Potential duplicate detected: Product with same SKU and similar name exists (ID: ${duplicateCheck.id})`)
+              // Don't create duplicate, update existing instead
+              existingProductBySku = { id: duplicateCheck.id }
+            }
+          } catch (err) {
+            // This is a safety check, so we can ignore errors
+            console.log('Duplicate check failed (non-critical):', err)
           }
         }
 
