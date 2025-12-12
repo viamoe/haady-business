@@ -273,14 +273,11 @@ export default function SetupForm() {
       try {
         console.log('Fetching countries from database...');
         
-        // Gulf countries + Egypt ISO2 codes
-        const GULF_COUNTRIES = ['SA', 'AE', 'KW', 'QA', 'BH', 'OM', 'EG'];
-        
+        // Fetch ALL countries from the database (no hardcoded filter)
         // Try 'countries' table first, fallback to 'countries_master'
         let { data: countriesData, error } = await supabase
           .from('countries')
           .select('id, name, name_ar, iso2, iso3, phone_code')
-          .in('iso2', GULF_COUNTRIES)
           .order('name', { ascending: true });
 
         if (error) {
@@ -289,7 +286,6 @@ export default function SetupForm() {
           const { data: countriesMaster, error: masterError } = await supabase
             .from('countries_master')
             .select('id, name, name_ar, iso2, iso3, phone_code')
-            .in('iso2', GULF_COUNTRIES)
             .order('name', { ascending: true });
 
           if (masterError) {
