@@ -198,6 +198,15 @@ export default function SetupForm() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [countries, setCountries] = useState<Country[]>([]);
   const [isLoadingCountries, setIsLoadingCountries] = useState(true);
+
+  // Debug: Log countries state changes
+  useEffect(() => {
+    console.log('🔍 Countries state changed:', {
+      count: countries.length,
+      countries: countries,
+      isLoading: isLoadingCountries
+    });
+  }, [countries, isLoadingCountries]);
   const [businessTypes, setBusinessTypes] = useState<BusinessType[]>([]);
   const [isLoadingBusinessTypes, setIsLoadingBusinessTypes] = useState(true);
 
@@ -281,9 +290,12 @@ export default function SetupForm() {
           throw new Error(errorData.error || `Failed to fetch countries: ${response.statusText}`);
         }
         
-        const { countries: countriesData } = await response.json();
+        const responseData = await response.json();
+        console.log('Full API response:', responseData);
         
+        const countriesData = responseData.countries || [];
         console.log('Countries fetched from API:', countriesData?.length || 0, 'countries');
+        console.log('Countries data structure:', countriesData);
         
         if (!countriesData || countriesData.length === 0) {
           console.warn('No countries found in database. Please ensure countries_master table has data.');
@@ -291,23 +303,72 @@ export default function SetupForm() {
             description: 'No countries found. Please contact support.',
             duration: 5000,
           });
+          setCountries([]);
+          return;
         }
         
-        setCountries(countriesData || []);
+        // Ensure countries have the required fields (id, name, iso2)
+        // Log each country to see what we're getting
+        countriesData.forEach((c: any, index: number) => {
+          console.log(`Country ${index}:`, {
+            id: c?.id,
+            name: c?.name,
+            iso2: c?.iso2,
+            hasId: !!c?.id,
+            hasName: !!c?.name,
+            hasIso2: !!c?.iso2,
+            fullObject: c
+          });
+        });
+        
+        const validCountries = countriesData.filter((c: any) => {
+          // More lenient check - allow any truthy value for id, name, iso2
+          const hasId = c && c.id != null && String(c.id).trim() !== '';
+          const hasName = c && c.name != null && String(c.name).trim() !== '';
+          const hasIso2 = c && c.iso2 != null && String(c.iso2).trim() !== '';
+          const isValid = hasId && hasName && hasIso2;
+          
+          if (!isValid) {
+            console.warn('❌ Invalid country data (filtered out):', {
+              country: c,
+              hasId,
+              hasName,
+              hasIso2,
+              idType: typeof c?.id,
+              nameType: typeof c?.name,
+              iso2Type: typeof c?.iso2
+            });
+          } else {
+            console.log('✅ Valid country:', c.name, '| ID:', c.id, '| ISO2:', c.iso2);
+          }
+          return isValid;
+        });
+        
+        console.log('Valid countries after filtering:', validCountries.length);
+        console.log('Valid countries array:', validCountries);
+        
+        if (validCountries.length > 0) {
+          setCountries(validCountries);
+          console.log('✅ Countries state updated successfully, count:', validCountries.length);
+        } else {
+          console.error('❌ No valid countries after filtering! Original count:', countriesData.length);
+          setCountries([]);
+        }
         
         // Set default country based on user's selected country
-        if (countriesData && countriesData.length > 0) {
+        // Use validCountries instead of countriesData since we've already filtered
+        if (validCountries && validCountries.length > 0) {
           const userCountryCode = await getUserSelectedCountry();
           
           // Find country matching user's selection
           const defaultCountry = userCountryCode
-            ? countriesData.find((c: Country) => c.iso2 === userCountryCode.toUpperCase())
+            ? validCountries.find((c: Country) => c.iso2 === userCountryCode.toUpperCase())
             : null;
           
           // Fallback to Saudi Arabia if no user country found, or first country if SA doesn't exist
           const countryToSet = defaultCountry || 
-                              countriesData.find((c: Country) => c.iso2 === 'SA') || 
-                              countriesData[0];
+                              validCountries.find((c: Country) => c.iso2 === 'SA') || 
+                              validCountries[0];
           
           if (countryToSet) {
             setValueRef.current('country', countryToSet.id, { shouldValidate: false });
@@ -653,17 +714,36 @@ export default function SetupForm() {
                       <ChevronDown className="h-4 w-4 opacity-50" />
                     </Button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent className="w-[var(--radix-dropdown-menu-trigger-width)] rounded-xl overflow-hidden p-1 ml-2">
-                    {countries.map((country) => (
-                      <DropdownMenuItem
-                        key={country.id}
-                        onClick={() => setValue('country', country.id, { shouldValidate: true })}
-                        className="cursor-pointer rounded-lg"
-                      >
-                        <Flag countryName={country.name} size="s" />
-                        <span>{locale === 'ar' && country.name_ar ? country.name_ar : country.name}</span>
+                  <DropdownMenuContent className="w-[var(--radix-dropdown-menu-trigger-width)] rounded-xl overflow-hidden p-1 ml-2 max-h-[300px] overflow-y-auto">
+                    {isLoadingCountries ? (
+                      <DropdownMenuItem disabled>
+                        <span className="text-gray-500">Loading countries...</span>
                       </DropdownMenuItem>
-                    ))}
+                    ) : countries.length === 0 ? (
+                      <DropdownMenuItem disabled>
+                        <span className="text-gray-500">No countries available</span>
+                      </DropdownMenuItem>
+                    ) : (
+                      countries.map((country) => {
+                        if (!country || !country.id || !country.name) {
+                          console.warn('Skipping invalid country in render:', country);
+                          return null;
+                        }
+                        return (
+                          <DropdownMenuItem
+                            key={country.id}
+                            onClick={() => {
+                              console.log('Country selected:', country);
+                              setValue('country', country.id, { shouldValidate: true });
+                            }}
+                            className="cursor-pointer rounded-lg"
+                          >
+                            <Flag countryName={country.name} size="s" />
+                            <span>{locale === 'ar' && country.name_ar ? country.name_ar : country.name}</span>
+                          </DropdownMenuItem>
+                        );
+                      }).filter(Boolean)
+                    )}
                   </DropdownMenuContent>
                 </DropdownMenu>
                 {errors.country && (
