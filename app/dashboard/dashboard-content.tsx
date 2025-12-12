@@ -36,7 +36,7 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { OnboardingPanel } from '@/components/onboarding-panel'
 import { Skeleton } from '@/components/ui/skeleton'
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo, useCallback, memo } from 'react'
 import { usePathname } from 'next/navigation'
 import { toast } from '@/lib/toast'
 import { handleError, safeFetch } from '@/lib/error-handler'
@@ -79,8 +79,8 @@ interface DashboardContentProps {
   storeConnections?: StoreConnection[]
 }
 
-// Get greeting based on time of day
-function getGreeting() {
+// Get greeting based on time of day - memoized to avoid recalculation
+const getGreeting = () => {
   const hour = new Date().getHours()
   if (hour < 12) return 'Good morning'
   if (hour < 17) return 'Good afternoon'
@@ -206,8 +206,8 @@ export function DashboardContent({
     return () => clearTimeout(timer)
   }, [])
 
-  // Onboarding steps
-  const onboardingSteps = [
+  // Memoize onboarding steps to avoid recreation on every render
+  const onboardingSteps = useMemo(() => [
     {
       id: 'store',
       title: 'Create your first store',
@@ -240,9 +240,9 @@ export function DashboardContent({
       href: '/dashboard/settings',
       icon: Truck,
     },
-  ]
+  ], [hasStore, hasProducts, hasPaymentConfigured, hasShippingConfigured])
 
-  const completedSteps = onboardingSteps.filter(s => s.completed).length
+  const completedSteps = useMemo(() => onboardingSteps.filter(s => s.completed).length, [onboardingSteps])
   
   return (
     <div className="h-full">
@@ -298,7 +298,9 @@ export function DashboardContent({
                 <div className="space-y-3">
                   {storeConnections.map((connection) => {
                     if (!connection.id) {
-                      console.error('Connection missing ID:', connection)
+                      if (process.env.NODE_ENV === 'development') {
+                        console.error('Connection missing ID:', connection)
+                      }
                       return null
                     }
                     return (
@@ -319,8 +321,8 @@ export function DashboardContent({
   )
 }
 
-// Store Connection Card Component
-function StoreConnectionCard({
+// Store Connection Card Component - Memoized to prevent unnecessary re-renders
+const StoreConnectionCard = memo(function StoreConnectionCard({
   connection,
   onDisconnect,
 }: {
@@ -337,8 +339,8 @@ function StoreConnectionCard({
   const [previewProducts, setPreviewProducts] = useState<ProductPreview[]>([])
   const [isLoadingPreview, setIsLoadingPreview] = useState(false)
 
-  // Function to refresh store info
-  const handleRefreshStoreInfo = async () => {
+  // Memoize callback functions to prevent unnecessary re-renders
+  const handleRefreshStoreInfo = useCallback(async () => {
     if (!connection.id) return
 
     setIsRefreshingStoreInfo(true)
@@ -370,83 +372,84 @@ function StoreConnectionCard({
           showToast: true,
         })
       } else {
-        // Silently log network errors for auto-fetch
-        console.debug('Auto-fetch store info failed (network unavailable):', error)
+        // Silently log network errors for auto-fetch - only in development
+        if (process.env.NODE_ENV === 'development') {
+          console.debug('Auto-fetch store info failed (network unavailable):', error)
+        }
       }
     } finally {
       setIsRefreshingStoreInfo(false)
     }
-  }
+  }, [connection.id, onDisconnect])
 
-  // Auto-fetch store info if missing on mount
+  // Auto-fetch store info if missing on mount - combined with memoized callback
   useEffect(() => {
     // Only fetch if store_name is missing and we have a connection ID
     if (connection.id && (!connection.store_name || !connection.store_external_id)) {
-      console.log('🔄 Auto-fetching store info for connection:', connection.id)
+      // Only log in development
+      if (process.env.NODE_ENV === 'development') {
+        console.log('🔄 Auto-fetching store info for connection:', connection.id)
+      }
       // Use a small delay to avoid race conditions
       const timer = setTimeout(() => {
         handleRefreshStoreInfo().catch((error) => {
-          // Silently handle auto-fetch errors to avoid console spam
-          console.debug('Auto-fetch store info failed (this is normal if network is unavailable):', error)
+          // Silently handle auto-fetch errors - only log in development
+          if (process.env.NODE_ENV === 'development') {
+            console.debug('Auto-fetch store info failed:', error)
+          }
         })
       }, 1000)
       return () => clearTimeout(timer)
     }
-  }, [connection.id]) // Run when connection.id changes
+  }, [connection.id, connection.store_name, connection.store_external_id]) // Proper dependencies
 
-  // Debug: Log connection data
-  useEffect(() => {
-    console.log('🔍 StoreConnectionCard - Connection data:', {
-      id: connection.id,
-      idType: typeof connection.id,
-      hasId: !!connection.id,
-      platform: connection.platform,
-      store_name: connection.store_name,
-      store_external_id: connection.store_external_id,
-      fullConnection: connection,
+  // Memoize platform logo and health status calculations
+  const platformLogo = useMemo(() => {
+    const platform = localConnection.platform?.toLowerCase()
+    if (platform === 'salla') return `${ECOMMERCE_STORAGE_URL}/salla-logo.png`
+    if (platform === 'zid') return `${ECOMMERCE_STORAGE_URL}/zid-logo.png`
+    if (platform === 'shopify') return `${ECOMMERCE_STORAGE_URL}/shopify-logo.png`
+    return null
+  }, [localConnection.platform])
+
+  // Memoize connection health calculations
+  const { isExpired, healthStatus, syncStatus } = useMemo(() => {
+    const isExpired = localConnection.expires_at 
+      ? new Date(localConnection.expires_at) < new Date()
+      : false
+
+    const healthStatus = isExpired 
+      ? 'expired' 
+      : localConnection.connection_status === 'error' || localConnection.last_error
+      ? 'error'
+      : localConnection.connection_status === 'disconnected'
+      ? 'disconnected'
+      : 'connected'
+
+    const syncStatus = localConnection.sync_status || 'idle'
+
+    return { isExpired, healthStatus, syncStatus }
+  }, [localConnection.expires_at, localConnection.connection_status, localConnection.last_error, localConnection.sync_status])
+
+  // Memoize date formatting to avoid recalculation on every render
+  const lastSyncTime = useMemo(() => {
+    if (!localConnection.last_sync_at) return null
+    return new Date(localConnection.last_sync_at).toLocaleString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
     })
-  }, [connection])
+  }, [localConnection.last_sync_at])
 
-  const platformLogo = localConnection.platform?.toLowerCase() === 'salla' 
-    ? `${ECOMMERCE_STORAGE_URL}/salla-logo.png`
-    : localConnection.platform?.toLowerCase() === 'zid'
-    ? `${ECOMMERCE_STORAGE_URL}/zid-logo.png`
-    : localConnection.platform?.toLowerCase() === 'shopify'
-    ? `${ECOMMERCE_STORAGE_URL}/shopify-logo.png`
-    : null
-
-  // Determine connection health
-  const isExpired = localConnection.expires_at 
-    ? new Date(localConnection.expires_at) < new Date()
-    : false
-
-  const healthStatus = isExpired 
-    ? 'expired' 
-    : localConnection.connection_status === 'error' || localConnection.last_error
-    ? 'error'
-    : localConnection.connection_status === 'disconnected'
-    ? 'disconnected'
-    : 'connected'
-
-  const syncStatus = localConnection.sync_status || 'idle'
-
-  // Format last sync time
-  const lastSyncTime = localConnection.last_sync_at
-    ? new Date(localConnection.last_sync_at).toLocaleString('en-US', {
-        month: 'short',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-      })
-    : null
-
-  const connectedDate = localConnection.created_at
-    ? new Date(localConnection.created_at).toLocaleDateString('en-US', {
-        month: 'short',
-        day: 'numeric',
-        year: 'numeric',
-      })
-    : 'Recently'
+  const connectedDate = useMemo(() => {
+    if (!localConnection.created_at) return 'Recently'
+    return new Date(localConnection.created_at).toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+    })
+  }, [localConnection.created_at])
 
   // Status indicator component
   const StatusIndicator = () => {
@@ -485,20 +488,24 @@ function StoreConnectionCard({
     return null
   }
 
-  const handleDisconnect = async () => {
+  const handleDisconnect = useCallback(async () => {
     if (!connection.id) {
       handleError(new Error('Connection ID is missing'), {
         context: 'Disconnect store',
         showToast: true,
         fallbackMessage: 'Connection ID is missing. Please refresh the page.',
       })
-      console.error('❌ Connection missing ID:', connection)
+      if (process.env.NODE_ENV === 'development') {
+        console.error('❌ Connection missing ID:', connection)
+      }
       return
     }
 
     setIsDisconnecting(true)
     try {
-      console.log('🔌 Disconnecting connection:', connection.id, connection.platform)
+      if (process.env.NODE_ENV === 'development') {
+        console.log('🔌 Disconnecting connection:', connection.id, connection.platform)
+      }
       const response = await safeFetch(
         `/api/store-connections/${connection.id}`,
         { method: 'DELETE' },
@@ -516,23 +523,27 @@ function StoreConnectionCard({
     } finally {
       setIsDisconnecting(false)
     }
-  }
+  }, [connection.id, localConnection.platform, onDisconnect])
 
-  const handleSync = async () => {
+  const handleSync = useCallback(async () => {
     if (!connection.id) {
       handleError(new Error('Connection ID is missing'), {
         context: 'Sync store',
         showToast: true,
         fallbackMessage: 'Connection ID is missing. Please refresh the page.',
       })
-      console.error('Connection object:', connection)
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Connection object:', connection)
+      }
       return
     }
 
     // First, fetch preview of products
     setIsLoadingPreview(true)
     try {
-      console.log('Fetching product preview for connection:', connection.id, connection.platform)
+      if (process.env.NODE_ENV === 'development') {
+        console.log('Fetching product preview for connection:', connection.id, connection.platform)
+      }
       const previewResponse = await safeFetch(
         `/api/store-connections/${connection.id}/sync/preview`,
         { method: 'GET' },
@@ -562,14 +573,16 @@ function StoreConnectionCard({
     } finally {
       setIsLoadingPreview(false)
     }
-  }
+  }, [connection.id, connection.platform])
 
-  const performDirectSync = async () => {
+  const performDirectSync = useCallback(async () => {
     if (!connection.id) return
 
     setIsSyncing(true)
     try {
-      console.log('Syncing connection:', connection.id, connection.platform)
+      if (process.env.NODE_ENV === 'development') {
+        console.log('Syncing connection:', connection.id, connection.platform)
+      }
       const response = await safeFetch(
         `/api/store-connections/${connection.id}/sync`,
         {
@@ -641,26 +654,30 @@ function StoreConnectionCard({
     } finally {
       setIsSyncing(false)
     }
-  }
+  }, [connection.id, connection.platform])
 
-  const handleApproveProducts = async (selectedProductIds: string[]) => {
+  const handleApproveProducts = useCallback(async (selectedProductIds: string[]) => {
     if (!connection.id) return
 
     setIsSyncing(true)
     try {
-      console.log('🔄 Starting product sync:', {
-        connectionId: connection.id,
-        platform: connection.platform,
-        productCount: selectedProductIds.length,
-        selectedProductIds: selectedProductIds.slice(0, 5), // Log first 5 IDs
-      })
+      if (process.env.NODE_ENV === 'development') {
+        console.log('🔄 Starting product sync:', {
+          connectionId: connection.id,
+          platform: connection.platform,
+          productCount: selectedProductIds.length,
+          selectedProductIds: selectedProductIds.slice(0, 5), // Log first 5 IDs
+        })
+      }
       
       const requestBody = { 
         type: 'all',
         selectedProductIds: selectedProductIds,
       }
       
-      console.log('📤 Sync request body:', requestBody)
+      if (process.env.NODE_ENV === 'development') {
+        console.log('📤 Sync request body:', requestBody)
+      }
       
       const response = await safeFetch(
         `/api/store-connections/${connection.id}/sync`,
@@ -672,9 +689,11 @@ function StoreConnectionCard({
         { context: 'Sync selected products' }
       )
 
-      console.log('📥 Sync response status:', response.status, response.statusText)
       const data = await response.json()
-      console.log('📥 Sync response data:', data)
+      if (process.env.NODE_ENV === 'development') {
+        console.log('📥 Sync response status:', response.status, response.statusText)
+        console.log('📥 Sync response data:', data)
+      }
       
       if (!data.success) {
         // Include error details in the error message
@@ -743,8 +762,10 @@ function StoreConnectionCard({
         errorInfo.extractionError = String(extractError)
       }
       
-      console.error('❌ Sync error details:', errorInfo)
-      console.error('❌ Raw error object:', error)
+      if (process.env.NODE_ENV === 'development') {
+        console.error('❌ Sync error details:', errorInfo)
+        console.error('❌ Raw error object:', error)
+      }
       
       // Extract error message from various possible locations
       const errorMessage = 
@@ -780,9 +801,9 @@ function StoreConnectionCard({
     } finally {
       setIsSyncing(false)
     }
-  }
+  }, [connection.id, connection.platform])
 
-  const handleRefreshToken = async () => {
+  const handleRefreshToken = useCallback(async () => {
     setIsRefreshing(true)
     try {
       const response = await safeFetch(
@@ -813,7 +834,7 @@ function StoreConnectionCard({
     } finally {
       setIsRefreshing(false)
     }
-  }
+  }, [connection.id])
 
   return (
     <>
@@ -826,7 +847,8 @@ function StoreConnectionCard({
               width={60}
               height={24}
               className="h-6 w-auto object-contain"
-              unoptimized
+              priority={false}
+              loading="lazy"
             />
           </div>
         )}
@@ -963,5 +985,5 @@ function StoreConnectionCard({
       />
     </>
   )
-}
+})
 

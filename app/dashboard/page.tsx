@@ -55,104 +55,79 @@ export default async function DashboardPage() {
 
   const firstName = getFirstName(merchantUser.full_name)
 
-  // Get merchant details
-  const { data: merchant } = await supabase
-    .from('merchants')
-    .select('name, status')
-    .eq('id', merchantUser.merchant_id)
-    .single()
+  // Parallelize all database queries for better performance
+  const [merchantResult, storeCountResult, productCountResult, connectionsResult] = await Promise.all([
+    // Get merchant details
+    supabase
+      .from('merchants')
+      .select('name, status')
+      .eq('id', merchantUser.merchant_id)
+      .single(),
+    
+    // Get store count
+    supabase
+      .from('stores')
+      .select('id', { count: 'exact', head: true })
+      .eq('merchant_id', merchantUser.merchant_id),
+    
+    // Get product count
+    supabase
+      .from('products')
+      .select('id', { count: 'exact', head: true })
+      .eq('merchant_id', merchantUser.merchant_id),
+    
+    // Get store connections
+    supabase
+      .from('store_connections')
+      .select('id, platform, store_external_id, store_name, store_domain')
+      .eq('user_id', user.id),
+  ])
 
-  // Get store count
-  const { count: storeCount } = await supabase
-    .from('stores')
-    .select('id', { count: 'exact', head: true })
-    .eq('merchant_id', merchantUser.merchant_id)
-
-  // Get product count
-  const { count: productCount } = await supabase
-    .from('products')
-    .select('id', { count: 'exact', head: true })
-    .eq('merchant_id', merchantUser.merchant_id)
+  const merchant = merchantResult.data
+  const storeCount = storeCountResult.count || 0
+  const productCount = productCountResult.count || 0
 
   // Check setup completion status
-  const hasStore = (storeCount || 0) > 0
-  const hasProducts = (productCount || 0) > 0
+  const hasStore = storeCount > 0
+  const hasProducts = productCount > 0
   // TODO: Check payment methods and shipping configuration when those features are implemented
   const hasPaymentConfigured = false // Placeholder
   const hasShippingConfigured = false // Placeholder
 
   const isSetupComplete = hasStore && hasProducts && hasPaymentConfigured && hasShippingConfigured
 
-  // Get store connections
+  // Process store connections
   let storeConnections: any[] = []
   
-  try {
-    // Query store connections - RLS policies should allow users to see their own
-    // First try with all columns to see what exists
-    const { data: allData, error: testError } = await supabase
-      .from('store_connections')
-      .select('*')
-      .eq('user_id', user.id)
-      .limit(1)
-    
-    if (testError) {
-      console.error('Test query error:', testError.message)
-    } else if (allData && allData.length > 0) {
-      console.log('Available columns:', Object.keys(allData[0]))
-    }
-    
-    // Query store connections - include store_name and store_domain if they exist
-    const { data: connections, error: connectionsError } = await supabase
-      .from('store_connections')
-      .select('id, platform, store_external_id, store_name, store_domain')
-      .eq('user_id', user.id)
-    
-    // Debug: Log the connections to see what we're getting
-    if (connections && connections.length > 0) {
-      console.log('📦 Fetched connections:', JSON.stringify(connections, null, 2))
-      connections.forEach((conn: any, index: number) => {
-        console.log(`Connection ${index}:`, {
-          id: conn.id,
-          idType: typeof conn.id,
-          platform: conn.platform,
-          hasId: !!conn.id,
-        })
-      })
-    }
-
-    if (connectionsError) {
-      // Log full error details
+  if (connectionsResult.error) {
+    // Only log errors in development
+    if (process.env.NODE_ENV === 'development') {
       const errorDetails = {
-        message: connectionsError.message,
-        details: connectionsError.details,
-        hint: connectionsError.hint,
-        code: connectionsError.code,
-        fullError: connectionsError
+        message: connectionsResult.error.message,
+        details: connectionsResult.error.details,
+        hint: connectionsResult.error.hint,
+        code: connectionsResult.error.code,
       }
-      console.error('❌ Error fetching store connections:', JSON.stringify(errorDetails, null, 2))
+      console.error('❌ Error fetching store connections:', errorDetails)
       
       // Common RLS error codes
-      if (connectionsError.code === '42501' || connectionsError.message?.includes('permission denied')) {
+      if (connectionsResult.error.code === '42501' || connectionsResult.error.message?.includes('permission denied')) {
         console.error('🔒 RLS Policy Error: User does not have permission to read store_connections')
-        console.error('💡 Solution: Run the SQL in docs/database/fix_store_connections_rls.sql to fix RLS policies')
       }
-    } else {
-      // Map connections with default values for management fields that may not exist yet
-      storeConnections = (connections || []).map((conn: any) => ({
-        ...conn,
-        store_name: conn.store_name || null,
-        store_domain: conn.store_domain || null,
-        connection_status: 'connected',
-        sync_status: 'idle',
-        last_sync_at: null,
-        last_error: null,
-        expires_at: null,
-        created_at: null,
-      }))
-      console.log('✅ Store connections found:', storeConnections.length, connections)
     }
-  } catch (error: any) {
-    console.error('💥 Exception fetching store connections:', error?.message || error)
+  } else {
+    // Map connections with default values for management fields that may not exist yet
+    storeConnections = (connectionsResult.data || []).map((conn: any) => ({
+      ...conn,
+      store_name: conn.store_name || null,
+      store_domain: conn.store_domain || null,
+      connection_status: 'connected',
+      sync_status: 'idle',
+      last_sync_at: null,
+      last_error: null,
+      expires_at: null,
+      created_at: null,
+    }))
   }
 
   return (
