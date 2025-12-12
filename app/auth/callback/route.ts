@@ -74,8 +74,6 @@ export async function GET(request: Request) {
   // Extract full name from Google OAuth user metadata
   const userFullName = session.user.user_metadata?.full_name || 
                        session.user.user_metadata?.name ||
-                       session.user.raw_user_meta_data?.full_name ||
-                       session.user.raw_user_meta_data?.name ||
                        null;
 
   if (appType === 'merchant' && session.user) {
