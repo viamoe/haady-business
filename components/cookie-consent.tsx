@@ -1,11 +1,12 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { setCookie, getCookie, COOKIE_NAMES, checkCookieConsent } from '@/lib/cookies';
 import { useLocale } from '@/i18n/context';
 import { cn } from '@/lib/utils';
 import { Cookie } from 'lucide-react';
+import { usePathname } from 'next/navigation';
 
 const CONSENT_COOKIE_NAME = 'cookie_consent';
 const CONSENT_COOKIE_MAX_AGE = 31536000; // 1 year
@@ -17,7 +18,19 @@ interface CookieConsentProps {
 export function CookieConsent({ onConsentChange }: CookieConsentProps) {
   const [isVisible, setIsVisible] = useState(false);
   const [isClosing, setIsClosing] = useState(false);
-  const { locale, isRTL } = useLocale();
+  const { locale: contextLocale, isRTL: contextIsRTL } = useLocale();
+  const pathname = usePathname();
+  
+  // Extract locale from URL pathname to ensure it updates when URL changes
+  const locale = useMemo(() => {
+    const match = pathname.match(/^\/([a-z]{2})-[a-z]{2}/i);
+    if (match && (match[1] === 'en' || match[1] === 'ar')) {
+      return match[1] as 'en' | 'ar';
+    }
+    return contextLocale;
+  }, [pathname, contextLocale]);
+  
+  const isRTL = locale === 'ar';
 
   useEffect(() => {
     // Check if user has already given consent
@@ -82,7 +95,7 @@ export function CookieConsent({ onConsentChange }: CookieConsentProps) {
     }
   };
 
-  const translations = {
+  const translations = useMemo(() => ({
     en: {
       description: 'We use cookies to enhance your experience. You can accept or deny non-essential cookies.',
       accept: 'Accept All',
@@ -93,7 +106,7 @@ export function CookieConsent({ onConsentChange }: CookieConsentProps) {
       accept: 'قبول الكل',
       deny: 'رفض',
     },
-  };
+  }), []);
 
   const t = translations[locale];
 
@@ -103,7 +116,7 @@ export function CookieConsent({ onConsentChange }: CookieConsentProps) {
     <div
       className={cn(
         'fixed left-0 right-0 bottom-0 z-[150] px-4 py-4',
-        'bg-gray-100 shadow-lg',
+        'bg-white border-t border-gray-200 shadow-lg',
         'animate-in slide-in-from-bottom duration-300',
         isClosing && 'animate-out slide-out-to-bottom duration-300'
       )}
@@ -126,7 +139,7 @@ export function CookieConsent({ onConsentChange }: CookieConsentProps) {
               <p
                 id="cookie-consent-description"
                 className={cn(
-                  'text-base text-gray-700',
+                  'text-sm text-gray-700',
                   isRTL ? 'text-right' : 'text-left'
                 )}
               >
@@ -144,14 +157,14 @@ export function CookieConsent({ onConsentChange }: CookieConsentProps) {
               variant="outline"
               onClick={handleDeny}
               size="sm"
-              className="h-9 px-4 text-base"
+              className="h-9 px-4 text-sm"
             >
               {t.deny}
             </Button>
             <Button
               onClick={handleAccept}
               size="sm"
-              className="h-9 px-4 text-base bg-black hover:bg-gray-900 text-white"
+              className="h-9 px-4 text-sm bg-black hover:bg-gray-900 text-white"
             >
               {t.accept}
             </Button>
