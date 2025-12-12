@@ -143,6 +143,36 @@ export default function OtpVerificationForm({ email }: OtpVerificationFormProps)
 
         setLoading(true, 'Checking your account...');
 
+        // Extract locale and country from pathname or use defaults
+        const pathMatch = pathname.match(/^\/([a-z]{2})-([a-z]{2})/i);
+        const preferredLanguage = pathMatch ? pathMatch[1] : 'en';
+        const preferredCountry = pathMatch ? pathMatch[2].toUpperCase() : 'AE';
+
+        // Create public.users record via API (uses admin client to bypass RLS)
+        try {
+          const createUserResponse = await fetch('/api/auth/create-public-user', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              preferred_language: preferredLanguage,
+            }),
+          });
+
+          if (!createUserResponse.ok) {
+            const errorData = await createUserResponse.json();
+            console.error('Error creating public.users record:', errorData);
+            // Continue anyway - user can still proceed
+          } else {
+            const userData = await createUserResponse.json();
+            console.log('public.users record:', userData.isNew ? 'created' : 'already exists');
+          }
+        } catch (err) {
+          console.error('Error calling create-public-user API:', err);
+          // Continue anyway - user can still proceed
+        }
+
         // Check if merchant_user exists
         let { data: merchantUser, error: merchantError } = await supabase
           .from('merchant_users')
@@ -152,11 +182,6 @@ export default function OtpVerificationForm({ email }: OtpVerificationFormProps)
 
         // If merchant_user doesn't exist, create it
         if (!merchantUser && !merchantError) {
-          // Extract locale and country from pathname or use defaults
-          const pathMatch = pathname.match(/^\/([a-z]{2})-([a-z]{2})/i);
-          const preferredLanguage = pathMatch ? pathMatch[1] : 'en';
-          const preferredCountry = pathMatch ? pathMatch[2].toUpperCase() : 'AE';
-
           const { data: newMerchantUser, error: createError } = await supabase
             .from('merchant_users')
             .insert({
