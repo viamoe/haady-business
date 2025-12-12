@@ -2,17 +2,10 @@
 
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
 import { setCookie, getCookie, COOKIE_NAMES, checkCookieConsent } from '@/lib/cookies';
 import { useLocale } from '@/i18n/context';
-import { X } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { Cookie } from 'lucide-react';
 
 const CONSENT_COOKIE_NAME = 'cookie_consent';
 const CONSENT_COOKIE_MAX_AGE = 31536000; // 1 year
@@ -22,16 +15,17 @@ interface CookieConsentProps {
 }
 
 export function CookieConsent({ onConsentChange }: CookieConsentProps) {
-  const [isOpen, setIsOpen] = useState(false);
+  const [isVisible, setIsVisible] = useState(false);
+  const [isClosing, setIsClosing] = useState(false);
   const { locale, isRTL } = useLocale();
 
   useEffect(() => {
     // Check if user has already given consent
     const consent = getCookie(CONSENT_COOKIE_NAME);
     if (!consent) {
-      // Show popup after a short delay for better UX
+      // Show banner after a short delay for better UX
       const timer = setTimeout(() => {
-        setIsOpen(true);
+        setIsVisible(true);
       }, 1000);
       return () => clearTimeout(timer);
     }
@@ -43,7 +37,7 @@ export function CookieConsent({ onConsentChange }: CookieConsentProps) {
       path: '/',
       sameSite: 'Lax',
     });
-    setIsOpen(false);
+    handleClose();
     onConsentChange?.(true);
   };
 
@@ -55,8 +49,16 @@ export function CookieConsent({ onConsentChange }: CookieConsentProps) {
     });
     // Clear all non-essential cookies if user denies
     clearNonEssentialCookies();
-    setIsOpen(false);
+    handleClose();
     onConsentChange?.(false);
+  };
+
+  const handleClose = () => {
+    setIsClosing(true);
+    setTimeout(() => {
+      setIsVisible(false);
+      setIsClosing(false);
+    }, 300);
   };
 
   const clearNonEssentialCookies = () => {
@@ -82,70 +84,81 @@ export function CookieConsent({ onConsentChange }: CookieConsentProps) {
 
   const translations = {
     en: {
-      title: 'Cookie Preferences',
-      description: 'We use cookies to enhance your experience, analyze site usage, and assist in our marketing efforts. You can choose to accept or deny non-essential cookies.',
-      essential: 'Essential cookies are required for the website to function properly and cannot be disabled.',
+      description: 'We use cookies to enhance your experience. You can accept or deny non-essential cookies.',
       accept: 'Accept All',
-      deny: 'Deny Non-Essential',
-      learnMore: 'Learn More',
+      deny: 'Deny',
     },
     ar: {
-      title: 'تفضيلات ملفات تعريف الارتباط',
-      description: 'نستخدم ملفات تعريف الارتباط لتحسين تجربتك وتحليل استخدام الموقع والمساعدة في جهودنا التسويقية. يمكنك اختيار قبول أو رفض ملفات تعريف الارتباط غير الضرورية.',
-      essential: 'ملفات تعريف الارتباط الأساسية مطلوبة لكي يعمل الموقع بشكل صحيح ولا يمكن تعطيلها.',
+      description: 'نستخدم ملفات تعريف الارتباط لتحسين تجربتك. يمكنك قبول أو رفض ملفات تعريف الارتباط غير الضرورية.',
       accept: 'قبول الكل',
-      deny: 'رفض غير الضرورية',
-      learnMore: 'معرفة المزيد',
+      deny: 'رفض',
     },
   };
 
   const t = translations[locale];
 
-  if (!isOpen) return null;
+  if (!isVisible) return null;
 
   return (
-    <Dialog open={isOpen} onOpenChange={() => {}}>
-      <DialogContent 
-        className={`sm:max-w-[500px] ${isRTL ? 'text-right' : 'text-left'}`}
-        aria-describedby="cookie-consent-description"
-        onInteractOutside={(e) => e.preventDefault()}
-        onEscapeKeyDown={(e) => e.preventDefault()}
-      >
-        <DialogHeader>
-          <DialogTitle className={isRTL ? 'text-right' : 'text-left'}>
-            {t.title}
-          </DialogTitle>
-          <DialogDescription 
-            id="cookie-consent-description"
-            className={`mt-2 ${isRTL ? 'text-right' : 'text-left'}`}
-          >
-            {t.description}
-          </DialogDescription>
-        </DialogHeader>
+    <div
+      className={cn(
+        'fixed left-0 right-0 bottom-0 z-[150] px-4 py-4',
+        'bg-white border-t border-gray-200 shadow-lg',
+        'animate-in slide-in-from-bottom duration-300',
+        isClosing && 'animate-out slide-out-to-bottom duration-300'
+      )}
+      role="dialog"
+      aria-labelledby="cookie-consent-title"
+      aria-describedby="cookie-consent-description"
+    >
+      <div className="container mx-auto max-w-7xl">
+        <div className={cn(
+          'flex items-center justify-between gap-4',
+          isRTL ? 'flex-row-reverse' : 'flex-row'
+        )}>
+          {/* Left side - Icon and Description */}
+          <div className={cn(
+            'flex items-center gap-3 flex-1 min-w-0',
+            isRTL ? 'flex-row-reverse' : 'flex-row'
+          )}>
+            <Cookie className="h-5 w-5 text-gray-700 flex-shrink-0" />
+            <div className="flex-1 min-w-0">
+              <p
+                id="cookie-consent-description"
+                className={cn(
+                  'text-sm text-gray-700',
+                  isRTL ? 'text-right' : 'text-left'
+                )}
+              >
+                {t.description}
+              </p>
+            </div>
+          </div>
 
-        <div className={`mt-4 p-4 bg-gray-50 rounded-lg ${isRTL ? 'text-right' : 'text-left'}`}>
-          <p className="text-sm text-gray-600">
-            {t.essential}
-          </p>
+          {/* Right side - Buttons */}
+          <div className={cn(
+            'flex items-center gap-2 flex-shrink-0',
+            isRTL ? 'flex-row-reverse' : 'flex-row'
+          )}>
+            <Button
+              variant="outline"
+              onClick={handleDeny}
+              size="sm"
+              className="h-9 px-4 text-sm"
+            >
+              {t.deny}
+            </Button>
+            <Button
+              onClick={handleAccept}
+              size="sm"
+              className="h-9 px-4 text-sm bg-black hover:bg-gray-900 text-white"
+            >
+              {t.accept}
+            </Button>
+          </div>
         </div>
-
-        <DialogFooter className={`gap-2 sm:gap-0 ${isRTL ? 'flex-row-reverse' : ''}`}>
-          <Button
-            variant="outline"
-            onClick={handleDeny}
-            className="flex-1 sm:flex-initial"
-          >
-            {t.deny}
-          </Button>
-          <Button
-            onClick={handleAccept}
-            className="flex-1 sm:flex-initial bg-black hover:bg-gray-900 text-white"
-          >
-            {t.accept}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+      </div>
+    </div>
   );
 }
 
