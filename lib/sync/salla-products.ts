@@ -1,4 +1,5 @@
 import { createServerSupabase } from '@/lib/supabase/server'
+import { createClient } from '@supabase/supabase-js'
 
 interface SallaProduct {
   id: number
@@ -87,6 +88,7 @@ async function fetchSallaProducts(
 
 /**
  * Get or create a store for the merchant
+ * Uses admin client to bypass RLS for store creation
  */
 async function getOrCreateStore(
   supabase: any,
@@ -94,7 +96,7 @@ async function getOrCreateStore(
   storeName: string,
   storeDomain?: string
 ): Promise<string> {
-  // First, try to find an existing store for this merchant
+  // First, try to find an existing store for this merchant (using regular client)
   const { data: existingStore } = await supabase
     .from('stores')
     .select('id')
@@ -107,13 +109,24 @@ async function getOrCreateStore(
     return existingStore.id
   }
 
-  // Create a new store if none exists
+  // Create a new store if none exists - use admin client to bypass RLS
+  const adminClient = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+      },
+    }
+  )
+
   const slug = storeName
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '')
 
-  const { data: newStore, error } = await supabase
+  const { data: newStore, error } = await adminClient
     .from('stores')
     .insert({
       merchant_id: merchantId,
