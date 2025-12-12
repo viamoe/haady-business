@@ -69,6 +69,7 @@ const convertCountryToCountryLanguage = (country: {
   iso2: string;
   iso3?: string;
   phone_code?: string;
+  flag_url?: string;
 }): CountryLanguage => {
   // Map country names to Arabic (fallback if name_ar doesn't exist in DB)
   const arabicNames: Record<string, string> = {
@@ -85,7 +86,7 @@ const convertCountryToCountryLanguage = (country: {
     countryCode: country.iso2,
     countryName: country.name,
     countryNameAr: arabicNames[country.iso2] || country.name, // Fallback to English name if Arabic not available
-    flagUrl: getFlagUrl(country.iso2),
+    flagUrl: country.flag_url || getFlagUrl(country.iso2), // Use flag_url from DB, fallback to hardcoded map
     languages: [
       { code: 'ar', name: 'Arabic', nativeName: 'العربية' },
       { code: 'en', name: 'English', nativeName: 'English' },

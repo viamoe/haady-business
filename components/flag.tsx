@@ -3,9 +3,11 @@
 import Image from 'next/image';
 
 interface FlagProps {
-  countryName: string;
+  countryName?: string;
+  flagUrl?: string;
   size?: 's' | 'm' | 'l';
   className?: string;
+  rounded?: boolean;
 }
 
 const SUPABASE_STORAGE_URL = 'https://rovphhvuuxwbhgnsifto.supabase.co/storage/v1/object/public/assets';
@@ -27,19 +29,29 @@ const countryNameToFilename: Record<string, string> = {
   'Egypt': 'egypt',
 };
 
-export function Flag({ countryName, size = 'm', className = '' }: FlagProps) {
+export function Flag({ countryName, flagUrl, size = 'm', className = '', rounded = false }: FlagProps) {
   const flagSize = sizeMap[size];
-  // Flags are stored in assets/flags/{country-name}.png (lowercase, with spaces)
-  const filename = countryNameToFilename[countryName] || countryName.toLowerCase();
-  const flagUrl = `${SUPABASE_STORAGE_URL}/flags/${filename}.png`;
+  
+  // Use flag_url from database if provided, otherwise fallback to constructing URL from country name
+  let finalFlagUrl: string;
+  if (flagUrl) {
+    finalFlagUrl = flagUrl;
+  } else if (countryName) {
+    // Fallback: construct URL from country name (for backward compatibility)
+    const filename = countryNameToFilename[countryName] || countryName.toLowerCase();
+    finalFlagUrl = `${SUPABASE_STORAGE_URL}/flags/${filename}.png`;
+  } else {
+    // Default fallback if neither is provided
+    finalFlagUrl = `${SUPABASE_STORAGE_URL}/flags/default.png`;
+  }
 
   return (
     <Image
-      src={flagUrl}
-      alt={countryName}
+      src={finalFlagUrl}
+      alt={countryName || 'Country flag'}
       width={flagSize}
       height={flagSize}
-      className={`rounded ${className}`}
+      className={`${rounded ? 'rounded' : ''} ${className}`}
       style={{ objectFit: 'cover' }}
     />
   );

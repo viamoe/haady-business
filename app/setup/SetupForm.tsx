@@ -31,6 +31,7 @@ interface Country {
   iso2: string;
   iso3?: string;
   phone_code?: string;
+  flag_url?: string;
 }
 
 interface BusinessType {
@@ -704,7 +705,7 @@ export default function SetupForm() {
                           </>
                         ) : selectedCountry ? (
                           <>
-                            <Flag countryName={selectedCountry.name} size="s" />
+                            <Flag countryName={selectedCountry.name} flagUrl={selectedCountry.flag_url} size="s" />
                             <span>{locale === 'ar' && selectedCountry.name_ar ? selectedCountry.name_ar : selectedCountry.name}</span>
                           </>
                         ) : (
@@ -738,7 +739,7 @@ export default function SetupForm() {
                             }}
                             className="cursor-pointer rounded-lg"
                           >
-                            <Flag countryName={country.name} size="s" />
+                            <Flag countryName={country.name} flagUrl={country.flag_url} size="s" rounded={false} />
                             <span>{locale === 'ar' && country.name_ar ? country.name_ar : country.name}</span>
                           </DropdownMenuItem>
                         );
