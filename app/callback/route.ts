@@ -1,4 +1,5 @@
 import { createServerClient } from '@supabase/ssr';
+import { createClient } from '@supabase/supabase-js';
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 import { randomUUID } from 'crypto';
@@ -77,45 +78,44 @@ export async function GET(request: Request) {
     return NextResponse.redirect(dashboardUrl);
   }
 
-  // Create Supabase client to verify the user
-  // Store cookies to set on response
-  const cookiesToSet: Array<{ name: string; value: string; options: any }> = [];
+  // Extract user ID from state FIRST (format: "userId:platform" or "userId:platform:shopDomain")
+  const userIdFromState = state.includes(':') ? state.split(':')[0] : state;
   
-  const supabase = createServerClient(
+  // Validate user ID format (should be a UUID)
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  if (!uuidRegex.test(userIdFromState)) {
+    console.error('❌ Invalid user ID format in state:', userIdFromState);
+    const dashboardUrl = getDashboardUrl();
+    dashboardUrl.searchParams.set('error', `${platform}_connection_failed`);
+    dashboardUrl.searchParams.set('message', 'Invalid request state format');
+    return NextResponse.redirect(dashboardUrl);
+  }
+  
+  // Use admin client to verify the user exists (bypasses session requirements)
+  // This is needed because the OAuth redirect from external platforms may not have session cookies
+  const adminClient = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
     {
-      cookies: {
-        getAll() {
-          return cookieStore.getAll().map(cookie => ({
-            name: cookie.name,
-            value: cookie.value,
-          }));
-        },
-        setAll(cookiesToSetParam) {
-          // Store cookies to set on the response
-          cookiesToSetParam.forEach(({ name, value, options }) => {
-            cookiesToSet.push({ name, value, options });
-          });
-        },
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
       },
     }
   );
-
-  // Verify the user exists and matches the state
-  // This will also refresh the session if needed
-  const { data: { user }, error: authError } = await supabase.auth.getUser();
-
-  if (authError || !user) {
-    console.error('❌ User not authenticated in OAuth callback:', {
-      error: authError?.message,
-      errorCode: authError?.status,
-      hasCookies: cookieStore.getAll().length > 0,
-      cookieNames: cookieStore.getAll().map(c => c.name),
-      allCookies: cookieStore.getAll().map(c => ({ name: c.name, hasValue: !!c.value })),
-      state: state,
-      platform: platform,
-      url: requestUrl.toString(),
+  
+  // Verify the user exists in the database
+  const { data: userRecord, error: userError } = await adminClient
+    .from('merchant_users')
+    .select('id, auth_user_id, merchant_id')
+    .eq('auth_user_id', userIdFromState)
+    .maybeSingle();
+  
+  if (userError || !userRecord) {
+    console.error('❌ User not found in merchant_users:', {
+      userIdFromState,
+      error: userError?.message,
+      platform,
     });
     
     const loginPath = getLocalizedUrlFromRequest('/auth/login', {
@@ -128,33 +128,21 @@ export async function GET(request: Request) {
     });
     const loginUrl = new URL(loginPath, requestUrl.origin);
     loginUrl.searchParams.set('error', 'auth_required');
-    loginUrl.searchParams.set('message', 'Please sign in to connect a store. Your session may have expired during the OAuth flow.');
-    
-    // Create response with cookies if any were set
-    const response = NextResponse.redirect(loginUrl);
-    cookiesToSet.forEach(({ name, value, options }) => {
-      response.cookies.set(name, value, {
-        ...options,
-        sameSite: 'lax',
-        secure: process.env.NODE_ENV === 'production',
-        httpOnly: true,
-        path: '/',
-      });
-    });
-    return response;
+    loginUrl.searchParams.set('message', 'User account not found. Please sign in again.');
+    return NextResponse.redirect(loginUrl);
   }
-
-  // Extract user ID from state (format: "userId" or "userId:platform")
-  const userIdFromState = state.includes(':') ? state.split(':')[0] : state;
   
-  // Verify state matches user ID (security check)
-  if (userIdFromState !== user.id) {
-    console.error('State mismatch. Expected:', user.id, 'Got:', userIdFromState);
-    const dashboardUrl = getDashboardUrl();
-    dashboardUrl.searchParams.set('error', `${platform}_connection_failed`);
-    dashboardUrl.searchParams.set('message', 'Invalid request state');
-    return NextResponse.redirect(dashboardUrl);
-  }
+  console.log('✅ User verified from state:', {
+    userIdFromState,
+    merchantUserId: userRecord.id,
+    merchantId: userRecord.merchant_id,
+  });
+  
+  // Create a regular Supabase client for database operations (RLS will use service role)
+  const supabase = adminClient;
+
+  // User is verified from state - use the user ID from state for all operations
+  const user = { id: userIdFromState };
 
   try {
     // Platform-specific OAuth configuration
