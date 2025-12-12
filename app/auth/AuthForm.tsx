@@ -1,5 +1,5 @@
 'use client';
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { useLocale } from '@/i18n/context';
@@ -365,7 +365,7 @@ export default function AuthForm({ mode, reason }: AuthFormProps) {
           .eq('auth_user_id', data.user?.id || data.session?.user.id)
           .single();
 
-        if (merchantUser) {
+        if (merchantUser?.merchant_id) {
           setLoading(true, 'Redirecting to dashboard...');
           const dashboardUrl = getLocalizedUrl('/dashboard', pathname);
           router.push(dashboardUrl);
@@ -697,8 +697,21 @@ export default function AuthForm({ mode, reason }: AuthFormProps) {
   };
 
   // Get localized URLs for navigation
-  const loginUrl = getLocalizedUrl('/auth/login', pathname);
-  const signupUrl = getLocalizedUrl('/auth/signup', pathname);
+  // Compute URLs deterministically using pathname and locale to prevent hydration mismatches
+  // Parse locale-country from pathname first, then use locale from context as fallback
+  const parsedLocaleCountry = useMemo(() => parseLocaleCountry(pathname), [pathname]);
+  const currentLocale = parsedLocaleCountry?.locale || locale;
+  const currentCountry = parsedLocaleCountry?.country || 'AE';
+  
+  const loginUrl = useMemo(() => {
+    const cleanPath = '/auth/login'.replace(/^\/[a-z]{2}-[a-z]{2}/i, '') || '/';
+    return `/${currentLocale}-${currentCountry.toLowerCase()}${cleanPath === '/' ? '' : cleanPath}`;
+  }, [currentLocale, currentCountry]);
+  
+  const signupUrl = useMemo(() => {
+    const cleanPath = '/auth/signup'.replace(/^\/[a-z]{2}-[a-z]{2}/i, '') || '/';
+    return `/${currentLocale}-${currentCountry.toLowerCase()}${cleanPath === '/' ? '' : cleanPath}`;
+  }, [currentLocale, currentCountry]);
 
   return (
     <div className="h-screen flex flex-col bg-white relative overflow-hidden" dir={dir}>

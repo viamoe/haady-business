@@ -143,11 +143,40 @@ export default function OtpVerificationForm({ email }: OtpVerificationFormProps)
 
         setLoading(true, 'Checking your account...');
 
-        const { data: merchantUser } = await supabase
+        // Check if merchant_user exists
+        let { data: merchantUser, error: merchantError } = await supabase
           .from('merchant_users')
           .select('merchant_id')
           .eq('auth_user_id', data.user.id)
-          .single();
+          .maybeSingle();
+
+        // If merchant_user doesn't exist, create it
+        if (!merchantUser && !merchantError) {
+          // Extract locale and country from pathname or use defaults
+          const pathMatch = pathname.match(/^\/([a-z]{2})-([a-z]{2})/i);
+          const preferredLanguage = pathMatch ? pathMatch[1] : 'en';
+          const preferredCountry = pathMatch ? pathMatch[2].toUpperCase() : 'AE';
+
+          const { data: newMerchantUser, error: createError } = await supabase
+            .from('merchant_users')
+            .insert({
+              auth_user_id: data.user.id,
+              merchant_id: null,
+              role: 'manager',
+              preferred_country: preferredCountry,
+              preferred_language: preferredLanguage,
+              is_primary_contact: true,
+            })
+            .select('merchant_id')
+            .single();
+
+          if (createError) {
+            console.error('Error creating merchant_user:', createError);
+            // Continue anyway - user can still proceed to setup
+          } else {
+            merchantUser = newMerchantUser;
+          }
+        }
 
         if (merchantUser?.merchant_id) {
           setLoading(true, 'Redirecting to dashboard...');

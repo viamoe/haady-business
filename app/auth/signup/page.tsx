@@ -24,7 +24,7 @@ export default async function SignupPage({ searchParams }: PageProps) {
       .eq('auth_user_id', user.id)
       .single();
 
-    if (merchantUser) {
+    if (merchantUser?.merchant_id) {
       const cookieStore = await cookies();
       const dashboardUrl = getLocalizedUrlFromRequest('/dashboard', {
         cookies: {

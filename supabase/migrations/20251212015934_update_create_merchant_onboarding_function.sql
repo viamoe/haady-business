@@ -22,23 +22,7 @@ END $$;
 
 -- Ensure owner_id column exists in merchants table
 DO $$
-DECLARE
-  v_constraint_name TEXT;
 BEGIN
-  -- Drop any existing owner_id foreign key constraints (might have different names)
-  FOR v_constraint_name IN
-    SELECT constraint_name
-    FROM information_schema.table_constraints 
-    WHERE constraint_schema = 'public' 
-    AND table_name = 'merchants' 
-    AND constraint_type = 'FOREIGN KEY'
-    AND constraint_name LIKE '%owner_id%'
-  LOOP
-    EXECUTE format('ALTER TABLE public.merchants DROP CONSTRAINT IF EXISTS %I', v_constraint_name);
-    RAISE NOTICE 'Dropped existing constraint: %', v_constraint_name;
-  END LOOP;
-  
-  -- Add column if it doesn't exist
   IF NOT EXISTS (
     SELECT 1 
     FROM information_schema.columns 
@@ -47,22 +31,12 @@ BEGIN
     AND column_name = 'owner_id'
   ) THEN
     ALTER TABLE public.merchants 
-    ADD COLUMN owner_id UUID;
+    ADD COLUMN owner_id UUID REFERENCES public.merchant_users(id) ON DELETE SET NULL;
     
     COMMENT ON COLUMN public.merchants.owner_id IS 'Reference to the merchant_user who owns this merchant account';
     
     RAISE NOTICE 'Added owner_id column to merchants table';
   END IF;
-  
-  -- Add foreign key constraint (drop first if exists, then recreate)
-  ALTER TABLE public.merchants 
-  DROP CONSTRAINT IF EXISTS merchants_owner_id_fkey;
-  
-  ALTER TABLE public.merchants 
-  ADD CONSTRAINT merchants_owner_id_fkey 
-  FOREIGN KEY (owner_id) REFERENCES public.merchant_users(id) ON DELETE SET NULL;
-  
-  RAISE NOTICE 'Added merchants_owner_id_fkey constraint';
 END $$;
 
 -- Drop the existing function first (if it exists) to allow changing signature
@@ -166,29 +140,20 @@ BEGIN
     WHERE id = v_user_id;
     
     -- Update merchants with owner_id and contact_email
-    -- Only set owner_id if merchant_user_id is valid
-    IF v_merchant_user_id IS NOT NULL THEN
-      UPDATE merchants
-      SET 
-        owner_id = v_merchant_user_id,
-        contact_email = v_user_email
-      WHERE id = v_merchant_id;
-    ELSE
-      -- Fallback: update only contact_email if merchant_user_id is null
-      UPDATE merchants
-      SET contact_email = v_user_email
-      WHERE id = v_merchant_id;
-    END IF;
+    UPDATE merchants
+    SET 
+      owner_id = v_merchant_user_id,
+      contact_email = v_user_email
+    WHERE id = v_merchant_id;
     
     -- Update or insert into public.users
-    -- Note: country column is an enum type, so we skip updating it
-    -- The country information is already stored in merchant_users.preferred_country
-    INSERT INTO public.users (id, full_name, phone)
-    VALUES (v_user_id, user_full_name, user_phone)
+    INSERT INTO public.users (id, full_name, phone, country)
+    VALUES (v_user_id, user_full_name, user_phone, v_preferred_country)
     ON CONFLICT (id) 
     DO UPDATE SET
       full_name = EXCLUDED.full_name,
       phone = EXCLUDED.phone,
+      country = EXCLUDED.country,
       updated_at = NOW();
   ELSE
     -- No merchant_user exists, create both merchant and merchant_user
@@ -237,29 +202,20 @@ BEGIN
     WHERE id = v_user_id;
     
     -- Update merchants with owner_id and contact_email
-    -- Only set owner_id if merchant_user_id is valid
-    IF v_merchant_user_id IS NOT NULL THEN
-      UPDATE merchants
-      SET 
-        owner_id = v_merchant_user_id,
-        contact_email = v_user_email
-      WHERE id = v_merchant_id;
-    ELSE
-      -- Fallback: update only contact_email if merchant_user_id is null
-      UPDATE merchants
-      SET contact_email = v_user_email
-      WHERE id = v_merchant_id;
-    END IF;
+    UPDATE merchants
+    SET 
+      owner_id = v_merchant_user_id,
+      contact_email = v_user_email
+    WHERE id = v_merchant_id;
     
     -- Update or insert into public.users
-    -- Note: country column is an enum type, so we skip updating it
-    -- The country information is already stored in merchant_users.preferred_country
-    INSERT INTO public.users (id, full_name, phone)
-    VALUES (v_user_id, user_full_name, user_phone)
+    INSERT INTO public.users (id, full_name, phone, country)
+    VALUES (v_user_id, user_full_name, user_phone, v_preferred_country)
     ON CONFLICT (id) 
     DO UPDATE SET
       full_name = EXCLUDED.full_name,
       phone = EXCLUDED.phone,
+      country = EXCLUDED.country,
       updated_at = NOW();
   END IF;
   

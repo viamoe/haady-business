@@ -23,7 +23,7 @@ export default async function OtpVerificationPage({
       .single();
 
     const cookieStore = await cookies();
-    if (merchantUser) {
+    if (merchantUser?.merchant_id) {
       const dashboardUrl = getLocalizedUrlFromRequest('/dashboard', {
         cookies: {
           get: (name: string) => {

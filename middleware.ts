@@ -85,15 +85,15 @@ export default async function middleware(req: NextRequest) {
         return NextResponse.redirect(redirectUrl);
       }
 
-      // Check if user already has a merchant account
+      // Check if user already has a merchant account with a merchant_id
       const { data: merchantUser } = await supabase
         .from('merchant_users')
         .select('merchant_id')
         .eq('auth_user_id', user.id)
         .single();
 
-      // If user has merchant, redirect to dashboard
-      if (merchantUser) {
+      // If user has merchant_id (completed setup), redirect to dashboard
+      if (merchantUser?.merchant_id) {
         // Preserve locale-country prefix in redirect
         const redirectUrl = urlMatch 
           ? new URL(`/${currentLocale}-${currentCountryCode?.toLowerCase()}/dashboard`, req.url)
@@ -202,14 +202,14 @@ export default async function middleware(req: NextRequest) {
       const { data: { user }, error: authError } = await supabase.auth.getUser();
 
       if (!authError && user) {
-        // Check if user has a business account
+        // Check if user has a business account with a merchant_id
         const { data: merchantUser } = await supabase
           .from('merchant_users')
           .select('merchant_id')
           .eq('auth_user_id', user.id)
           .single();
 
-        if (merchantUser) {
+        if (merchantUser?.merchant_id) {
           // Preserve locale-country prefix in redirect
           const redirectUrl = urlMatch 
             ? new URL(`/${currentLocale}-${currentCountryCode?.toLowerCase()}/dashboard`, req.url)

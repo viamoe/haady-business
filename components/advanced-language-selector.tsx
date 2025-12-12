@@ -6,16 +6,24 @@ import { useLocale } from '@/i18n/context';
 import type { Locale } from '@/i18n/request';
 import { Button } from '@/components/ui/button';
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
+  Drawer,
+  DrawerContent,
+  DrawerHeader,
+  DrawerTitle,
+  DrawerTrigger,
+  DrawerClose,
+} from '@/components/ui/drawer';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Input } from '@/components/ui/input';
 import Image from 'next/image';
 import { useLoading } from '@/lib/loading-context';
-import { Check, Globe, ChevronDown } from 'lucide-react';
+import { Check, Globe, ChevronDown, X } from 'lucide-react';
 import { supabase } from '@/lib/supabase/client';
 import { useAuth } from '@/lib/auth/auth-context';
 import { cn } from '@/lib/utils';
@@ -35,14 +43,15 @@ interface CountryLanguage {
   }[];
 }
 
-// Flag URLs - Fetching from assets/flags/new
-const FLAG_BASE_URL = 'https://rovphhvuuxwbhgnsifto.supabase.co/storage/v1/object/public/assets/flags/new';
+// Flag URLs - Fetching from assets/flags (root folder)
+const FLAG_BASE_URL = 'https://rovphhvuuxwbhgnsifto.supabase.co/storage/v1/object/public/assets/flags';
 
-// Helper function to get flag URL from assets/flags/new
+// Helper function to get flag URL from assets/flags (root folder)
+// Flags are stored with lowercase names matching the bucket files
 const getFlagUrl = (countryCode: string): string => {
   const flagMap: Record<string, string> = {
-    'SA': `${FLAG_BASE_URL}/saudi-arabia.png`,
-    'AE': `${FLAG_BASE_URL}/united-arab-emirates.png`,
+    'SA': `${FLAG_BASE_URL}/saudi.png`,
+    'AE': `${FLAG_BASE_URL}/uae.png`,
     'KW': `${FLAG_BASE_URL}/kuwait.png`,
     'QA': `${FLAG_BASE_URL}/qatar.png`,
     'BH': `${FLAG_BASE_URL}/bahrain.png`,
@@ -138,9 +147,10 @@ export function AdvancedLanguageSelector() {
   const router = useRouter();
   const pathname = usePathname();
   const { showStickyAnnouncement, removeStickyAnnouncement } = useStickyAnnouncement();
-  const [isCountryMenuOpen, setIsCountryMenuOpen] = useState(false);
-  const [isLanguageMenuOpen, setIsLanguageMenuOpen] = useState(false);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedCountryCode, setSelectedCountryCode] = useState<string | null>(null);
+  const [tempCountryCode, setTempCountryCode] = useState<string | null>(null);
+  const [tempLanguage, setTempLanguage] = useState<Locale | null>(null);
   const [userPreferences, setUserPreferences] = useState<UserPreferences | null>(null);
   const [isLoadingPreferences, setIsLoadingPreferences] = useState(true);
   const [pendingCountryChange, setPendingCountryChange] = useState<{
@@ -228,6 +238,16 @@ export function AdvancedLanguageSelector() {
 
   const currentCountryLanguage = getCurrentCountryLanguage();
   const currentLanguage = userPreferences?.language || locale;
+
+  // Initialize temp values when dialog opens
+  useEffect(() => {
+    if (isDialogOpen) {
+      // Compute current country code
+      const currentCountryCode = selectedCountryCode || userPreferences?.countryCode || countryLanguages[0]?.countryCode || 'AE';
+      setTempCountryCode(currentCountryCode);
+      setTempLanguage(currentLanguage);
+    }
+  }, [isDialogOpen, selectedCountryCode, userPreferences?.countryCode, currentLanguage]);
   const currentCountry = selectedCountryCode 
     ? countryLanguages.find(c => c.countryCode === selectedCountryCode)
     : currentCountryLanguage;
@@ -326,7 +346,7 @@ export function AdvancedLanguageSelector() {
         />
       ),
       ctaAction: () => {
-        // Confirm: Save the new country
+        // Confirm: Save the new country with current language
         confirmCountryChange(countryCode, userPreferences?.language || locale);
         removeStickyAnnouncement(announcementId);
         setPendingCountryChange(null);
@@ -335,7 +355,7 @@ export function AdvancedLanguageSelector() {
       persistent: true,
       position: 'top',
       onDismiss: () => {
-        // Dismiss: Revert to previous country and remove announcement (don't save to localStorage)
+        // Dismiss: Revert to previous country and remove announcement
         revertCountryChange();
         removeStickyAnnouncement(announcementId);
         setPendingCountryChange(null);
@@ -343,32 +363,13 @@ export function AdvancedLanguageSelector() {
     });
   };
 
-  const confirmCountryChange = async (countryCode: string, language: Locale) => {
-    setSelectedCountryCode(countryCode);
-    
-    // Update URL with new country
-    updateURL(countryCode, language);
-    
-    // Save country preference to database
-    if (user?.id) {
-      await saveUserPreferences(countryCode, language);
+  const handleLanguageToggle = async (language: Locale) => {
+    // Don't do anything if selecting the same language
+    if (language === locale) {
+      return;
     }
-    
-    // Update user preferences state
-    setUserPreferences({ countryCode, language });
-  };
 
-  const revertCountryChange = () => {
-    // Revert to previous country - since we haven't saved anything yet,
-    // we just need to ensure selectedCountryCode reflects the previous country
-    if (pendingCountryChange) {
-      // Restore previous selection - this ensures the UI shows the correct country
-      setSelectedCountryCode(pendingCountryChange.previousCountryCode);
-    }
-  };
-
-  const handleLanguageChange = async (language: Locale) => {
-    // Use selected country if available, otherwise use current country from preferences
+    // Get current country
     const countryToUse = selectedCountryCode 
       ? countryLanguages.find(c => c.countryCode === selectedCountryCode)
       : currentCountry;
@@ -378,12 +379,6 @@ export function AdvancedLanguageSelector() {
     // Check if language is available for the selected country
     if (!countryToUse.languages.some(l => l.code === language)) {
       console.warn(`Language ${language} not available for country ${countryToUse.countryCode}`);
-      return;
-    }
-    
-    // Only check if language changed, not country (country and language are independent)
-    if (language === locale) {
-      setIsLanguageMenuOpen(false);
       return;
     }
 
@@ -401,10 +396,43 @@ export function AdvancedLanguageSelector() {
     // Delay to ensure loading overlay is visible before reload
     setTimeout(() => {
       setLocale(language);
-      setIsLanguageMenuOpen(false);
-      // Don't reset selectedCountryCode - keep it so country persists after reload
     }, 2000);
   };
+
+  const confirmCountryChange = async (countryCode: string, language: Locale) => {
+    setSelectedCountryCode(countryCode);
+    
+    const loadingMessage = locale === 'ar' 
+      ? 'جاري التبديل...' 
+      : 'Switching...';
+    setLoading(true, loadingMessage);
+    
+    // Update URL with new country and language
+    updateURL(countryCode, language);
+    
+    // Save preferences to database
+    if (user?.id) {
+      await saveUserPreferences(countryCode, language);
+    }
+    
+    // Update user preferences state
+    setUserPreferences({ countryCode, language });
+    
+    // Delay to ensure loading overlay is visible before reload
+    setTimeout(() => {
+      setLocale(language);
+    }, 2000);
+  };
+
+  const revertCountryChange = () => {
+    // Revert to previous country - since we haven't saved anything yet,
+    // we just need to ensure selectedCountryCode reflects the previous country
+    if (pendingCountryChange) {
+      // Restore previous selection - this ensures the UI shows the correct country
+      setSelectedCountryCode(pendingCountryChange.previousCountryCode);
+    }
+  };
+
 
   const getCountryDisplayName = (country: CountryLanguage) => {
     return isRTL && country.countryNameAr ? country.countryNameAr : country.countryName;
@@ -434,137 +462,246 @@ export function AdvancedLanguageSelector() {
   
   const displayLanguage = displayCountry.languages.find(l => l.code === currentLanguage) || displayCountry.languages[0];
 
-  return (
-    <div className="flex items-center gap-2">
-      {/* Country Selector */}
-      <DropdownMenu open={isCountryMenuOpen} onOpenChange={setIsCountryMenuOpen}>
-        <DropdownMenuTrigger asChild>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="gap-2 py-4 px-4"
-            title={isRTL ? 'اختر البلد' : 'Select Country'}
-          >
+  const handleConfirmChanges = async () => {
+    if (!tempCountryCode || !tempLanguage) return;
+
+    const countryToUse = countryLanguages.find(c => c.countryCode === tempCountryCode);
+    if (!countryToUse) return;
+
+    // Check if language is available for the selected country
+    if (!countryToUse.languages.some(l => l.code === tempLanguage)) {
+      console.warn(`Language ${tempLanguage} not available for country ${tempCountryCode}`);
+      return;
+    }
+
+    // Check if country is changing
+    const currentCountryCode = selectedCountryCode || userPreferences?.countryCode || currentCountryLanguage?.countryCode || 'AE';
+    const isCountryChanging = tempCountryCode !== currentCountryCode;
+    const isLanguageChanging = tempLanguage !== currentLanguage;
+
+    if (isCountryChanging) {
+      // Show announcement for country change
+      const newCountry = countryLanguages.find(c => c.countryCode === tempCountryCode);
+      if (newCountry) {
+        setPendingCountryChange({
+          newCountryCode: tempCountryCode,
+          previousCountryCode: currentCountryCode,
+          newCountryName: isRTL ? newCountry.countryNameAr : newCountry.countryName,
+        });
+        
+        setIsDialogOpen(false);
+        
+        const announcementId = `country-change-${Date.now()}`;
+        showStickyAnnouncement({
+          id: announcementId,
+          type: 'update',
+          description: isRTL
+            ? `أنت تقوم بتغيير سوق Haady إلى ${newCountry.countryNameAr}. إذا قمت بإلغاء هذا الإعلان، سيتم الاحتفاظ بالبلد الحالي.`
+            : `Switching to ${newCountry.countryName} market. Dismiss to keep your current selection.`,
+          ctaText: isRTL ? `تغيير إلى سوق ${newCountry.countryNameAr}` : `Change to ${newCountry.countryName} market`,
+          ctaIcon: (
             <Image
-              src={displayCountry.flagUrl}
-              alt={displayCountry.countryName}
-              width={32}
-              height={32}
-              className="h-8 w-8 object-contain rounded"
+              src={newCountry.flagUrl}
+              alt={newCountry.countryName}
+              width={20}
+              height={20}
+              className="h-5 w-5 object-contain rounded"
               unoptimized
             />
-            <ChevronDown className="h-4 w-4 opacity-50" />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent 
-          align="end"
-          sideOffset={8}
-          className="w-[300px] max-h-[80vh] overflow-y-auto p-4 rounded-xl"
+          ),
+          ctaAction: () => {
+            confirmCountryChange(tempCountryCode, tempLanguage);
+            removeStickyAnnouncement(announcementId);
+            setPendingCountryChange(null);
+          },
+          dismissable: true,
+          persistent: true,
+          position: 'top',
+          onDismiss: () => {
+            revertCountryChange();
+            removeStickyAnnouncement(announcementId);
+            setPendingCountryChange(null);
+          },
+        });
+      }
+    } else if (isLanguageChanging) {
+      // Only language is changing, apply immediately
+      const loadingMessage = locale === 'ar' 
+        ? 'جاري تبديل اللغة...' 
+        : 'Switching language...';
+      setLoading(true, loadingMessage);
+      
+      await saveUserPreferences(tempCountryCode, tempLanguage);
+      updateURL(tempCountryCode, tempLanguage);
+      
+      setTimeout(() => {
+        setLocale(tempLanguage);
+        setIsDialogOpen(false);
+      }, 2000);
+    } else {
+      // No changes, just close
+      setIsDialogOpen(false);
+    }
+  };
+
+  const tempCountry = tempCountryCode 
+    ? countryLanguages.find(c => c.countryCode === tempCountryCode)
+    : displayCountry;
+  const tempLanguageDisplay = tempCountry?.languages.find(l => l.code === tempLanguage) || displayLanguage;
+
+  return (
+    <Drawer open={isDialogOpen} onOpenChange={setIsDialogOpen} direction={isRTL ? 'left' : 'right'}>
+      <DrawerTrigger asChild>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="gap-2 py-4 px-4"
+          title={isRTL ? 'اللغة والمنطقة' : 'Language and region'}
         >
-          {/* Normal list layout */}
-          <div className="space-y-1">
-            {countryLanguages.map((country) => {
-              // Check if this country is selected (either from selection or from preferences)
-              const isSelected = selectedCountryCode 
-                ? selectedCountryCode === country.countryCode
-                : (currentCountryLanguage?.countryCode === country.countryCode);
-
-              return (
-                <div
-                  key={country.countryCode}
-                  onClick={() => handleCountrySelect(country.countryCode)}
-                  className={cn(
-                    'cursor-pointer rounded-lg px-3 py-2 transition-colors',
-                    'hover:bg-sidebar-accent/50',
-                    isSelected && 'bg-sidebar-accent text-sidebar-accent-foreground'
-                  )}
-                >
-                  <div className="flex items-center gap-3">
-                    <Image
-                      src={country.flagUrl}
-                      alt={country.countryName}
-                      width={24}
-                      height={24}
-                      className="h-6 w-6 object-contain rounded flex-shrink-0"
-                      unoptimized
-                    />
-                    <span 
-                      className="text-sm font-medium flex-1"
-                      style={isRTL 
-                        ? { fontFamily: 'var(--font-ibm-plex-arabic), sans-serif' }
-                        : { fontFamily: 'var(--font-inter), sans-serif' }
-                      }
-                    >
-                      {getCountryDisplayName(country)}
-                    </span>
-                    {isSelected && (
-                      <Check className="h-4 w-4 flex-shrink-0" />
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </DropdownMenuContent>
-      </DropdownMenu>
-
-      {/* Language Selector */}
-      <DropdownMenu open={isLanguageMenuOpen} onOpenChange={setIsLanguageMenuOpen}>
-        <DropdownMenuTrigger asChild>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="gap-2 py-4 px-4"
-            title={isRTL ? 'اختر اللغة' : 'Select Language'}
-          >
-            <Globe className="h-4 w-4" />
-            <span className="font-medium uppercase">
-              {displayLanguage.code.toUpperCase()}
-            </span>
-            <ChevronDown className="h-4 w-4 opacity-50" />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent 
-          align="start"
-          sideOffset={8}
-          className="w-[150px] max-h-[80vh] overflow-y-auto p-2 rounded-xl"
-        >
-          {/* Languages for selected country */}
-          <div className="space-y-1">
-            {availableLanguages.map((language) => {
-              const isSelected = currentLanguage === language.code;
-
-              return (
-                <div
-                  key={language.code}
-                  onClick={() => handleLanguageChange(language.code)}
-                  className={cn(
-                    'cursor-pointer rounded-lg px-3 py-2 text-sm transition-colors',
-                    'hover:bg-sidebar-accent/50',
-                    isSelected && 'bg-sidebar-accent text-sidebar-accent-foreground'
-                  )}
-                >
-                  <div className="flex items-center justify-between w-full">
-                    <span 
-                      className="flex-1"
-                      style={language.code === 'ar'
-                        ? { fontFamily: 'var(--font-ibm-plex-arabic), sans-serif' }
-                        : { fontFamily: 'var(--font-inter), sans-serif' }
-                      }
-                    >
+          <Image
+            src={displayCountry.flagUrl}
+            alt={displayCountry.countryName}
+            width={20}
+            height={20}
+            className="h-5 w-5 object-contain rounded"
+            unoptimized
+          />
+          <span className="font-medium uppercase">
+            {displayLanguage.code.toUpperCase()}
+          </span>
+        </Button>
+      </DrawerTrigger>
+      <DrawerContent className="rounded-none p-6" dir={isRTL ? 'rtl' : 'ltr'}>
+        <DrawerHeader className="relative pb-4 pl-0 pr-0">
+          <DrawerTitle className="text-lg font-semibold pr-8">
+            {isRTL ? 'اللغة والمنطقة' : 'Language and region'}
+          </DrawerTitle>
+          <DrawerClose asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              className={cn("absolute top-4 h-8 w-8 rounded-full", isRTL ? "left-4" : "right-4")}
+            >
+              <X className="h-4 w-4" />
+              <span className="sr-only">{isRTL ? 'إغلاق' : 'Close'}</span>
+            </Button>
+          </DrawerClose>
+        </DrawerHeader>
+        
+        <div className="space-y-6">
+          {/* Select your language */}
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-foreground">
+              {isRTL ? 'اختر لغتك' : 'Select your language'}
+            </label>
+            <Select
+              value={tempLanguage || currentLanguage}
+              onValueChange={(value) => setTempLanguage(value as Locale)}
+            >
+              <SelectTrigger className="w-full h-11 bg-gray-50 border-gray-200">
+                <SelectValue>
+                  <span style={tempLanguage === 'ar'
+                    ? { fontFamily: 'var(--font-ibm-plex-arabic), sans-serif' }
+                    : { fontFamily: 'var(--font-inter), sans-serif' }
+                  }>
+                    {tempLanguageDisplay ? getLanguageDisplayName(tempLanguageDisplay) : 'English'}
+                  </span>
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                {tempCountry?.languages.map((language) => (
+                  <SelectItem key={language.code} value={language.code}>
+                    <span style={language.code === 'ar'
+                      ? { fontFamily: 'var(--font-ibm-plex-arabic), sans-serif' }
+                      : { fontFamily: 'var(--font-inter), sans-serif' }
+                    }>
                       {getLanguageDisplayName(language)}
                     </span>
-                    {isSelected && (
-                      <Check className="h-4 w-4 ml-2 flex-shrink-0" />
-                    )}
-                  </div>
-                </div>
-              );
-            })}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
-        </DropdownMenuContent>
-      </DropdownMenu>
-    </div>
+
+          {/* Select your region */}
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-foreground">
+              {isRTL ? 'اختر منطقتك' : 'Select your region'}
+            </label>
+            <Select
+              value={tempCountryCode || displayCountry.countryCode}
+              onValueChange={(value) => {
+                setTempCountryCode(value);
+                // Update language to first available language for the new country
+                const newCountry = countryLanguages.find(c => c.countryCode === value);
+                if (newCountry && newCountry.languages.length > 0) {
+                  const availableLang = newCountry.languages.find(l => l.code === tempLanguage) || newCountry.languages[0];
+                  setTempLanguage(availableLang.code);
+                }
+              }}
+            >
+              <SelectTrigger className="w-full h-11 bg-gray-50 border-gray-200">
+                <SelectValue>
+                  <div className="flex items-center gap-2">
+                    <Image
+                      src={tempCountry?.flagUrl || displayCountry.flagUrl}
+                      alt={tempCountry?.countryName || displayCountry.countryName}
+                      width={20}
+                      height={20}
+                      className="h-5 w-5 object-contain rounded"
+                      unoptimized
+                    />
+                    <span style={isRTL 
+                      ? { fontFamily: 'var(--font-ibm-plex-arabic), sans-serif' }
+                      : { fontFamily: 'var(--font-inter), sans-serif' }
+                    }>
+                      {tempCountry ? getCountryDisplayName(tempCountry) : getCountryDisplayName(displayCountry)}
+                    </span>
+                  </div>
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                {countryLanguages.map((country) => (
+                  <SelectItem key={country.countryCode} value={country.countryCode}>
+                    <div className={`flex items-center gap-2 ${isRTL ? 'flex-row-reverse' : ''}`}>
+                      <Image
+                        src={country.flagUrl}
+                        alt={country.countryName}
+                        width={20}
+                        height={20}
+                        className="h-5 w-5 object-contain rounded"
+                        unoptimized
+                      />
+                      <span style={isRTL 
+                        ? { fontFamily: 'var(--font-ibm-plex-arabic), sans-serif' }
+                        : { fontFamily: 'var(--font-inter), sans-serif' }
+                      }>
+                        {getCountryDisplayName(country)}
+                      </span>
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Info text */}
+          <p className="text-xs text-muted-foreground">
+            {isRTL ? 'قد تختلف المنتجات والميزات حسب المنطقة.' : 'Products and features may vary by region.'}
+          </p>
+        </div>
+
+        {/* Confirm button */}
+        <div className="flex justify-end pt-4 border-t mt-6">
+          <Button
+            onClick={handleConfirmChanges}
+            className="px-6 py-2.5 text-sm font-medium bg-black hover:bg-gray-900 text-white rounded-lg"
+          >
+            {isRTL ? 'تأكيد التغييرات' : 'Confirm changes'}
+          </Button>
+        </div>
+      </DrawerContent>
+    </Drawer>
   );
 }
 

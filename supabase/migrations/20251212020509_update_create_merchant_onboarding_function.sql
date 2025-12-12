@@ -181,14 +181,27 @@ BEGIN
     END IF;
     
     -- Update or insert into public.users
-    -- Note: country column is an enum type, so we skip updating it
-    -- The country information is already stored in merchant_users.preferred_country
-    INSERT INTO public.users (id, full_name, phone)
-    VALUES (v_user_id, user_full_name, user_phone)
+    -- Cast country to countries_enum type
+    INSERT INTO public.users (id, full_name, phone, country)
+    VALUES (
+      v_user_id, 
+      user_full_name, 
+      user_phone, 
+      CASE 
+        WHEN v_preferred_country IS NOT NULL AND v_preferred_country != '' THEN 
+          v_preferred_country::countries_enum
+        ELSE NULL
+      END
+    )
     ON CONFLICT (id) 
     DO UPDATE SET
       full_name = EXCLUDED.full_name,
       phone = EXCLUDED.phone,
+      country = CASE 
+        WHEN v_preferred_country IS NOT NULL AND v_preferred_country != '' THEN 
+          v_preferred_country::countries_enum
+        ELSE NULL
+      END,
       updated_at = NOW();
   ELSE
     -- No merchant_user exists, create both merchant and merchant_user
@@ -252,14 +265,27 @@ BEGIN
     END IF;
     
     -- Update or insert into public.users
-    -- Note: country column is an enum type, so we skip updating it
-    -- The country information is already stored in merchant_users.preferred_country
-    INSERT INTO public.users (id, full_name, phone)
-    VALUES (v_user_id, user_full_name, user_phone)
+    -- Cast country to countries_enum type
+    INSERT INTO public.users (id, full_name, phone, country)
+    VALUES (
+      v_user_id, 
+      user_full_name, 
+      user_phone, 
+      CASE 
+        WHEN v_preferred_country IS NOT NULL AND v_preferred_country != '' THEN 
+          v_preferred_country::countries_enum
+        ELSE NULL
+      END
+    )
     ON CONFLICT (id) 
     DO UPDATE SET
       full_name = EXCLUDED.full_name,
       phone = EXCLUDED.phone,
+      country = CASE 
+        WHEN v_preferred_country IS NOT NULL AND v_preferred_country != '' THEN 
+          v_preferred_country::countries_enum
+        ELSE NULL
+      END,
       updated_at = NOW();
   END IF;
   

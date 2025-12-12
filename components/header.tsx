@@ -36,8 +36,10 @@ export function Header() {
   const [businessName, setBusinessName] = useState<string | null>(null);
 
   // Hide navigation buttons on login and setup pages
-  const isAuthPage = pathname.startsWith('/auth/') || pathname === '/setup' || pathname.startsWith('/setup/');
-  const isDashboardPage = pathname.startsWith('/dashboard');
+  // Check for both localized paths (e.g., /en-sa/auth/login) and non-localized paths (e.g., /auth/login)
+  const isAuthPage = pathname.includes('/auth/') || pathname === '/setup' || pathname.includes('/setup/');
+  const isDashboardPage = pathname.startsWith('/dashboard') || pathname.includes('/dashboard/');
+  // Hide nav buttons on auth pages (login/signup) and dashboard pages
   const showNavButtons = !isAuthPage && !user && !isDashboardPage;
   const showUserInfo = user && !loading && !isDashboardPage;
   const showHeader = !isDashboardPage; // Hide header on dashboard pages (sidebar handles navigation)

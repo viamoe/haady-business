@@ -450,6 +450,25 @@ export default function SetupForm() {
         // Continue with null - terms version might be optional
       }
 
+      // Get country and language from browser (pathname or cookies)
+      // 1. Try to get from URL pathname (e.g., /ar-ae/setup)
+      const urlCountry = parseLocaleCountry(pathname);
+      let preferredCountry = urlCountry?.country || selectedCountryData.iso2;
+      let preferredLanguage = urlCountry?.locale || locale;
+
+      // 2. If not in URL, try to get from cookies
+      if (!urlCountry) {
+        const cookieCountry = getLocaleCountryFromCookies();
+        if (cookieCountry) {
+          preferredCountry = cookieCountry.country;
+          preferredLanguage = cookieCountry.locale;
+        }
+      }
+
+      // Ensure we have valid values (fallback to defaults)
+      preferredCountry = preferredCountry || selectedCountryData.iso2 || 'AE';
+      preferredLanguage = preferredLanguage || locale || 'en';
+
       // RPC function parameters (matches the actual function signature)
       // Store-related fields are set to null since store setup happens later
       const rpcParams = {
@@ -465,6 +484,8 @@ export default function SetupForm() {
         store_address: null, // Store setup happens later
         term_version_id: termVersionId, // Latest terms version or null
         user_ip_address: userIpAddress || null, // User IP address or null
+        preferred_country: preferredCountry, // Country code from browser (ISO2)
+        preferred_language: preferredLanguage, // Language code from browser (en/ar)
       };
 
       console.log('Creating merchant account with:', rpcParams);
@@ -510,19 +531,29 @@ export default function SetupForm() {
         if ('success' in data && data.success === false) {
           throw new Error((data as { error?: string }).error || 'Failed to create business');
         }
+        
+        // If RPC returned success, trust it - the database transaction is atomic
+        if ('success' in data && data.success === true) {
+          console.log('Merchant created successfully:', data);
+        }
       }
 
       toast.success('Welcome to Haady Business!', {
         description: 'Your business has been created successfully.',
-        duration: 5000,
+        duration: 3000,
       });
       
       setLoading(true, 'Redirecting to dashboard...');
+      
+      // Wait a moment to ensure database transaction is fully committed
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
       // Get localized URL for dashboard
       const { getLocalizedUrl } = await import('@/lib/localized-url');
       const dashboardUrl = getLocalizedUrl('/dashboard', window.location.pathname);
-      router.push(dashboardUrl);
-      router.refresh();
+      
+      // Use window.location for a hard redirect to ensure fresh data
+      window.location.href = dashboardUrl;
       
     } catch (err: any) {
       console.error('Error creating business:', err);

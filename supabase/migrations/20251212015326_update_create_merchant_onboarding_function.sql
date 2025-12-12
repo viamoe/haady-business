@@ -20,51 +20,6 @@ BEGIN
   END IF;
 END $$;
 
--- Ensure owner_id column exists in merchants table
-DO $$
-DECLARE
-  v_constraint_name TEXT;
-BEGIN
-  -- Drop any existing owner_id foreign key constraints (might have different names)
-  FOR v_constraint_name IN
-    SELECT constraint_name
-    FROM information_schema.table_constraints 
-    WHERE constraint_schema = 'public' 
-    AND table_name = 'merchants' 
-    AND constraint_type = 'FOREIGN KEY'
-    AND constraint_name LIKE '%owner_id%'
-  LOOP
-    EXECUTE format('ALTER TABLE public.merchants DROP CONSTRAINT IF EXISTS %I', v_constraint_name);
-    RAISE NOTICE 'Dropped existing constraint: %', v_constraint_name;
-  END LOOP;
-  
-  -- Add column if it doesn't exist
-  IF NOT EXISTS (
-    SELECT 1 
-    FROM information_schema.columns 
-    WHERE table_schema = 'public' 
-    AND table_name = 'merchants' 
-    AND column_name = 'owner_id'
-  ) THEN
-    ALTER TABLE public.merchants 
-    ADD COLUMN owner_id UUID;
-    
-    COMMENT ON COLUMN public.merchants.owner_id IS 'Reference to the merchant_user who owns this merchant account';
-    
-    RAISE NOTICE 'Added owner_id column to merchants table';
-  END IF;
-  
-  -- Add foreign key constraint (drop first if exists, then recreate)
-  ALTER TABLE public.merchants 
-  DROP CONSTRAINT IF EXISTS merchants_owner_id_fkey;
-  
-  ALTER TABLE public.merchants 
-  ADD CONSTRAINT merchants_owner_id_fkey 
-  FOREIGN KEY (owner_id) REFERENCES public.merchant_users(id) ON DELETE SET NULL;
-  
-  RAISE NOTICE 'Added merchants_owner_id_fkey constraint';
-END $$;
-
 -- Drop the existing function first (if it exists) to allow changing signature
 DROP FUNCTION IF EXISTS public.create_merchant_onboarding(
   TEXT, TEXT, TEXT, UUID, UUID, TEXT, TEXT, DOUBLE PRECISION, DOUBLE PRECISION, TEXT, UUID, TEXT
@@ -101,7 +56,6 @@ DECLARE
   v_existing_merchant_user_id UUID;
   v_preferred_country TEXT;
   v_preferred_language TEXT;
-  v_user_email TEXT;
 BEGIN
   -- Store parameter values in variables to avoid ambiguity with column names
   v_preferred_country := COALESCE(preferred_country, 'AE');
@@ -159,37 +113,6 @@ BEGIN
     UPDATE merchant_users
     SET merchant_id = v_merchant_id
     WHERE id = v_merchant_user_id;
-    
-    -- Get user email from auth.users
-    SELECT email INTO v_user_email
-    FROM auth.users
-    WHERE id = v_user_id;
-    
-    -- Update merchants with owner_id and contact_email
-    -- Only set owner_id if merchant_user_id is valid
-    IF v_merchant_user_id IS NOT NULL THEN
-      UPDATE merchants
-      SET 
-        owner_id = v_merchant_user_id,
-        contact_email = v_user_email
-      WHERE id = v_merchant_id;
-    ELSE
-      -- Fallback: update only contact_email if merchant_user_id is null
-      UPDATE merchants
-      SET contact_email = v_user_email
-      WHERE id = v_merchant_id;
-    END IF;
-    
-    -- Update or insert into public.users
-    -- Note: country column is an enum type, so we skip updating it
-    -- The country information is already stored in merchant_users.preferred_country
-    INSERT INTO public.users (id, full_name, phone)
-    VALUES (v_user_id, user_full_name, user_phone)
-    ON CONFLICT (id) 
-    DO UPDATE SET
-      full_name = EXCLUDED.full_name,
-      phone = EXCLUDED.phone,
-      updated_at = NOW();
   ELSE
     -- No merchant_user exists, create both merchant and merchant_user
     -- Create merchant (using business_type_id UUID, not business_type text)
@@ -230,38 +153,10 @@ BEGIN
       true  -- First user is primary contact
     )
     RETURNING id INTO v_merchant_user_id;
-    
-    -- Get user email from auth.users
-    SELECT email INTO v_user_email
-    FROM auth.users
-    WHERE id = v_user_id;
-    
-    -- Update merchants with owner_id and contact_email
-    -- Only set owner_id if merchant_user_id is valid
-    IF v_merchant_user_id IS NOT NULL THEN
-      UPDATE merchants
-      SET 
-        owner_id = v_merchant_user_id,
-        contact_email = v_user_email
-      WHERE id = v_merchant_id;
-    ELSE
-      -- Fallback: update only contact_email if merchant_user_id is null
-      UPDATE merchants
-      SET contact_email = v_user_email
-      WHERE id = v_merchant_id;
-    END IF;
-    
-    -- Update or insert into public.users
-    -- Note: country column is an enum type, so we skip updating it
-    -- The country information is already stored in merchant_users.preferred_country
-    INSERT INTO public.users (id, full_name, phone)
-    VALUES (v_user_id, user_full_name, user_phone)
-    ON CONFLICT (id) 
-    DO UPDATE SET
-      full_name = EXCLUDED.full_name,
-      phone = EXCLUDED.phone,
-      updated_at = NOW();
   END IF;
+  
+  -- Note: owner_id in merchants table is not set here to avoid foreign key constraint issues
+  -- The merchant_user relationship is sufficient to link the user to the merchant
   
   -- Note: Store creation is skipped during onboarding
   -- Store will be created later when user sets up their merchant account
