@@ -577,9 +577,9 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
               {isLoading ? (
                 // Skeleton
                 navItems.map((item) => (
-                  <SidebarMenuItem key={item.title}>
+                  <SidebarMenuItem key={`skeleton-${item.title}`}>
                     <SidebarMenuButton disabled>
-                      <Skeleton className="size-4 rounded" />
+                      <Skeleton className="size-[18px] rounded" />
                       <Skeleton className="h-4 w-20" />
                     </SidebarMenuButton>
                   </SidebarMenuItem>
@@ -597,7 +597,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                           tooltip={item.title}
                         >
                           <Link href={item.url}>
-                            <item.icon className="w-4 h-4" />
+                            <item.icon className="w-[18px] h-[18px]" />
                             <span>{item.title}</span>
                           </Link>
                         </SidebarMenuButton>

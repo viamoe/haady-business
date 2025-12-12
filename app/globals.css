@@ -264,13 +264,13 @@ div.text-red-500 {
 /* Style text in expanded sidebar menu buttons */
 [data-slot="sidebar"][data-state="expanded"] [data-slot="sidebar-menu-button"],
 [data-slot="sidebar"]:not([data-state="collapsed"]) [data-slot="sidebar-menu-button"] {
-  font-size: 12px !important;
+  font-size: 14px !important;
   font-weight: 500 !important;
 }
 
 [data-slot="sidebar"][data-state="expanded"] [data-slot="sidebar-menu-button"] span,
 [data-slot="sidebar"]:not([data-state="collapsed"]) [data-slot="sidebar-menu-button"] span {
-  font-size: 12px !important;
+  font-size: 14px !important;
   font-weight: 500 !important;
 }
 

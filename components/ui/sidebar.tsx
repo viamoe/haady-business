@@ -562,7 +562,7 @@ function SidebarMenuItem({ className, ...props }: React.ComponentProps<"li">) {
 }
 
 const sidebarMenuButtonVariants = cva(
-  "peer/menu-button flex w-full items-center gap-4 overflow-hidden rounded-md px-4 py-4 text-left text-xs font-medium outline-hidden ring-sidebar-ring transition-[width,height,padding,opacity] duration-500 ease-in-out opacity-40 hover:opacity-100 hover:text-sidebar-accent-foreground focus-visible:ring-2 active:text-sidebar-accent-foreground cursor-pointer disabled:pointer-events-none disabled:opacity-50 group-has-data-[sidebar=menu-action]/menu-item:pr-8 aria-disabled:pointer-events-none aria-disabled:opacity-50 data-[active=true]:opacity-100 data-[active=true]:bg-sidebar-accent data-[active=true]:font-medium data-[active=true]:text-sidebar-accent-foreground data-[active=true]:px-4 data-[state=open]:hover:text-sidebar-accent-foreground data-[state=open]:hover:opacity-100 group-data-[collapsible=icon]:size-8! group-data-[collapsible=icon]:px-2! group-data-[collapsible=icon]:py-2! group-data-[collapsible=icon]:mb-2 [&>span:last-child]:truncate [&[data-transitioning=true]>span:last-child]:hidden [&>svg]:size-3.5 [&>svg]:shrink-0 [&>svg]:transition-none group-data-[collapsible=icon]:[&>svg]:size-5",
+  "peer/menu-button flex w-full items-center gap-4 overflow-hidden rounded-md px-4 py-4 text-left text-sm font-medium outline-hidden ring-sidebar-ring transition-[width,height,padding,opacity] duration-500 ease-in-out opacity-40 hover:opacity-100 hover:text-sidebar-accent-foreground focus-visible:ring-2 active:text-sidebar-accent-foreground cursor-pointer disabled:pointer-events-none disabled:opacity-50 group-has-data-[sidebar=menu-action]/menu-item:pr-8 aria-disabled:pointer-events-none aria-disabled:opacity-50 data-[active=true]:opacity-100 data-[active=true]:bg-sidebar-accent data-[active=true]:font-medium data-[active=true]:text-sidebar-accent-foreground data-[active=true]:px-4 data-[state=open]:hover:text-sidebar-accent-foreground data-[state=open]:hover:opacity-100 group-data-[collapsible=icon]:size-8! group-data-[collapsible=icon]:px-2! group-data-[collapsible=icon]:py-2! group-data-[collapsible=icon]:mb-2 [&>span:last-child]:truncate [&[data-transitioning=true]>span:last-child]:hidden [&>svg]:size-[18px] [&>svg]:shrink-0 [&>svg]:transition-none group-data-[collapsible=icon]:[&>svg]:size-5",
   {
     variants: {
       variant: {
@@ -571,9 +571,9 @@ const sidebarMenuButtonVariants = cva(
           "bg-background shadow-[0_0_0_1px_hsl(var(--sidebar-border))] hover:text-sidebar-accent-foreground hover:shadow-[0_0_0_1px_hsl(var(--sidebar-accent))]",
       },
       size: {
-        default: "h-9 text-xs font-medium",
+        default: "h-9 text-sm font-medium",
         sm: "h-7 text-xs",
-        lg: "h-12 text-xs font-medium group-data-[collapsible=icon]:p-0!",
+        lg: "h-12 text-sm font-medium group-data-[collapsible=icon]:p-0!",
       },
     },
     defaultVariants: {
