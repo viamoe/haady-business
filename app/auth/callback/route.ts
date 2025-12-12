@@ -2,6 +2,7 @@ import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 import { getLocalizedUrlFromRequest } from '@/lib/localized-url';
+import { createAdminClient } from '@/lib/supabase/admin';
 
 function validateRedirectUrl(url: string, origin: string): string {
   try {
@@ -92,48 +93,85 @@ export async function GET(request: Request) {
   }
 
   // Create or update public.users record for Google OAuth signups
-  if (appType === 'merchant' && session.user) {
-    const { data: existingUser } = await supabase
-      .from('users')
-      .select('id')
-      .eq('id', session.user.id)
-      .maybeSingle();
-
-    if (!existingUser) {
-      console.log('Creating public.users record for new Google OAuth user');
-      const { error: userCreateError } = await supabase
+  // Use admin client to bypass RLS policies
+  if (session.user) {
+    try {
+      const adminClient = createAdminClient();
+      
+      // Check if user already exists
+      const { data: existingUser, error: checkError } = await adminClient
         .from('users')
-        .insert({
+        .select('id')
+        .eq('id', session.user.id)
+        .maybeSingle();
+
+      if (checkError) {
+        console.error('Error checking existing user:', checkError);
+      }
+
+      if (!existingUser) {
+        console.log('Creating public.users record for new Google OAuth user:', session.user.id);
+        
+        const insertData: {
+          id: string;
+          full_name?: string | null;
+          avatar_url?: string | null;
+          preferred_language?: string;
+          country?: string;
+        } = {
           id: session.user.id,
-          full_name: userFullName,
-          avatar_url: userAvatarUrl,
-          preferred_language: preferredLanguage,
-          country: preferredCountry,
-        });
+        };
+        
+        if (userFullName) insertData.full_name = userFullName;
+        if (userAvatarUrl) insertData.avatar_url = userAvatarUrl;
+        if (preferredLanguage) insertData.preferred_language = preferredLanguage;
+        if (preferredCountry) insertData.country = preferredCountry;
 
-      if (userCreateError) {
-        console.error('Error creating public.users record:', userCreateError);
-      } else {
-        console.log('Successfully created public.users record');
-      }
-    } else if (userFullName || userAvatarUrl) {
-      // Update existing user if we have new data from Google
-      const updateData: { full_name?: string; avatar_url?: string } = {};
-      if (userFullName) updateData.full_name = userFullName;
-      if (userAvatarUrl) updateData.avatar_url = userAvatarUrl;
-
-      if (Object.keys(updateData).length > 0) {
-        const { error: userUpdateError } = await supabase
+        const { data: newUser, error: userCreateError } = await adminClient
           .from('users')
-          .update(updateData)
-          .eq('id', session.user.id);
+          .insert(insertData)
+          .select('id')
+          .single();
 
-        if (userUpdateError) {
-          console.error('Error updating public.users record:', userUpdateError);
+        if (userCreateError) {
+          console.error('Error creating public.users record:', {
+            error: userCreateError,
+            message: userCreateError.message,
+            details: userCreateError.details,
+            hint: userCreateError.hint,
+            code: userCreateError.code,
+          });
         } else {
-          console.log('Successfully updated public.users record');
+          console.log('Successfully created public.users record:', newUser?.id);
         }
+      } else if (userFullName || userAvatarUrl) {
+        // Update existing user if we have new data from Google
+        console.log('Updating existing public.users record with Google data');
+        const updateData: { full_name?: string; avatar_url?: string } = {};
+        if (userFullName) updateData.full_name = userFullName;
+        if (userAvatarUrl) updateData.avatar_url = userAvatarUrl;
+
+        if (Object.keys(updateData).length > 0) {
+          const { error: userUpdateError } = await adminClient
+            .from('users')
+            .update(updateData)
+            .eq('id', session.user.id);
+
+          if (userUpdateError) {
+            console.error('Error updating public.users record:', {
+              error: userUpdateError,
+              message: userUpdateError.message,
+              details: userUpdateError.details,
+            });
+          } else {
+            console.log('Successfully updated public.users record');
+          }
+        }
+      } else {
+        console.log('public.users record already exists, no update needed');
       }
+    } catch (error) {
+      console.error('Unexpected error creating/updating public.users record:', error);
     }
   }
 
