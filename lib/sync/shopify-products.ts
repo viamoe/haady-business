@@ -706,6 +706,17 @@ export async function syncShopifyInventory(
   storeDomain?: string
 ): Promise<InventorySyncResult> {
   const supabase = await createServerSupabase()
+  // Create admin client for product operations to bypass RLS
+  const adminClient = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+      },
+    }
+  )
   const result: InventorySyncResult = {
     success: true,
     productsUpdated: 0,
