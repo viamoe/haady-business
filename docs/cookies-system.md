@@ -2,7 +2,58 @@
 
 ## Overview
 
-The platform uses a comprehensive cookie system to enhance user experience by persisting user preferences, UI state, and form data across sessions.
+The platform uses a comprehensive cookie system to enhance user experience by persisting user preferences, UI state, and form data across sessions. The system includes a **cookie consent popup** that allows users to accept or deny non-essential cookies for GDPR compliance.
+
+## Cookie Consent
+
+### Consent Popup
+
+The platform displays a cookie consent dialog on first visit that allows users to:
+- **Accept All**: Accept all cookies (essential + non-essential)
+- **Deny Non-Essential**: Only allow essential cookies (authentication, consent)
+
+The popup:
+- Appears automatically after 1 second on first visit
+- Cannot be dismissed without making a choice
+- Remembers user's preference for 1 year
+- Supports both English and Arabic languages
+- Respects RTL layout for Arabic
+
+### Essential vs Non-Essential Cookies
+
+**Essential Cookies** (always allowed):
+- `sb-access-token` - Supabase authentication
+- `sb-refresh-token` - Supabase authentication
+- `cookie_consent` - User's consent preference
+- `haady_oauth_origin` - OAuth redirect handling
+
+**Non-Essential Cookies** (require consent):
+- User preferences (locale, country, theme)
+- UI state (sidebar, dashboard view)
+- Form drafts and navigation history
+- UX enhancements (first visit, onboarding)
+- Performance preferences
+
+### Consent Management
+
+```typescript
+import { hasCookieConsent, hasCookieDenial, hasCookieConsentDecision } from '@/components/cookie-consent';
+
+// Check if user has accepted cookies
+if (hasCookieConsent()) {
+  // Set non-essential cookies
+}
+
+// Check if user has denied cookies
+if (hasCookieDenial()) {
+  // Only use essential cookies
+}
+
+// Check if user has made a decision
+if (hasCookieConsentDecision()) {
+  // User has chosen accept or deny
+}
+```
 
 ## Cookie Categories
 
@@ -175,12 +226,23 @@ All cookies are set with:
 - **HttpOnly**: Not set (cookies accessible via JavaScript for client-side usage)
 - **Path**: '/' (available site-wide)
 
-## Cookie Consent
+## Cookie Consent Implementation
 
-Currently, the platform uses essential cookies for functionality. For GDPR compliance, consider:
-- Adding a cookie consent banner
-- Allowing users to opt-out of non-essential cookies
-- Documenting cookie usage in privacy policy
+The cookie consent system is fully implemented:
+- ✅ Cookie consent popup on first visit
+- ✅ Accept/Deny functionality
+- ✅ Automatic clearing of non-essential cookies on denial
+- ✅ Respects user preferences in cookie utility
+- ✅ Bilingual support (English/Arabic)
+- ✅ RTL layout support
+
+### How It Works
+
+1. **First Visit**: Popup appears after 1 second
+2. **User Choice**: User clicks "Accept All" or "Deny Non-Essential"
+3. **Consent Stored**: Choice is saved in `cookie_consent` cookie (1 year)
+4. **Cookie Enforcement**: Cookie utility automatically respects user's choice
+5. **On Denial**: All non-essential cookies are immediately cleared
 
 ## Clearing Cookies
 
