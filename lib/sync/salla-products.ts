@@ -424,26 +424,44 @@ export async function syncSallaProducts(
           }
         }
         
-        // Additional check: Verify product doesn't exist by platform_product_id in products table
-        // (in case product_sources table doesn't exist but we want to prevent duplicates)
-        if (!existingSource && !existingProductBySku) {
+        // Additional check: Verify product doesn't exist by name and SKU (additional safety check)
+        // This prevents duplicates when SKU might be missing or different
+        if (!existingSource && !existingProductBySku && productData.sku) {
           try {
-            // Check if any product in this store has the same name and SKU (additional safety check)
-            const { data: duplicateCheck } = await adminClient
+            // Check if any product in this store has the same SKU (most reliable)
+            // Also check by name as secondary check
+            const { data: duplicateBySku } = await adminClient
               .from('products')
-              .select('id, sku, name_en, name_ar')
+              .select('id, sku')
               .eq('store_id', storeId)
-              .or(`name_en.eq.${productData.name_en || ''},name_ar.eq.${productData.name_ar || ''}`)
+              .eq('sku', productData.sku)
               .maybeSingle()
             
-            if (duplicateCheck && duplicateCheck.sku === productData.sku) {
-              console.log(`⚠️ Potential duplicate detected: Product with same SKU and similar name exists (ID: ${duplicateCheck.id})`)
+            if (duplicateBySku) {
+              console.log(`⚠️ Duplicate detected by SKU: Product with SKU ${productData.sku} already exists (ID: ${duplicateBySku.id})`)
               // Don't create duplicate, update existing instead
-              existingProductBySku = { id: duplicateCheck.id }
+              existingProductBySku = { id: duplicateBySku.id }
+            } else if (productData.name_en || productData.name_ar) {
+              // Check by name as additional safety (only if SKU check didn't find anything)
+              const nameToCheck = productData.name_en || productData.name_ar
+              const { data: duplicateByName } = await adminClient
+                .from('products')
+                .select('id, sku, name_en, name_ar')
+                .eq('store_id', storeId)
+                .or(`name_en.eq.${nameToCheck},name_ar.eq.${nameToCheck}`)
+                .maybeSingle()
+              
+              if (duplicateByName) {
+                console.log(`⚠️ Potential duplicate by name: Product "${nameToCheck}" already exists (ID: ${duplicateByName.id})`)
+                // Only treat as duplicate if SKU is also the same or missing
+                if (!duplicateByName.sku || duplicateByName.sku === productData.sku) {
+                  existingProductBySku = { id: duplicateByName.id }
+                }
+              }
             }
           } catch (err) {
             // This is a safety check, so we can ignore errors
-            console.log('Duplicate check failed (non-critical):', err)
+            console.log('Additional duplicate check failed (non-critical):', err)
           }
         }
 
