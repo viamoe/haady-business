@@ -34,6 +34,7 @@ export function Header() {
   const { setLoading } = useLoading();
   const { localizedUrl } = useLocalizedUrl();
   const [businessName, setBusinessName] = useState<string | null>(null);
+  const [isLoadingBusinessName, setIsLoadingBusinessName] = useState(true);
 
   // Hide navigation buttons on login and setup pages
   // Check for both localized paths (e.g., /en-sa/auth/login) and non-localized paths (e.g., /auth/login)
@@ -60,12 +61,16 @@ export function Header() {
   // Fetch business name
   React.useEffect(() => {
     const fetchBusinessName = async () => {
-      if (!user?.id) return;
+      if (!user?.id) {
+        setIsLoadingBusinessName(false);
+        return;
+      }
       
+      setIsLoadingBusinessName(true);
       try {
         const { data: merchantUser } = await supabase
           .from('merchant_users')
-          .select('merchant_id')
+          .select('merchant_id, full_name')
           .eq('auth_user_id', user.id)
           .maybeSingle();
 
@@ -82,6 +87,8 @@ export function Header() {
         }
       } catch (error) {
         console.error('Error fetching business name:', error);
+      } finally {
+        setIsLoadingBusinessName(false);
       }
     };
 
@@ -159,32 +166,51 @@ export function Header() {
 
               return (
                 <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <button
-                      className="group flex items-center gap-3 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-100/75 rounded-lg pl-2 pr-3 py-1.5 transition-colors focus:outline-none"
+                  <div className="flex items-center gap-2">
+                    <Link
+                      href={localizedUrl('/dashboard')}
+                      className="cursor-pointer hover:opacity-80 transition-opacity"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        try {
+                          const url = localizedUrl('/dashboard');
+                          router.push(url);
+                        } catch (error) {
+                          console.error('Navigation error:', error);
+                          router.push('/dashboard');
+                        }
+                      }}
                     >
                       <Avatar className="h-8 w-8 rounded-lg !border-0 !shadow-none">
                         <AvatarImage 
                           src={user.user_metadata?.avatar_url || user.user_metadata?.picture} 
                           alt={businessName || user.email?.split('@')[0] || 'User'}
                         />
-                        <AvatarFallback className="text-xs font-medium rounded-lg">
+                        <AvatarFallback className="text-xs font-medium rounded">
                           {getUserInitials(businessName, user.email || '')}
                         </AvatarFallback>
                       </Avatar>
-                      <div className="flex flex-col items-start text-left min-w-0">
-                        {businessName && (
+                    </Link>
+                    <DropdownMenuTrigger asChild>
+                      <button
+                        className="group flex items-center gap-3 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-100/75 rounded-lg pl-2 pr-3 py-1.5 transition-colors focus:outline-none"
+                      >
+                        <div className="flex flex-col items-start text-left min-w-0">
                           <span className="text-sm font-medium text-gray-900 leading-tight">
-                            {businessName}
+                            {isLoadingBusinessName ? (
+                              <span className="text-gray-400 italic">Loading...</span>
+                            ) : (
+                              businessName || user.user_metadata?.full_name || user.email?.split('@')[0] || 'User'
+                            )}
                           </span>
-                        )}
-                        <span className="text-xs text-gray-600 leading-tight">
-                          {user.email}
-                        </span>
-                      </div>
-                      <ChevronDown className="h-4 w-4 text-gray-400 group-hover:text-gray-600 transition-colors" />
-                    </button>
-                  </DropdownMenuTrigger>
+                          <span className="text-xs text-gray-600 leading-tight">
+                            {user.email}
+                          </span>
+                        </div>
+                        <ChevronDown className="h-4 w-4 text-gray-400 group-hover:text-gray-600 transition-colors" />
+                      </button>
+                    </DropdownMenuTrigger>
+                  </div>
                   <DropdownMenuContent align="end" className="w-56 rounded-xl p-1">
                     <DropdownMenuItem
                       onSelect={(e) => {

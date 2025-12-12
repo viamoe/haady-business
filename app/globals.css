@@ -315,6 +315,7 @@ div.text-red-500 {
 
 /* Non-selected items: muted with hover effect */
 [data-slot="sidebar-menu-button"]:not([data-active="true"]) {
+  opacity: 0.36 !important;
   color: hsl(var(--muted-foreground)) !important;
 }
 
@@ -325,6 +326,7 @@ div.text-red-500 {
 }
 
 [data-slot="sidebar-menu-button"]:not([data-active="true"]):hover {
+  opacity: 1 !important;
   background-color: hsl(var(--sidebar-accent)) !important;
 }
 

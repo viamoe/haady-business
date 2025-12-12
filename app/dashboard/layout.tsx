@@ -20,6 +20,7 @@ import { Button } from '@/components/ui/button'
 import { Bell } from '@/components/animate-ui/icons/bell'
 import { AnimateIcon } from '@/components/animate-ui/icons/icon'
 import { ICON_BUTTON_CLASSES, DEFAULT_ICON_SIZE } from '@/lib/ui-constants'
+import { StoreConnectionHealth } from '@/components/store-connection-health'
 import { WideCardModal } from '@/components/ui/wide-card-modal'
 import { useAuth } from '@/lib/auth/auth-context'
 import { toast } from '@/lib/toast'
@@ -525,11 +526,12 @@ function DashboardLayoutContentInner({
           <div className="flex items-center gap-3 flex-1">
             <SidebarTrigger className="-ml-1 absolute left-4 z-10" />
           </div>
-          <div className="flex items-center h-full">
+          <div className="flex items-center gap-3 h-full absolute right-4 z-10">
+            <StoreConnectionHealth />
             <Button
               variant="ghost"
               size="icon"
-              className={`${ICON_BUTTON_CLASSES} flex items-center justify-center absolute right-4 z-10`}
+              className={`${ICON_BUTTON_CLASSES} flex items-center justify-center`}
               aria-label="Notifications"
             >
               <AnimateIcon animateOnHover>
