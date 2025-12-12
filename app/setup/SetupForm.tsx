@@ -271,31 +271,28 @@ export default function SetupForm() {
 
     const fetchCountries = async () => {
       try {
-        console.log('Fetching countries from database...');
+        console.log('Fetching countries from API...');
         
-        // Fetch ALL countries from the database (no hardcoded filter)
-        // Try 'countries' table first, fallback to 'countries_master'
-        let { data: countriesData, error } = await supabase
-          .from('countries')
-          .select('id, name, name_ar, iso2, iso3, phone_code')
-          .order('name', { ascending: true });
-
-        if (error) {
-          console.log('Error with countries table, trying countries_master:', error.message);
-          // If 'countries' table doesn't exist, try 'countries_master'
-          const { data: countriesMaster, error: masterError } = await supabase
-            .from('countries_master')
-            .select('id, name, name_ar, iso2, iso3, phone_code')
-            .order('name', { ascending: true });
-
-          if (masterError) {
-            throw masterError;
-          }
-          
-          countriesData = countriesMaster;
+        // Use API route to fetch countries (bypasses RLS and handles table selection)
+        const response = await fetch('/api/countries');
+        
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.error || `Failed to fetch countries: ${response.statusText}`);
         }
-
-        console.log('Countries fetched from DB:', countriesData?.length || 0);
+        
+        const { countries: countriesData } = await response.json();
+        
+        console.log('Countries fetched from API:', countriesData?.length || 0, 'countries');
+        
+        if (!countriesData || countriesData.length === 0) {
+          console.warn('No countries found in database. Please ensure countries_master table has data.');
+          toast.error('Error', {
+            description: 'No countries found. Please contact support.',
+            duration: 5000,
+          });
+        }
+        
         setCountries(countriesData || []);
         
         // Set default country based on user's selected country
@@ -304,11 +301,13 @@ export default function SetupForm() {
           
           // Find country matching user's selection
           const defaultCountry = userCountryCode
-            ? countriesData.find(c => c.iso2 === userCountryCode.toUpperCase())
+            ? countriesData.find((c: Country) => c.iso2 === userCountryCode.toUpperCase())
             : null;
           
-          // Fallback to Saudi Arabia if no user country found
-          const countryToSet = defaultCountry || countriesData.find(c => c.iso2 === 'SA');
+          // Fallback to Saudi Arabia if no user country found, or first country if SA doesn't exist
+          const countryToSet = defaultCountry || 
+                              countriesData.find((c: Country) => c.iso2 === 'SA') || 
+                              countriesData[0];
           
           if (countryToSet) {
             setValueRef.current('country', countryToSet.id, { shouldValidate: false });
@@ -316,6 +315,12 @@ export default function SetupForm() {
         }
       } catch (error: any) {
         console.error('Error fetching countries:', error);
+        console.error('Error details:', {
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code,
+        });
         toast.error('Error', {
           description: error.message || 'Failed to load countries. Please refresh the page.',
           duration: 5000,
