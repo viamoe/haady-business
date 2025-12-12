@@ -37,8 +37,9 @@ export function Header() {
 
   // Hide navigation buttons on login and setup pages
   // Check for both localized paths (e.g., /en-sa/auth/login) and non-localized paths (e.g., /auth/login)
-  const isAuthPage = pathname.includes('/auth/') || pathname === '/setup' || pathname.includes('/setup/');
-  const isDashboardPage = pathname.startsWith('/dashboard') || pathname.includes('/dashboard/');
+  const isAuthPage = pathname.includes('/auth/') || pathname === '/setup' || pathname.includes('/setup');
+  // Check for dashboard paths including localized ones (e.g., /en-sa/dashboard)
+  const isDashboardPage = pathname.includes('/dashboard');
   // Hide nav buttons on auth pages (login/signup) and dashboard pages
   const showNavButtons = !isAuthPage && !user && !isDashboardPage;
   const showUserInfo = user && !loading && !isDashboardPage;
