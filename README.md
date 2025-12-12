@@ -1,36 +1,127 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Haady Business Platform
+
+A Next.js-based business management platform for merchants, built with Supabase, TypeScript, and modern web technologies.
+
+## Features
+
+- 🔐 **Authentication**: OAuth (Google) and OTP email authentication
+- 🌍 **Internationalization**: Multi-language support (English/Arabic) with RTL support
+- 🏢 **Business Management**: Merchant onboarding, store management, and business setup
+- 🍪 **Cookie System**: Comprehensive cookie system for enhanced UX
+- 🌐 **Public APIs**: Public endpoints for country data and other resources
+- 📱 **Responsive Design**: Mobile-first responsive UI
 
 ## Getting Started
 
-First, run the development server:
+### Prerequisites
+
+- Node.js 18+ 
+- npm, yarn, pnpm, or bun
+- Supabase account and project
+
+### Installation
+
+```bash
+# Install dependencies
+npm install
+# or
+pnpm install
+
+# Set up environment variables
+cp .env.example .env.local
+# Edit .env.local with your Supabase credentials
+```
+
+### Development
 
 ```bash
 npm run dev
 # or
-yarn dev
-# or
 pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000) with your browser.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### Database Migrations
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+# Push migrations to Supabase
+supabase db push
+```
 
-## Learn More
+## Documentation
 
-To learn more about Next.js, take a look at the following resources:
+### Core Features
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- [Cookie System](./docs/cookies-system.md) - Comprehensive cookie system for UX enhancements
+- [Countries API](./docs/api/countries-api.md) - Public API for country data
+- [Database Schema](./docs/database/) - Database documentation and migrations
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### Database
 
-## Deploy on Vercel
+- [Merchants Country Foreign Key](./docs/database/merchants-country-foreign-key.md) - Country reference implementation
+- [Merchant Onboarding](./docs/database/create_merchant_onboarding.md) - Business setup flow
+- [Cascade Relationships](./docs/database/cascade-relationships.md) - Database relationships
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+### Setup & Configuration
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- [Supabase OAuth Config](./docs/setup/supabase-oauth-config.md) - OAuth setup guide
+- [Zid Integration](./docs/integrations/zid-integration.md) - Zid platform integration
+
+## Key Technologies
+
+- **Framework**: Next.js 16 (App Router)
+- **Database**: Supabase (PostgreSQL)
+- **Authentication**: Supabase Auth
+- **Styling**: Tailwind CSS
+- **UI Components**: Radix UI, Shadcn UI
+- **Internationalization**: next-intl
+- **Type Safety**: TypeScript
+
+## Project Structure
+
+```
+haady-business/
+├── app/                    # Next.js app router pages
+│   ├── auth/              # Authentication pages
+│   ├── setup/             # Business setup flow
+│   ├── dashboard/         # Dashboard pages
+│   └── api/               # API routes
+├── components/            # React components
+├── lib/                   # Utility libraries
+│   ├── cookies.ts        # Cookie management
+│   ├── supabase/         # Supabase clients
+│   └── localized-url.ts  # URL localization
+├── docs/                  # Documentation
+├── supabase/
+│   └── migrations/       # Database migrations
+└── i18n/                 # Internationalization
+```
+
+## Environment Variables
+
+Required environment variables:
+
+```env
+NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_anon_key
+SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
+NEXT_PUBLIC_SITE_URL=your_site_url
+```
+
+## Default Settings
+
+- **Default Country**: Saudi Arabia (SA)
+- **Default Language**: English (en)
+- **Default Locale**: en-SA
+
+## Contributing
+
+1. Create a feature branch
+2. Make your changes
+3. Run tests and linting
+4. Submit a pull request
+
+## License
+
+[Your License Here]
