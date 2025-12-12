@@ -75,6 +75,11 @@ export async function GET(request: Request) {
   const userFullName = session.user.user_metadata?.full_name || 
                        session.user.user_metadata?.name ||
                        null;
+  
+  // Extract avatar URL from Google OAuth
+  const userAvatarUrl = session.user.user_metadata?.avatar_url ||
+                        session.user.user_metadata?.picture ||
+                        null;
 
   if (appType === 'merchant' && session.user) {
     await supabase.auth.updateUser({
@@ -84,6 +89,52 @@ export async function GET(request: Request) {
         preferred_language: preferredLanguage,
       },
     });
+  }
+
+  // Create or update public.users record for Google OAuth signups
+  if (appType === 'merchant' && session.user) {
+    const { data: existingUser } = await supabase
+      .from('users')
+      .select('id')
+      .eq('id', session.user.id)
+      .maybeSingle();
+
+    if (!existingUser) {
+      console.log('Creating public.users record for new Google OAuth user');
+      const { error: userCreateError } = await supabase
+        .from('users')
+        .insert({
+          id: session.user.id,
+          full_name: userFullName,
+          avatar_url: userAvatarUrl,
+          preferred_language: preferredLanguage,
+          country: preferredCountry,
+        });
+
+      if (userCreateError) {
+        console.error('Error creating public.users record:', userCreateError);
+      } else {
+        console.log('Successfully created public.users record');
+      }
+    } else if (userFullName || userAvatarUrl) {
+      // Update existing user if we have new data from Google
+      const updateData: { full_name?: string; avatar_url?: string } = {};
+      if (userFullName) updateData.full_name = userFullName;
+      if (userAvatarUrl) updateData.avatar_url = userAvatarUrl;
+
+      if (Object.keys(updateData).length > 0) {
+        const { error: userUpdateError } = await supabase
+          .from('users')
+          .update(updateData)
+          .eq('id', session.user.id);
+
+        if (userUpdateError) {
+          console.error('Error updating public.users record:', userUpdateError);
+        } else {
+          console.log('Successfully updated public.users record');
+        }
+      }
+    }
   }
 
   let { data: merchantUser, error: merchantError } = await supabase
