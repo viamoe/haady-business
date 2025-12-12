@@ -225,6 +225,31 @@
   font-weight: 500;
 }
 
+/* Loading Bar Shimmer Animation */
+@keyframes loadingBarShimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.loading-bar-shimmer {
+  animation: loadingBarShimmer 1.5s linear infinite;
+}
+
+/* Blink animation for sync indicator */
+@keyframes blink {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.2;
+  }
+}
+
+
 /* Remove shadows from sidebar inset */
 [data-slot="sidebar-inset"] {
   box-shadow: none !important;

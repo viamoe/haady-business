@@ -53,7 +53,7 @@ const Toaster = ({ ...props }: ToasterProps) => {
     <Sonner
       theme={actualTheme}
       className={`toaster group ${arabicFontClass}`}
-      position="top-right"
+      position="top-center"
       icons={{
         success: <AnimatedCheckIcon />,
       }}

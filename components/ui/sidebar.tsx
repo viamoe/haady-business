@@ -566,9 +566,10 @@ const sidebarMenuButtonVariants = cva(
   {
     variants: {
       variant: {
-        default: "text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-foreground focus-visible:ring-2 active:bg-sidebar-accent active:text-sidebar-foreground data-[active=true]:bg-gray-100 data-[active=true]:text-sidebar-foreground data-[active=true]:font-semibold dark:data-[active=true]:bg-gray-800",
+        default:
+          "text-muted-foreground hover:bg-gray-100 hover:text-sidebar-foreground focus-visible:ring-2 active:bg-gray-100 active:text-sidebar-foreground data-[active=true]:bg-white data-[active=true]:text-gray-900 data-[active=true]:font-semibold data-[active=true]:shadow-sm data-[active=true]:ring-1 data-[active=true]:ring-gray-200 dark:hover:bg-gray-800 dark:active:bg-gray-800 dark:data-[active=true]:bg-gray-800 dark:data-[active=true]:text-white dark:data-[active=true]:ring-gray-700",
         outline:
-          "bg-background shadow-[0_0_0_1px_hsl(var(--sidebar-border))] text-muted-foreground hover:text-sidebar-foreground hover:shadow-[0_0_0_1px_hsl(var(--sidebar-accent))] hover:bg-sidebar-accent data-[active=true]:bg-gray-100 data-[active=true]:text-sidebar-foreground dark:data-[active=true]:bg-gray-800",
+          "bg-background shadow-[0_0_0_1px_hsl(var(--sidebar-border))] text-muted-foreground hover:text-sidebar-foreground hover:shadow-[0_0_0_1px_hsl(var(--sidebar-accent))] hover:bg-gray-100 data-[active=true]:bg-white data-[active=true]:text-gray-900 data-[active=true]:shadow-sm data-[active=true]:ring-1 data-[active=true]:ring-gray-200 dark:hover:bg-gray-800 dark:data-[active=true]:bg-gray-800 dark:data-[active=true]:text-white dark:data-[active=true]:ring-gray-700",
       },
       size: {
         default: "h-9 text-sm font-medium",

@@ -17,6 +17,7 @@ import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { useAuth } from "@/lib/auth/auth-context"
 import { useLoading } from "@/lib/loading-context"
+import { useStoreConnection } from "@/lib/store-connection-context"
 import { supabase } from "@/lib/supabase/client"
 import {
   Sidebar,
@@ -115,6 +116,7 @@ function containsArabic(text: string): boolean {
 function ProjectSelector() {
   const { user } = useAuth()
   const router = useRouter()
+  const { isAnyStoreSyncing, setSelectedConnectionId: setSelectedConnectionIdFromContext, selectedConnectionId: contextSelectedConnectionId, isChangingStore } = useStoreConnection()
   const [connections, setConnections] = React.useState<StoreConnection[]>([])
   const [selectedConnectionId, setSelectedConnectionId] = React.useState<string | null>(null)
   const [isLoading, setIsLoading] = React.useState(true)
@@ -163,10 +165,13 @@ function ProjectSelector() {
           if (savedConnectionId && connectionsData.find(c => c.id === savedConnectionId)) {
             // Restore saved selection from localStorage
             setSelectedConnectionId(savedConnectionId)
-          } else if (!savedConnectionId) {
-            // No saved selection, auto-select first connection on initial load only
-            setSelectedConnectionId(connectionsData[0].id)
-            localStorage.setItem('selectedStoreConnectionId', connectionsData[0].id)
+            window.dispatchEvent(new CustomEvent('storeConnectionChanged', { detail: savedConnectionId }))
+          } else {
+            // No saved selection or saved selection doesn't exist, auto-select latest (first) connection
+            const connectionToSelect = connectionsData[0].id
+            setSelectedConnectionId(connectionToSelect)
+            localStorage.setItem('selectedStoreConnectionId', connectionToSelect)
+            window.dispatchEvent(new CustomEvent('storeConnectionChanged', { detail: connectionToSelect }))
           }
         } else if (connectionsData.length > 0 && selectedConnectionId) {
           // On subsequent fetches, verify selected connection still exists
@@ -204,13 +209,13 @@ function ProjectSelector() {
     return (
       <SidebarMenu>
         <SidebarMenuItem>
-          <SidebarMenuButton size="lg" className="text-foreground opacity-100 !opacity-100" disabled>
-            <Skeleton className="size-8 rounded-lg shrink-0" />
+          <SidebarMenuButton size="lg" className="text-foreground opacity-100 !opacity-100 rounded-2xl" disabled>
+            <Skeleton className="size-8 rounded-lg shrink-0 bg-gray-200" />
             <div className="grid flex-1 text-left text-sm leading-tight gap-1 group-data-[collapsible=icon]:hidden">
-              <Skeleton className="h-4 w-24" />
-              <Skeleton className="h-3 w-16" />
+              <Skeleton className="h-4 w-24 bg-gray-200" />
+              <Skeleton className="h-3 w-16 bg-gray-200" />
             </div>
-            <Skeleton className="ml-auto size-4 rounded group-data-[collapsible=icon]:hidden" />
+            <Skeleton className="ml-auto size-4 rounded group-data-[collapsible=icon]:hidden bg-gray-200" />
           </SidebarMenuButton>
         </SidebarMenuItem>
       </SidebarMenu>
@@ -222,15 +227,19 @@ function ProjectSelector() {
       <SidebarMenuItem>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <SidebarMenuButton size="lg" className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground hover:bg-sidebar-accent text-foreground opacity-100 !opacity-100" disabled={isLoading}>
-              {isLoading ? (
+            <SidebarMenuButton
+              size="lg"
+              className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground hover:bg-sidebar-accent text-foreground opacity-100 !opacity-100 rounded-2xl"
+              disabled={isLoading || isAnyStoreSyncing || isChangingStore}
+            >
+              {isLoading || isChangingStore ? (
                 <>
-                  <Skeleton className="size-8 rounded-lg shrink-0" />
+                  <Skeleton className="size-8 rounded-lg shrink-0 bg-gray-200" />
                   <div className="grid flex-1 text-left text-sm leading-tight gap-1 group-data-[collapsible=icon]:hidden">
-                    <Skeleton className="h-4 w-24" />
-                    <Skeleton className="h-3 w-16" />
+                    <Skeleton className="h-4 w-24 bg-gray-200" />
+                    <Skeleton className="h-3 w-16 bg-gray-200" />
                   </div>
-                  <Skeleton className="ml-auto size-4 rounded group-data-[collapsible=icon]:hidden" />
+                  <Skeleton className="ml-auto size-4 rounded group-data-[collapsible=icon]:hidden bg-gray-200" />
                 </>
               ) : (
                 <>
@@ -279,15 +288,25 @@ function ProjectSelector() {
           >
             {/* Stores */}
             {isLoading ? (
-              [1, 2, 3].map((i) => (
-                <DropdownMenuItem key={i} disabled className="gap-2 rounded-lg">
-                  <Skeleton className="size-6 rounded-md" />
-                  <div className="flex flex-col gap-1 flex-1">
-                    <Skeleton className="h-4 w-32" />
-                    <Skeleton className="h-3 w-16" />
+              <div className="space-y-1">
+                {[1, 2, 3].map((i) => (
+                  <DropdownMenuItem key={i} disabled className="gap-2 rounded-lg pointer-events-none">
+                    <Skeleton className="size-6 rounded-md shrink-0 bg-gray-200" />
+                    <div className="flex flex-col gap-1 flex-1 min-w-0">
+                      <Skeleton className="h-4 w-32 bg-gray-200" />
+                      <Skeleton className="h-3 w-16 bg-gray-200" />
+                    </div>
+                  </DropdownMenuItem>
+                ))}
+                {/* Add Store Button Skeleton */}
+                <DropdownMenuItem disabled className="gap-2 mt-2 rounded-lg pointer-events-none">
+                  <Skeleton className="size-6 rounded-md shrink-0 bg-gray-200" />
+                  <div className="flex flex-col gap-1 flex-1 min-w-0">
+                    <Skeleton className="h-4 w-24 bg-gray-200" />
+                    <Skeleton className="h-3 w-32 bg-gray-200" />
                   </div>
                 </DropdownMenuItem>
-              ))
+              </div>
             ) : (
               <div className="fade-in-content space-y-1">
                 {connections.length > 0 ? (
@@ -299,22 +318,23 @@ function ProjectSelector() {
                         key={connection.id}
                         className={`group gap-2 rounded-lg transition-colors ${
                           isSelected 
-                            ? 'bg-[#F4610B] text-white' 
+                            ? 'bg-[#F4610B] text-white cursor-default' 
                             : 'cursor-pointer hover:bg-[#F4610B]/10 hover:text-[#F4610B]'
                         }`}
                         onClick={() => {
-                          if (isSelected) {
-                            // Deselect if already selected
-                            setSelectedConnectionId(null)
-                            localStorage.removeItem('selectedStoreConnectionId')
-                            window.dispatchEvent(new CustomEvent('storeConnectionChanged', { detail: null }))
-                          } else {
-                            // Select if not selected
+                          // Prevent selection change while syncing
+                          if (isAnyStoreSyncing) {
+                            return
+                          }
+                          
+                          if (!isSelected) {
+                            // Select if not selected - use context function to trigger loading screen
+                            setSelectedConnectionIdFromContext(connection.id)
+                            // Also update local state for immediate UI update
                             setSelectedConnectionId(connection.id)
-                            localStorage.setItem('selectedStoreConnectionId', connection.id)
-                            window.dispatchEvent(new CustomEvent('storeConnectionChanged', { detail: connection.id }))
                           }
                         }}
+                        disabled={isAnyStoreSyncing}
                       >
                         <div className={`flex size-6 items-center justify-center rounded-md border overflow-hidden relative ${
                           platformLogo ? '' : 'bg-white'
@@ -363,21 +383,23 @@ function ProjectSelector() {
                 )}
                 
                 {/* Add Store Button */}
-                <DropdownMenuItem
-                  className="gap-2 cursor-pointer mt-2 rounded-lg transition-colors hover:bg-[#F4610B]/10 hover:text-[#F4610B]"
-                  onClick={() => {
-                    // Open the onboarding modal
-                    window.dispatchEvent(new CustomEvent('openOnboardingModal'))
-                  }}
-                >
-                  <div className="flex size-6 items-center justify-center rounded-md border border-dashed">
-                    <Plus className="size-4" />
-                  </div>
-                  <div className="flex flex-col">
-                    <span>Add Store</span>
-                    <span className="text-xs text-muted-foreground">Create or connect a store</span>
-                  </div>
-                </DropdownMenuItem>
+                {!isLoading && (
+                  <DropdownMenuItem
+                    className="gap-2 cursor-pointer mt-2 rounded-lg transition-colors hover:bg-[#F4610B]/10 hover:text-[#F4610B]"
+                    onClick={() => {
+                      // Open the onboarding modal
+                      window.dispatchEvent(new CustomEvent('openOnboardingModal'))
+                    }}
+                  >
+                    <div className="flex size-6 items-center justify-center rounded-md border border-dashed">
+                      <Plus className="size-4" />
+                    </div>
+                    <div className="flex flex-col">
+                      <span>Add Store</span>
+                      <span className="text-xs text-muted-foreground">Create or connect a store</span>
+                    </div>
+                  </DropdownMenuItem>
+                )}
               </div>
             )}
           </DropdownMenuContent>
@@ -540,6 +562,7 @@ function UserFooter() {
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const pathname = usePathname()
   const { user } = useAuth()
+  const { isChangingStore } = useStoreConnection()
   const [isLoading, setIsLoading] = React.useState(true)
   const hasLoadedRef = React.useRef(false)
 
@@ -561,26 +584,26 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
 
   return (
     <Sidebar variant="inset" {...props}>
-      <SidebarHeader>
-        <SidebarMenu>
-          <SidebarMenuItem>
-            <ProjectSelector />
-          </SidebarMenuItem>
-        </SidebarMenu>
+      <SidebarHeader className="px-2">
+        <ProjectSelector />
       </SidebarHeader>
 
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel>Navigation</SidebarGroupLabel>
+          {isLoading || isChangingStore ? (
+            <Skeleton className="h-4 w-20 mb-2 bg-gray-200" />
+          ) : (
+            <SidebarGroupLabel>Navigation</SidebarGroupLabel>
+          )}
           <SidebarGroupContent>
             <SidebarMenu>
-              {isLoading ? (
+              {isLoading || isChangingStore ? (
                 // Skeleton
                 navItems.map((item) => (
                   <SidebarMenuItem key={`skeleton-${item.title}`}>
                     <SidebarMenuButton disabled>
-                      <Skeleton className="size-[18px] rounded" />
-                      <Skeleton className="h-4 w-20" />
+                      <Skeleton className="size-[18px] rounded bg-gray-200" />
+                      <Skeleton className="h-4 w-20 bg-gray-200" />
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 ))
@@ -596,7 +619,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                           isActive={isActive}
                           tooltip={item.title}
                         >
-                          <Link href={item.url}>
+                          <Link href={item.url} aria-current={isActive ? 'page' : undefined}>
                             <item.icon className="w-[18px] h-[18px]" />
                             <span>{item.title}</span>
                           </Link>
@@ -611,12 +634,8 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter>
-        <SidebarMenu className="overflow-hidden">
-          <SidebarMenuItem className="overflow-hidden">
-            <UserFooter />
-          </SidebarMenuItem>
-        </SidebarMenu>
+      <SidebarFooter className="px-2 pb-2">
+        <UserFooter />
       </SidebarFooter>
 
       <SidebarRail />

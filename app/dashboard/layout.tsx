@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef, Suspense } from 'react'
+import { useState, useEffect, useRef, Suspense, useCallback } from 'react'
 import { AppSidebar } from '@/components/app-sidebar'
 import { StoreConnectionProvider } from '@/lib/store-connection-context'
 import { OnboardingModalProvider, useOnboardingModal } from '@/lib/onboarding-modal-context'
@@ -17,15 +17,16 @@ import {
 } from '@/components/ui/breadcrumb'
 import { usePathname, useSearchParams, useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
-import { Bell } from '@/components/animate-ui/icons/bell'
 import { AnimateIcon } from '@/components/animate-ui/icons/icon'
+import { RefreshCcw } from '@/components/animate-ui/icons/refresh-ccw'
 import { ICON_BUTTON_CLASSES, DEFAULT_ICON_SIZE } from '@/lib/ui-constants'
-import { StoreConnectionHealth } from '@/components/store-connection-health'
 import { WideCardModal } from '@/components/ui/wide-card-modal'
 import { useAuth } from '@/lib/auth/auth-context'
+import { useStoreConnection } from '@/lib/store-connection-context'
 import { toast } from '@/lib/toast'
+import { safeFetch, handleError } from '@/lib/error-handler'
 import Image from 'next/image'
-import { Check, ArrowRight, ArrowLeft } from 'lucide-react'
+import { Check, ArrowRight, ArrowLeft, Zap, CheckCircle2, Gift, MessageSquare, Mail, Bell, AlertCircle, Info, HelpCircle, User, ShoppingCart, Package, CreditCard, Settings, Shield, TrendingUp, Star, Loader2, Store } from 'lucide-react'
 import { Unplug } from '@/components/animate-ui/icons/unplug'
 import { Sparkles } from '@/components/animate-ui/icons/sparkles'
 import { supabase } from '@/lib/supabase/client'
@@ -40,6 +41,9 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip'
+import { cn } from '@/lib/utils'
+import { NotificationDrawer } from '@/components/notification-drawer'
 
 const ECOMMERCE_STORAGE_URL = 'https://rovphhvuuxwbhgnsifto.supabase.co/storage/v1/object/public/assets/ecommerce';
 
@@ -77,6 +81,7 @@ function DashboardLayoutContentInner({
   const searchParams = useSearchParams()
   const router = useRouter()
   const { user } = useAuth()
+  const { selectedConnectionId, isChangingStore } = useStoreConnection()
   const { isOpen: isWelcomeModalOpen, open: openModal, close: closeModal, step: modalStep, setStep: setModalStep } = useOnboardingModal()
   const pageName = pathname.split('/').filter(Boolean).pop() || 'Dashboard'
   const capitalizedPageName = pageName.charAt(0).toUpperCase() + pageName.slice(1)
@@ -86,6 +91,501 @@ function DashboardLayoutContentInner({
   const [isCardHovered, setIsCardHovered] = useState(false)
   const [isCard2Hovered, setIsCard2Hovered] = useState(false)
   const [hoveredPlatform, setHoveredPlatform] = useState<string | null>(null)
+  const [isSyncing, setIsSyncing] = useState(false)
+  const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null)
+  const [isHoveringSync, setIsHoveringSync] = useState(false)
+  const [currentSyncPhrase, setCurrentSyncPhrase] = useState(0)
+  const [messagesCount, setMessagesCount] = useState(0)
+  
+  // Dummy updates data for testing with read/unread state
+  const [dummyUpdates, setDummyUpdates] = useState([
+    {
+      id: '1',
+      title: 'New Feature: Product Sync',
+      description: 'We\'ve added automatic product synchronization with your store. Your products will now stay in sync automatically.',
+      time: '2 hours ago',
+      icon: Zap,
+      iconColor: 'text-blue-600',
+      iconBg: 'bg-blue-50',
+      isRead: false,
+    },
+    {
+      id: '2',
+      title: 'System Maintenance Complete',
+      description: 'Scheduled maintenance has been completed successfully. All systems are now running smoothly.',
+      time: '1 day ago',
+      icon: CheckCircle2,
+      iconColor: 'text-green-600',
+      iconBg: 'bg-green-50',
+      isRead: false,
+    },
+    {
+      id: '3',
+      title: 'Welcome to Haady Business',
+      description: 'Thank you for joining Haady Business! Get started by connecting your first store.',
+      time: '3 days ago',
+      icon: Gift,
+      iconColor: 'text-purple-600',
+      iconBg: 'bg-purple-50',
+      isRead: false,
+    },
+    {
+      id: '4',
+      title: 'Inventory Update Available',
+      description: 'Your inventory levels have been updated. Check your dashboard to see the latest stock information.',
+      time: '5 hours ago',
+      icon: Zap,
+      iconColor: 'text-yellow-600',
+      iconBg: 'bg-yellow-50',
+      isRead: false,
+    },
+    {
+      id: '5',
+      title: 'New Order Received',
+      description: 'You have received a new order. Review and process it from your orders dashboard.',
+      time: '8 hours ago',
+      icon: CheckCircle2,
+      iconColor: 'text-emerald-600',
+      iconBg: 'bg-emerald-50',
+      isRead: true,
+    },
+    {
+      id: '6',
+      title: 'Payment Processed',
+      description: 'Your payment has been successfully processed. Your subscription is now active.',
+      time: '12 hours ago',
+      icon: CheckCircle2,
+      iconColor: 'text-indigo-600',
+      iconBg: 'bg-indigo-50',
+      isRead: true,
+    },
+    {
+      id: '7',
+      title: 'Store Connection Established',
+      description: 'Your store connection has been successfully established. You can now sync your products.',
+      time: '1 day ago',
+      icon: Zap,
+      iconColor: 'text-cyan-600',
+      iconBg: 'bg-cyan-50',
+      isRead: false,
+    },
+    {
+      id: '8',
+      title: 'Weekly Report Ready',
+      description: 'Your weekly sales report is now available. View it in the reports section.',
+      time: '2 days ago',
+      icon: Gift,
+      iconColor: 'text-pink-600',
+      iconBg: 'bg-pink-50',
+      isRead: true,
+    },
+    {
+      id: '9',
+      title: 'Product Sync Completed',
+      description: 'Your product synchronization has been completed. 45 products have been synced successfully.',
+      time: '2 days ago',
+      icon: CheckCircle2,
+      iconColor: 'text-teal-600',
+      iconBg: 'bg-teal-50',
+      isRead: true,
+    },
+    {
+      id: '10',
+      title: 'New Integration Available',
+      description: 'We\'ve added support for a new e-commerce platform. Connect your store now to get started.',
+      time: '3 days ago',
+      icon: Zap,
+      iconColor: 'text-orange-600',
+      iconBg: 'bg-orange-50',
+      isRead: false,
+    },
+    {
+      id: '11',
+      title: 'Account Settings Updated',
+      description: 'Your account settings have been successfully updated. Changes will take effect immediately.',
+      time: '4 days ago',
+      icon: CheckCircle2,
+      iconColor: 'text-violet-600',
+      iconBg: 'bg-violet-50',
+      isRead: true,
+    },
+    {
+      id: '12',
+      title: 'Backup Completed',
+      description: 'Your data backup has been completed successfully. Your information is safe and secure.',
+      time: '5 days ago',
+      icon: Gift,
+      iconColor: 'text-rose-600',
+      iconBg: 'bg-rose-50',
+      isRead: true,
+    },
+    {
+      id: '13',
+      title: 'Performance Optimization',
+      description: 'We\'ve optimized your dashboard performance. You should notice faster loading times.',
+      time: '1 week ago',
+      icon: Zap,
+      iconColor: 'text-sky-600',
+      iconBg: 'bg-sky-50',
+      isRead: true,
+    },
+    {
+      id: '14',
+      title: 'Security Alert',
+      description: 'A new device has logged into your account. If this wasn\'t you, please change your password.',
+      time: '1 week ago',
+      icon: CheckCircle2,
+      iconColor: 'text-red-600',
+      iconBg: 'bg-red-50',
+      isRead: false,
+    },
+    {
+      id: '15',
+      title: 'Feature Update',
+      description: 'New features have been added to your dashboard. Explore them to enhance your workflow.',
+      time: '1 week ago',
+      icon: Gift,
+      iconColor: 'text-amber-600',
+      iconBg: 'bg-amber-50',
+      isRead: true,
+    },
+  ])
+  
+  // Dummy messages data for testing
+  const [dummyMessages, setDummyMessages] = useState([
+    {
+      id: 'm1',
+      title: 'New Customer Inquiry',
+      description: 'You have received a new customer inquiry about your products. Please respond within 24 hours.',
+      time: '30 min ago',
+      icon: MessageSquare,
+      iconColor: 'text-blue-600',
+      iconBg: 'bg-blue-50',
+      isRead: false,
+    },
+    {
+      id: 'm2',
+      title: 'Order Question',
+      description: 'A customer has a question about their recent order. Check the order details and respond.',
+      time: '1 hour ago',
+      icon: Mail,
+      iconColor: 'text-green-600',
+      iconBg: 'bg-green-50',
+      isRead: false,
+    },
+    {
+      id: 'm3',
+      title: 'Support Ticket Created',
+      description: 'A new support ticket has been created. Review and assign it to the appropriate team member.',
+      time: '2 hours ago',
+      icon: Bell,
+      iconColor: 'text-purple-600',
+      iconBg: 'bg-purple-50',
+      isRead: false,
+    },
+    {
+      id: 'm4',
+      title: 'Product Review Received',
+      description: 'You have received a new product review. Check it out and respond if needed.',
+      time: '3 hours ago',
+      icon: Star,
+      iconColor: 'text-yellow-600',
+      iconBg: 'bg-yellow-50',
+      isRead: false,
+    },
+    {
+      id: 'm5',
+      title: 'Refund Request',
+      description: 'A customer has requested a refund for their order. Review the request and process accordingly.',
+      time: '5 hours ago',
+      icon: AlertCircle,
+      iconColor: 'text-emerald-600',
+      iconBg: 'bg-emerald-50',
+      isRead: true,
+    },
+    {
+      id: 'm6',
+      title: 'Shipping Update',
+      description: 'Your shipping provider has sent an update about a package delivery. Check the tracking information.',
+      time: '6 hours ago',
+      icon: Package,
+      iconColor: 'text-indigo-600',
+      iconBg: 'bg-indigo-50',
+      isRead: false,
+    },
+    {
+      id: 'm7',
+      title: 'Customer Feedback',
+      description: 'A customer has left feedback about their shopping experience. Read their comments.',
+      time: '8 hours ago',
+      icon: Info,
+      iconColor: 'text-cyan-600',
+      iconBg: 'bg-cyan-50',
+      isRead: true,
+    },
+    {
+      id: 'm8',
+      title: 'Account Verification',
+      description: 'A new customer account needs verification. Review and approve the account.',
+      time: '10 hours ago',
+      icon: User,
+      iconColor: 'text-pink-600',
+      iconBg: 'bg-pink-50',
+      isRead: false,
+    },
+    {
+      id: 'm9',
+      title: 'Payment Issue',
+      description: 'There is a payment issue with one of your orders. Review and resolve the payment problem.',
+      time: '12 hours ago',
+      icon: CreditCard,
+      iconColor: 'text-teal-600',
+      iconBg: 'bg-teal-50',
+      isRead: true,
+    },
+    {
+      id: 'm10',
+      title: 'Inventory Alert',
+      description: 'One of your products is running low on stock. Consider restocking soon to avoid out-of-stock situations.',
+      time: '1 day ago',
+      icon: ShoppingCart,
+      iconColor: 'text-orange-600',
+      iconBg: 'bg-orange-50',
+      isRead: false,
+    },
+    {
+      id: 'm11',
+      title: 'Help Request',
+      description: 'A customer needs help with using your platform. Provide assistance through the support channel.',
+      time: '1 day ago',
+      icon: HelpCircle,
+      iconColor: 'text-violet-600',
+      iconBg: 'bg-violet-50',
+      isRead: true,
+    },
+    {
+      id: 'm12',
+      title: 'Security Notification',
+      description: 'Your account security settings have been updated. If this wasn\'t you, please review your account.',
+      time: '2 days ago',
+      icon: Shield,
+      iconColor: 'text-rose-600',
+      iconBg: 'bg-rose-50',
+      isRead: true,
+    },
+    {
+      id: 'm13',
+      title: 'Sales Report',
+      description: 'Your monthly sales report is ready. Review your performance metrics and insights.',
+      time: '2 days ago',
+      icon: TrendingUp,
+      iconColor: 'text-sky-600',
+      iconBg: 'bg-sky-50',
+      isRead: false,
+    },
+    {
+      id: 'm14',
+      title: 'Settings Changed',
+      description: 'Your account settings have been modified. Review the changes to ensure everything is correct.',
+      time: '3 days ago',
+      icon: Settings,
+      iconColor: 'text-red-600',
+      iconBg: 'bg-red-50',
+      isRead: true,
+    },
+    {
+      id: 'm15',
+      title: 'Welcome Message',
+      description: 'Welcome to Haady Business! We\'re here to help you succeed. Feel free to reach out if you have any questions.',
+      time: '1 week ago',
+      icon: MessageSquare,
+      iconColor: 'text-amber-600',
+      iconBg: 'bg-amber-50',
+      isRead: true,
+    },
+  ])
+  
+  // Handle update read status (optional callback)
+  const handleUpdateRead = (id: string) => {
+    setDummyUpdates(prev => prev.map(update => 
+      update.id === id ? { ...update, isRead: true } : update
+    ))
+    setDummyMessages(prev => prev.map(message => 
+      message.id === id ? { ...message, isRead: true } : message
+    ))
+  }
+  
+  // Handle mark all as read (optional callback)
+  const handleMarkAllAsRead = () => {
+    setDummyUpdates(prev => prev.map(update => ({ ...update, isRead: true })))
+    setDummyMessages(prev => prev.map(message => ({ ...message, isRead: true })))
+  }
+  
+  const syncPhrases = ['Fetching Products', 'Counting Inventory', 'Polishing Things']
+
+  // Format relative time (e.g., "3 min ago", "1 hour ago")
+  const formatRelativeTime = (date: Date): string => {
+    const now = new Date()
+    const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000)
+    
+    if (diffInSeconds < 60) {
+      return 'just now'
+    }
+    
+    const diffInMinutes = Math.floor(diffInSeconds / 60)
+    if (diffInMinutes < 60) {
+      return `${diffInMinutes} min ago`
+    }
+    
+    const diffInHours = Math.floor(diffInMinutes / 60)
+    if (diffInHours < 24) {
+      return `${diffInHours} ${diffInHours === 1 ? 'hour' : 'hours'} ago`
+    }
+    
+    const diffInDays = Math.floor(diffInHours / 24)
+    if (diffInDays < 7) {
+      return `${diffInDays} ${diffInDays === 1 ? 'day' : 'days'} ago`
+    }
+    
+    const diffInWeeks = Math.floor(diffInDays / 7)
+    if (diffInWeeks < 4) {
+      return `${diffInWeeks} ${diffInWeeks === 1 ? 'week' : 'weeks'} ago`
+    }
+    
+    const diffInMonths = Math.floor(diffInDays / 30)
+    if (diffInMonths < 12) {
+      return `${diffInMonths} ${diffInMonths === 1 ? 'month' : 'months'} ago`
+    }
+    
+    const diffInYears = Math.floor(diffInDays / 365)
+    return `${diffInYears} ${diffInYears === 1 ? 'year' : 'years'} ago`
+  }
+
+  // Fetch last sync time from database
+  const fetchLastSyncTime = useCallback(async () => {
+    if (!selectedConnectionId || !user?.id) {
+      setLastSyncTime(null)
+      return
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from('store_connections')
+        .select('last_sync_at')
+        .eq('id', selectedConnectionId)
+        .eq('user_id', user.id)
+        .maybeSingle()
+
+      if (error) {
+        if (process.env.NODE_ENV === 'development') {
+          console.error('Error fetching last sync time:', error)
+        }
+        return
+      }
+
+      if (data?.last_sync_at) {
+        setLastSyncTime(new Date(data.last_sync_at))
+      } else {
+        setLastSyncTime(null)
+      }
+    } catch (error) {
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Exception fetching last sync time:', error)
+      }
+    }
+  }, [selectedConnectionId, user?.id])
+
+  // Fetch last sync time when connection changes
+  useEffect(() => {
+    fetchLastSyncTime()
+  }, [fetchLastSyncTime])
+
+  // Rotate sync phrases while syncing
+  useEffect(() => {
+    if (!isSyncing) {
+      setCurrentSyncPhrase(0)
+      return
+    }
+
+    const interval = setInterval(() => {
+      setCurrentSyncPhrase((prev) => (prev + 1) % syncPhrases.length)
+    }, 2000) // Change phrase every 2 seconds
+
+    return () => clearInterval(interval)
+  }, [isSyncing, syncPhrases.length])
+
+  // Handle sync button click
+  const handleSync = async () => {
+    if (!selectedConnectionId) {
+      toast.error('No store selected', {
+        description: 'Please select a store connection first.',
+      })
+      return
+    }
+
+    if (isSyncing) {
+      return // Prevent multiple simultaneous syncs
+    }
+
+    setIsSyncing(true)
+
+    try {
+      const response = await safeFetch(
+        `/api/store-connections/${selectedConnectionId}/sync`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ type: 'all' }),
+        },
+        { context: 'Sync store products', showToast: true }
+      )
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }))
+        throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`)
+      }
+
+      const data = await response.json()
+
+      if (data.success) {
+        // Fetch the updated last_sync_at from database to ensure persistence
+        await fetchLastSyncTime()
+        
+        // Show timestamp immediately by setting syncing to false
+        setIsSyncing(false)
+        
+        if (data.details) {
+          const { productsCreated, productsUpdated, productsSynced } = data.details
+          let description = 'Your products have been synchronized'
+          
+          if (productsCreated > 0 && productsUpdated > 0) {
+            description = `${productsCreated} new products created, ${productsUpdated} products updated`
+          } else if (productsCreated > 0) {
+            description = `${productsCreated} new products added to your store`
+          } else if (productsUpdated > 0) {
+            description = `${productsUpdated} products updated successfully`
+          } else if (productsSynced > 0) {
+            description = `${productsSynced} products synced successfully`
+          }
+          
+          toast.success('Sync completed successfully!', { description })
+        } else {
+          toast.success('Sync completed successfully!', { 
+            description: 'Your products have been synchronized' 
+          })
+        }
+      } else {
+        throw new Error(data.error || data.message || 'Sync failed')
+      }
+    } catch (error: any) {
+      handleError(error, {
+        context: 'Sync store products',
+        showToast: true,
+        fallbackMessage: 'Failed to start sync. Please try again.',
+      })
+      setIsSyncing(false) // Stop syncing on error too
+    }
+  }
   const [hasCheckedConnections, setHasCheckedConnections] = useState(false)
   const [showShopifyDialog, setShowShopifyDialog] = useState(false)
   const [shopDomainInput, setShopDomainInput] = useState('')
@@ -527,21 +1027,95 @@ function DashboardLayoutContentInner({
             <SidebarTrigger className="-ml-1 absolute left-4 z-10" />
           </div>
           <div className="flex items-center gap-3 h-full absolute right-4 z-10">
-            <StoreConnectionHealth />
-            <Button
-              variant="ghost"
-              size="icon"
-              className={`${ICON_BUTTON_CLASSES} flex items-center justify-center`}
-              aria-label="Notifications"
-            >
-              <AnimateIcon animateOnHover>
-                <Bell size={DEFAULT_ICON_SIZE} />
-              </AnimateIcon>
-            </Button>
+            <div className="flex items-center relative">
+              {/* Syncing text or timestamp */}
+              <div
+                className={cn(
+                  'flex items-center gap-2 transition-opacity',
+                  isHoveringSync ? 'duration-0' : 'duration-500 ease-out',
+                  (isSyncing || (lastSyncTime && !isHoveringSync))
+                    ? 'opacity-100 mr-2'
+                    : 'opacity-0 mr-0'
+                )}
+              >
+                {isSyncing ? (
+                  <>
+                    {/* Sparkles indicator */}
+                    <AnimateIcon animate={isSyncing} loop={isSyncing} animation="fill">
+                      <Sparkles size={12} className="text-gray-300 flex-shrink-0" />
+                    </AnimateIcon>
+                    <span
+                      className={cn(
+                        'text-xs font-medium text-gray-600 whitespace-nowrap shimmer-text'
+                      )}
+                      style={{
+                        animation: 'shimmer 6s linear infinite',
+                      }}
+                    >
+                      {syncPhrases[currentSyncPhrase]}
+                    </span>
+                  </>
+                ) : lastSyncTime ? (
+                  <span className="text-xs font-medium text-gray-400 whitespace-nowrap">
+                    Updated {formatRelativeTime(lastSyncTime)}
+                  </span>
+                ) : null}
+              </div>
+              {!isSyncing && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className={`${ICON_BUTTON_CLASSES} flex items-center justify-center`}
+                      aria-label="Sync Products"
+                      onClick={handleSync}
+                      disabled={!selectedConnectionId}
+                      onMouseEnter={() => setIsHoveringSync(true)}
+                      onMouseLeave={() => setIsHoveringSync(false)}
+                    >
+                      <AnimateIcon animateOnHover>
+                        <RefreshCcw size={DEFAULT_ICON_SIZE} />
+                      </AnimateIcon>
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="left" sideOffset={10} className="text-xs px-2 py-1.5">
+                    Sync Products
+                  </TooltipContent>
+                </Tooltip>
+              )}
+            </div>
+            <NotificationDrawer
+              updates={dummyUpdates}
+              messages={dummyMessages}
+              onUpdateRead={handleUpdateRead}
+              onMarkAllAsRead={handleMarkAllAsRead}
+            />
           </div>
         </header>
-        <div className="flex flex-1 flex-col gap-4 p-4 pl-[100px] md:pl-4 lg:px-8 xl:px-32 2xl:px-48">
+        <div className="flex flex-1 flex-col gap-4 p-4 pl-[100px] md:pl-4 lg:px-8 xl:px-32 2xl:px-48 relative">
           {children}
+          {/* Loading overlay when changing stores */}
+          {isChangingStore && (
+            <div className="absolute inset-0 bg-white/80 backdrop-blur-sm z-50 flex items-center justify-center transition-opacity duration-300">
+              <div className="flex flex-col items-center gap-4">
+                <div className="relative">
+                  <Store className="h-10 w-10 text-[#F4610B] animate-bounce" />
+                  <div className="absolute inset-0 h-10 w-10 text-[#F4610B]/20 animate-ping">
+                    <Store className="h-full w-full" />
+                  </div>
+                </div>
+                <p 
+                  className="text-sm font-medium text-gray-600 shimmer-text"
+                  style={{
+                    animation: 'shimmer 8s linear infinite',
+                  }}
+                >
+                  Switching store...
+                </p>
+              </div>
+            </div>
+          )}
         </div>
       </SidebarInset>
 
@@ -870,33 +1444,49 @@ function DashboardLayoutContent({
 }: {
   children: React.ReactNode
 }) {
-  return (
-    <Suspense fallback={
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-white">
-        <div className="flex flex-col items-center gap-6">
-          {/* Haady Logo with Heartbeat Animation */}
-          <div className="animate-heartbeat">
-            <Image
-              src={HAADY_LOGO_URL}
-              alt="Haady"
-              width={64}
-              height={64}
-              className="w-16 h-16"
-              priority
-            />
-          </div>
-          
-          {/* Loading text */}
-          <p className="text-sm font-medium text-gray-500 shimmer-text">
-            Loading...
-          </p>
+  const [showLoading, setShowLoading] = useState(true)
+
+  useEffect(() => {
+    // Ensure loading screen shows for exactly 800ms from mount
+    const timer = setTimeout(() => {
+      setShowLoading(false)
+    }, 800)
+
+    return () => clearTimeout(timer)
+  }, [])
+
+  const loadingFallback = (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-white">
+      <div className="flex flex-col items-center gap-6">
+        {/* Haady Logo with Heartbeat Animation */}
+        <div className="animate-heartbeat">
+          <Image
+            src={HAADY_LOGO_URL}
+            alt="Haady"
+            width={64}
+            height={64}
+            className="w-16 h-16"
+            priority
+          />
         </div>
+        
+        {/* Loading text */}
+        <p className="text-sm font-medium text-gray-500 shimmer-text">
+          Preparing your dashboard
+        </p>
       </div>
-    }>
-      <DashboardLayoutContentInner>
-        {children}
-      </DashboardLayoutContentInner>
-    </Suspense>
+    </div>
+  )
+
+  return (
+    <>
+      {showLoading && loadingFallback}
+      <Suspense fallback={loadingFallback}>
+        <DashboardLayoutContentInner>
+          {children}
+        </DashboardLayoutContentInner>
+      </Suspense>
+    </>
   )
 }
 

@@ -1,7 +1,7 @@
 'use client';
 
 import { useNetworkStatus } from '@/lib/network-context';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { WifiOff, CloudOff, RefreshCw, Zap, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Image from 'next/image';
@@ -180,18 +180,36 @@ export function NetworkStatusOverlay() {
 export function SlowConnectionBanner() {
   const { status } = useNetworkStatus();
   const [showBanner, setShowBanner] = useState(false);
+  const hideTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
-    if (status === 'slow') {
-      setShowBanner(true);
-    } else {
-      // Hide after a delay when connection improves
-      const timeoutId = setTimeout(() => setShowBanner(false), 2000);
-      return () => clearTimeout(timeoutId);
+    // Clear any existing hide timeout
+    if (hideTimeoutRef.current) {
+      clearTimeout(hideTimeoutRef.current);
+      hideTimeoutRef.current = null;
     }
+
+    if (status === 'slow') {
+      // Show immediately when status becomes slow
+      setShowBanner(true);
+    } else if (status === 'online') {
+      // Hide after a delay when connection improves
+      hideTimeoutRef.current = setTimeout(() => {
+        setShowBanner(false);
+      }, 2000);
+    } else {
+      // For offline/reconnecting, hide immediately
+      setShowBanner(false);
+    }
+
+    return () => {
+      if (hideTimeoutRef.current) {
+        clearTimeout(hideTimeoutRef.current);
+      }
+    };
   }, [status]);
 
-  if (!showBanner || status !== 'slow') return null;
+  if (!showBanner) return null;
 
   return (
     <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 animate-in slide-in-from-bottom-4 fade-in duration-300">

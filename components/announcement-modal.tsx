@@ -90,7 +90,7 @@ export function AnnouncementModal() {
     >
       {/* Backdrop */}
       <div
-        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+        className="absolute inset-0 bg-gray-500/50"
         onClick={activeAnnouncement.dismissable !== false ? handleDismiss : undefined}
       />
 

@@ -16,6 +16,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import { ArrowRight, LayoutDashboard, LogOut, Settings, ChevronDown } from 'lucide-react';
 import { supabase } from '@/lib/supabase/client';
 import { useState, useEffect } from 'react';
@@ -167,30 +168,37 @@ export function Header() {
               return (
                 <DropdownMenu>
                   <div className="flex items-center gap-2">
-                    <Link
-                      href={localizedUrl('/dashboard')}
-                      className="cursor-pointer hover:opacity-80 transition-opacity"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        try {
-                          const url = localizedUrl('/dashboard');
-                          router.push(url);
-                        } catch (error) {
-                          console.error('Navigation error:', error);
-                          router.push('/dashboard');
-                        }
-                      }}
-                    >
-                      <Avatar className="h-8 w-8 rounded-lg !border-0 !shadow-none">
-                        <AvatarImage 
-                          src={user.user_metadata?.avatar_url || user.user_metadata?.picture} 
-                          alt={businessName || user.email?.split('@')[0] || 'User'}
-                        />
-                        <AvatarFallback className="text-xs font-medium rounded">
-                          {getUserInitials(businessName, user.email || '')}
-                        </AvatarFallback>
-                      </Avatar>
-                    </Link>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Link
+                          href={localizedUrl('/dashboard')}
+                          className="cursor-pointer hover:opacity-80 transition-opacity"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            try {
+                              const url = localizedUrl('/dashboard');
+                              router.push(url);
+                            } catch (error) {
+                              console.error('Navigation error:', error);
+                              router.push('/dashboard');
+                            }
+                          }}
+                        >
+                          <Avatar className="h-8 w-8 !border-0 !shadow-none">
+                            <AvatarImage 
+                              src={user.user_metadata?.avatar_url || user.user_metadata?.picture} 
+                              alt={businessName || user.email?.split('@')[0] || 'User'}
+                            />
+                            <AvatarFallback className="text-xs font-medium rounded">
+                              {getUserInitials(businessName, user.email || '')}
+                            </AvatarFallback>
+                          </Avatar>
+                        </Link>
+                      </TooltipTrigger>
+                      <TooltipContent side="left" sideOffset={10} className="text-xs px-2 py-1.5">
+                        Go to Dashboard
+                      </TooltipContent>
+                    </Tooltip>
                     <DropdownMenuTrigger asChild>
                       <button
                         className="group flex items-center gap-3 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-100/75 rounded-lg pl-2 pr-3 py-1.5 transition-colors focus:outline-none"
@@ -275,4 +283,3 @@ export function Header() {
     </header>
   );
 }
-
