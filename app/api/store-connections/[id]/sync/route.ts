@@ -8,6 +8,11 @@ export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> | { id: string } }
 ) {
+  // Declare connection outside try block so it's accessible in catch
+  let connection: { id: string; platform: string; access_token: string; refresh_token?: string | null } | null = null
+  let syncType = 'all'
+  let selectedProductIds: string[] | undefined = undefined
+  
   try {
     const supabase = await createServerSupabase()
     const {
@@ -26,13 +31,13 @@ export async function POST(
     const resolvedParams = params instanceof Promise ? await params : params
     const connectionId = resolvedParams.id
     const body = await request.json().catch(() => ({}))
-    const syncType = body.type || 'all' // 'products', 'inventory', 'orders', 'all'
-    const selectedProductIds = body.selectedProductIds // Array of product IDs to sync (optional)
+    syncType = body.type || 'all' // 'products', 'inventory', 'orders', 'all'
+    selectedProductIds = body.selectedProductIds // Array of product IDs to sync (optional)
 
     console.log('Sync request for connection ID:', connectionId, 'User ID:', user.id)
 
     // Get connection details - handle missing columns gracefully
-    const { data: connection, error: fetchError } = await supabase
+    const { data: connectionData, error: fetchError } = await supabase
       .from('store_connections')
       .select('id, user_id, platform, access_token, refresh_token')
       .eq('id', connectionId)
@@ -62,6 +67,8 @@ export async function POST(
         { status: 404 }
       )
     }
+
+    connection = connectionData
 
     if (!connection) {
       console.error('Connection is null for ID:', connectionId)
