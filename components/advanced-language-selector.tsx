@@ -302,9 +302,9 @@ export function AdvancedLanguageSelector() {
     // Get current country code
     const currentCountryCode = selectedCountryCode || userPreferences?.countryCode || currentCountryLanguage?.countryCode || 'AE';
     
-    // If selecting the same country, just close the menu
+    // If selecting the same country, just close the drawer
     if (countryCode === currentCountryCode) {
-      setIsCountryMenuOpen(false);
+      setIsDialogOpen(false);
       return;
     }
     
@@ -313,7 +313,7 @@ export function AdvancedLanguageSelector() {
     const previousCountry = countryLanguages.find(c => c.countryCode === currentCountryCode);
     
     if (!newCountry || !previousCountry) {
-      setIsCountryMenuOpen(false);
+      setIsDialogOpen(false);
       return;
     }
     
@@ -324,7 +324,7 @@ export function AdvancedLanguageSelector() {
       newCountryName: isRTL ? newCountry.countryNameAr : newCountry.countryName,
     });
     
-    setIsCountryMenuOpen(false);
+    setIsDialogOpen(false);
     
     // Show persistent sticky announcement at the top
     const announcementId = `country-change-${Date.now()}`;
