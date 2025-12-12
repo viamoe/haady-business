@@ -92,44 +92,88 @@ export async function GET(request: Request) {
     });
   }
 
-  // Update public.users record with Google OAuth data if needed
-  // Note: The database trigger (handle_new_user) automatically creates the public.users record
-  // This code serves as a fallback to update the record with Google profile data
-  if (session.user && (userFullName || userAvatarUrl)) {
+  // Create or update public.users record for Google OAuth signups
+  // Use admin client to bypass RLS policies
+  if (session.user) {
     try {
       const adminClient = createAdminClient();
       
-      // Update existing user with Google profile data
-      const updateData: { 
-        full_name?: string; 
-        avatar_url?: string;
-        preferred_language?: string;
-        country?: string;
-      } = {};
-      
-      if (userFullName) updateData.full_name = userFullName;
-      if (userAvatarUrl) updateData.avatar_url = userAvatarUrl;
-      if (preferredLanguage) updateData.preferred_language = preferredLanguage;
-      if (preferredCountry) updateData.country = preferredCountry;
+      // Check if user already exists
+      const { data: existingUser, error: checkError } = await adminClient
+        .from('users')
+        .select('id')
+        .eq('id', session.user.id)
+        .maybeSingle();
 
-      if (Object.keys(updateData).length > 0) {
-        const { error: userUpdateError } = await adminClient
+      if (checkError) {
+        console.error('Error checking existing user:', checkError);
+      }
+
+      if (!existingUser) {
+        // Create new public.users record
+        console.log('Creating public.users record for new Google OAuth user:', session.user.id);
+        
+        // Only include fields that exist in the table and have values
+        // Skip country field as it may have enum constraints
+        const insertData: {
+          id: string;
+          full_name?: string | null;
+          avatar_url?: string | null;
+          preferred_language?: string;
+        } = {
+          id: session.user.id,
+        };
+        
+        if (userFullName) insertData.full_name = userFullName;
+        if (userAvatarUrl) insertData.avatar_url = userAvatarUrl;
+        if (preferredLanguage) insertData.preferred_language = preferredLanguage;
+
+        const { data: newUser, error: userCreateError } = await adminClient
           .from('users')
-          .update(updateData)
-          .eq('id', session.user.id);
+          .insert(insertData)
+          .select('id')
+          .single();
 
-        if (userUpdateError) {
-          console.error('Error updating public.users record with Google data:', {
-            error: userUpdateError,
-            message: userUpdateError.message,
-            details: userUpdateError.details,
+        if (userCreateError) {
+          console.error('Error creating public.users record:', {
+            error: userCreateError,
+            message: userCreateError.message,
+            details: userCreateError.details,
+            hint: userCreateError.hint,
+            code: userCreateError.code,
           });
         } else {
-          console.log('Successfully updated public.users record with Google profile data');
+          console.log('Successfully created public.users record:', newUser?.id);
         }
+      } else if (userFullName || userAvatarUrl) {
+        // Update existing user with Google profile data
+        console.log('Updating existing public.users record with Google data');
+        const updateData: { full_name?: string; avatar_url?: string; preferred_language?: string } = {};
+        if (userFullName) updateData.full_name = userFullName;
+        if (userAvatarUrl) updateData.avatar_url = userAvatarUrl;
+        if (preferredLanguage) updateData.preferred_language = preferredLanguage;
+
+        if (Object.keys(updateData).length > 0) {
+          const { error: userUpdateError } = await adminClient
+            .from('users')
+            .update(updateData)
+            .eq('id', session.user.id);
+
+          if (userUpdateError) {
+            console.error('Error updating public.users record:', {
+              error: userUpdateError,
+              message: userUpdateError.message,
+              details: userUpdateError.details,
+            });
+          } else {
+            console.log('Successfully updated public.users record');
+          }
+        }
+      } else {
+        console.log('public.users record already exists, no update needed');
       }
     } catch (error) {
-      console.error('Unexpected error updating public.users record:', error);
+      console.error('Unexpected error creating/updating public.users record:', error);
     }
   }
 
