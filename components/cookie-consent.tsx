@@ -103,7 +103,7 @@ export function CookieConsent({ onConsentChange }: CookieConsentProps) {
     <div
       className={cn(
         'fixed left-0 right-0 bottom-0 z-[150] px-4 py-4',
-        'bg-white border-t border-gray-200 shadow-lg',
+        'bg-gray-100 shadow-lg',
         'animate-in slide-in-from-bottom duration-300',
         isClosing && 'animate-out slide-out-to-bottom duration-300'
       )}
