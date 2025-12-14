@@ -211,6 +211,7 @@ const StoreConnectionCard = memo(function StoreConnectionCard({
   connection: StoreConnection
   onDisconnect: () => void
 }) {
+  const t = useTranslations()
   const { locale, isRTL } = useLocale()
   const [isDisconnecting, setIsDisconnecting] = useState(false)
   const [isSyncing, setIsSyncing] = useState(false)
