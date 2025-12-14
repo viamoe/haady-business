@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useTranslations } from 'next-intl'
 import { X, Newspaper, MessageSquare } from 'lucide-react'
 import { Bell } from '@/components/animate-ui/icons/bell'
 import { Button } from '@/components/ui/button'
@@ -8,6 +9,8 @@ import { AnimateIcon } from '@/components/animate-ui/icons/icon'
 import { ICON_BUTTON_CLASSES, DEFAULT_ICON_SIZE } from '@/lib/ui-constants'
 import { toast } from '@/lib/toast'
 import { cn } from '@/lib/utils'
+import { useLocale } from '@/i18n/context'
+import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip'
 import {
   Drawer,
   DrawerHeader,
@@ -43,6 +46,7 @@ export function NotificationDrawer({
   onUpdateRead,
   onMarkAllAsRead,
 }: NotificationDrawerProps) {
+  const { isRTL } = useLocale()
   const [isNotificationDrawerOpen, setIsNotificationDrawerOpen] = useState(false)
   const [selectedNotification, setSelectedNotification] = useState<string | null>(null)
   const [localUpdates, setLocalUpdates] = useState(updates)
@@ -80,6 +84,7 @@ export function NotificationDrawer({
   }
 
   // Calculate unread counts
+  const t = useTranslations()
   const newsCount = localUpdates.filter(update => !update.isRead).length
   const messagesCount = localMessages.filter(msg => !msg.isRead).length
   const totalUnreadCount = newsCount + messagesCount
@@ -89,7 +94,7 @@ export function NotificationDrawer({
     setLocalUpdates(prev => prev.map(update => ({ ...update, isRead: true })))
     setLocalMessages(prev => prev.map(message => ({ ...message, isRead: true })))
     onMarkAllAsRead?.()
-    toast.success('All notifications marked as read')
+    toast.success(t('toast.success.allNotificationsRead'))
   }
 
   // Mark single update or message as read
@@ -131,38 +136,55 @@ export function NotificationDrawer({
       <Drawer 
         open={isNotificationDrawerOpen} 
         onOpenChange={setIsNotificationDrawerOpen}
-        direction="right"
+        direction={isRTL ? "left" : "right"}
       >
-        <DrawerTrigger asChild>
-          <Button
-            variant="ghost"
-            size="icon"
-            className={`${ICON_BUTTON_CLASSES} flex items-center justify-center relative [&_svg]:pointer-events-auto`}
-            aria-label="Notifications"
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <DrawerTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="size-7 [&_svg]:!h-5 [&_svg]:!w-5 text-gray-500 hover:text-gray-700 flex items-center justify-center relative [&_svg]:pointer-events-auto"
+                aria-label={t('notifications.title')}
+              >
+                <Bell animateOnHover loop={false} size={20} />
+                {totalUnreadCount > 0 && (
+                  <span className={cn(
+                    "absolute -top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white z-10 min-w-[16px] px-0.5",
+                    isRTL ? "-left-0.5" : "-right-0.5"
+                  )}>
+                    {totalUnreadCount > 99 ? '99+' : totalUnreadCount}
+                  </span>
+                )}
+              </Button>
+            </DrawerTrigger>
+          </TooltipTrigger>
+          <TooltipContent 
+            side="bottom" 
+            sideOffset={16} 
+            className="text-xs px-2 py-1.5"
           >
-            <Bell animateOnHover loop={false} size={24} />
-            {totalUnreadCount > 0 && (
-              <span className="absolute -top-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white z-10 min-w-[16px] px-0.5">
-                {totalUnreadCount > 99 ? '99+' : totalUnreadCount}
-              </span>
-            )}
-          </Button>
-        </DrawerTrigger>
+            {t('notifications.title')}
+          </TooltipContent>
+        </Tooltip>
         <DrawerPortal>
           <DrawerOverlay />
           <DrawerPrimitive.Content
             className={cn(
               "fixed z-50 flex h-auto flex-col bg-background h-full flex flex-col",
-              "data-[vaul-drawer-direction=right]:inset-y-0 data-[vaul-drawer-direction=right]:right-0",
+              isRTL 
+                ? "data-[vaul-drawer-direction=left]:inset-y-0 data-[vaul-drawer-direction=left]:left-0"
+                : "data-[vaul-drawer-direction=right]:inset-y-0 data-[vaul-drawer-direction=right]:right-0",
               "transition-[width] duration-500 ease-in-out",
               isExpanded ? "w-[1024px]" : "w-[480px]"
             )}
+            direction={isRTL ? "left" : "right"}
             style={{
               width: isExpanded ? '1024px' : '480px',
             }}
           >
             <DrawerHeader className="flex flex-row items-center justify-between">
-              <DrawerTitle>Notifications</DrawerTitle>
+              <DrawerTitle>{t('notifications.title')}</DrawerTitle>
               <div className="flex items-center gap-2">
                 {totalUnreadCount > 0 && (
                   <Button
@@ -171,7 +193,7 @@ export function NotificationDrawer({
                     onClick={handleMarkAllAsRead}
                     className="text-xs h-8"
                   >
-                    Mark all as read
+                    {t('notifications.markAllAsRead')}
                   </Button>
                 )}
                 {isExpanded && (
@@ -191,14 +213,17 @@ export function NotificationDrawer({
               <div className={cn(
                 "flex flex-col border-r border-border w-[480px] flex-shrink-0"
               )}>
-                <div className="px-4 pb-4 flex-1 overflow-y-auto">
+                <div 
+                  className="px-4 pb-4 flex-1 overflow-y-auto"
+                  style={isRTL ? { direction: 'rtl' } : undefined}
+                >
               <Tabs defaultValue="updates" className="w-full h-full flex flex-col">
-                <TabsList className="w-full">
+                <TabsList className={cn("w-full", isRTL && "flex-row-reverse")}>
                   <TabsTrigger value="updates" className="flex-1" badge={newsCount}>
-                    Updates
+                    {t('notifications.updates')}
                   </TabsTrigger>
                   <TabsTrigger value="messages" className="flex-1" badge={messagesCount}>
-                    Messages
+                    {t('notifications.messages')}
                   </TabsTrigger>
                 </TabsList>
                 <TabsContent value="updates" className="mt-4 flex-1 overflow-y-auto">
@@ -215,7 +240,8 @@ export function NotificationDrawer({
                               handleNotificationClick(update.id)
                             }}
                             className={cn(
-                              "flex gap-4 py-4 px-4 mt-2 mr-4 bg-white rounded-2xl transition-colors cursor-pointer",
+                              "flex gap-4 py-4 px-4 mt-2 me-4 bg-white rounded-2xl transition-colors cursor-pointer",
+                              isRTL && "flex-row-reverse",
                               isRead && "opacity-60",
                               selectedNotification === update.id && isExpanded && getSelectedColor(update.iconBg),
                               // Hover colors - only colorful for unread, grayscale for read
@@ -248,29 +274,40 @@ export function NotificationDrawer({
                               )} />
                             </div>
                             <div className="flex flex-col gap-1 flex-1 min-w-0">
-                              <div className="flex items-start justify-between gap-2">
+                              <div className={cn(
+                                "flex items-start gap-2",
+                                isRTL ? "flex-row-reverse justify-between" : "justify-between"
+                              )}>
                                 <h4 className={cn(
                                   "text-sm font-semibold leading-none",
+                                  isRTL ? "flex-1 text-end" : "flex-1 text-start",
                                   isRead && "text-muted-foreground font-normal"
                                 )}>
                                   {update.title}
                                 </h4>
-                                <div className="flex items-center gap-1.5">
-                                  <span className={cn(
-                                    "text-[10px] whitespace-nowrap",
-                                    isRead ? "text-muted-foreground" : "text-foreground"
-                                  )}>
-                                    {update.time}
-                                  </span>
+                                <div className={cn(
+                                  "flex items-center gap-1.5",
+                                  isRTL ? "flex-row-reverse flex-shrink-0" : "flex-shrink-0"
+                                )}>
                                   {!isRead && (
                                     <span className={cn(
                                       "h-2 w-2 rounded-full flex-shrink-0 mt-0.5",
                                       getDotColor(update.iconBg)
                                     )} />
                                   )}
+                                  <span className={cn(
+                                    "text-[10px] whitespace-nowrap",
+                                    isRTL ? "text-start" : "text-start",
+                                    isRead ? "text-muted-foreground" : "text-foreground"
+                                  )}>
+                                    {update.time}
+                                  </span>
                                 </div>
                               </div>
-                              <p className="text-xs text-muted-foreground line-clamp-2">
+                              <p className={cn(
+                                "text-xs text-muted-foreground line-clamp-2",
+                                isRTL ? "text-end" : "text-start"
+                              )}>
                                 {update.description}
                               </p>
                             </div>
@@ -282,7 +319,7 @@ export function NotificationDrawer({
                         <div className="flex flex-col items-center gap-3 text-center">
                           <Newspaper className="h-12 w-12 text-gray-200" />
                           <p className="text-sm text-muted-foreground">
-                            No updates at this time.
+                            {t('notifications.noUpdates')}
                           </p>
                         </div>
                       </div>
@@ -303,7 +340,8 @@ export function NotificationDrawer({
                               handleNotificationClick(message.id)
                             }}
                             className={cn(
-                              "flex gap-4 py-4 px-4 mt-2 mr-4 bg-white rounded-2xl transition-colors cursor-pointer",
+                              "flex gap-4 py-4 px-4 mt-2 me-4 bg-white rounded-2xl transition-colors cursor-pointer",
+                              isRTL && "flex-row-reverse",
                               isRead && "opacity-60",
                               selectedNotification === message.id && isExpanded && getSelectedColor(message.iconBg),
                               // Hover colors - only colorful for unread, grayscale for read
@@ -336,29 +374,40 @@ export function NotificationDrawer({
                               )} />
                             </div>
                             <div className="flex flex-col gap-1 flex-1 min-w-0">
-                              <div className="flex items-start justify-between gap-2">
+                              <div className={cn(
+                                "flex items-start gap-2",
+                                isRTL ? "flex-row-reverse justify-between" : "justify-between"
+                              )}>
                                 <h4 className={cn(
                                   "text-sm font-semibold leading-none",
+                                  isRTL ? "flex-1 text-end" : "flex-1 text-start",
                                   isRead && "text-muted-foreground font-normal"
                                 )}>
                                   {message.title}
                                 </h4>
-                                <div className="flex items-center gap-1.5">
-                                  <span className={cn(
-                                    "text-[10px] whitespace-nowrap",
-                                    isRead ? "text-muted-foreground" : "text-foreground"
-                                  )}>
-                                    {message.time}
-                                  </span>
+                                <div className={cn(
+                                  "flex items-center gap-1.5",
+                                  isRTL ? "flex-row-reverse flex-shrink-0" : "flex-shrink-0"
+                                )}>
                                   {!isRead && (
                                     <span className={cn(
                                       "h-2 w-2 rounded-full flex-shrink-0 mt-0.5",
                                       getDotColor(message.iconBg)
                                     )} />
                                   )}
+                                  <span className={cn(
+                                    "text-[10px] whitespace-nowrap",
+                                    isRTL ? "text-start" : "text-start",
+                                    isRead ? "text-muted-foreground" : "text-foreground"
+                                  )}>
+                                    {message.time}
+                                  </span>
                                 </div>
                               </div>
-                              <p className="text-xs text-muted-foreground line-clamp-2">
+                              <p className={cn(
+                                "text-xs text-muted-foreground line-clamp-2",
+                                isRTL ? "text-end" : "text-start"
+                              )}>
                                 {message.description}
                               </p>
                             </div>
@@ -370,7 +419,7 @@ export function NotificationDrawer({
                         <div className="flex flex-col items-center gap-3 text-center">
                           <MessageSquare className="h-12 w-12 text-gray-200" />
                           <p className="text-sm text-muted-foreground">
-                            No messages at this time.
+                            {t('notifications.noMessages')}
                           </p>
                         </div>
                       </div>
@@ -382,34 +431,37 @@ export function NotificationDrawer({
               </div>
               
               {/* Notification Details Panel */}
-              {isExpanded && selectedNotificationData && (
-                <div className="flex-1 flex flex-col overflow-hidden">
-                  <div className="flex-1 overflow-y-auto p-6">
-                    <div className="flex flex-col gap-6">
-                      <div className="flex items-start gap-4">
-                        <div className={cn(
-                          "flex-shrink-0 p-3 rounded-lg",
-                          selectedNotificationData.iconBg || "bg-muted"
-                        )}>
-                          <selectedNotificationData.icon className={cn(
-                            "h-8 w-8",
-                            selectedNotificationData.iconColor || "text-foreground"
-                          )} />
+              {isExpanded && selectedNotificationData && (() => {
+                const SelectedIcon = selectedNotificationData.icon
+                return (
+                  <div className="flex-1 flex flex-col overflow-hidden">
+                    <div className="flex-1 overflow-y-auto p-6">
+                      <div className="flex flex-col gap-6">
+                        <div className="flex items-start gap-4">
+                          <div className={cn(
+                            "flex-shrink-0 p-3 rounded-lg",
+                            selectedNotificationData.iconBg || "bg-muted"
+                          )}>
+                            <SelectedIcon className={cn(
+                              "h-8 w-8",
+                              selectedNotificationData.iconColor || "text-foreground"
+                            )} />
+                          </div>
+                          <div className="flex-1">
+                            <h2 className="text-2xl font-semibold mb-2">{selectedNotificationData.title}</h2>
+                            <p className="text-sm text-muted-foreground">{selectedNotificationData.time}</p>
+                          </div>
                         </div>
-                        <div className="flex-1">
-                          <h2 className="text-2xl font-semibold mb-2">{selectedNotificationData.title}</h2>
-                          <p className="text-sm text-muted-foreground">{selectedNotificationData.time}</p>
+                        <div className="border-t pt-6">
+                          <p className="text-base text-foreground leading-relaxed whitespace-pre-wrap">
+                            {selectedNotificationData.description}
+                          </p>
                         </div>
-                      </div>
-                      <div className="border-t pt-6">
-                        <p className="text-base text-foreground leading-relaxed whitespace-pre-wrap">
-                          {selectedNotificationData.description}
-                        </p>
                       </div>
                     </div>
                   </div>
-                </div>
-              )}
+                )
+              })()}
             </div>
           </DrawerPrimitive.Content>
         </DrawerPortal>

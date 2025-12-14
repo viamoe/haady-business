@@ -34,10 +34,23 @@ export function LoadingProvider({ children }: { children: ReactNode }) {
 
     // If pathname changed, it means navigation occurred
     if (prevPathnameRef.current !== pathname) {
-      // Show loading bar immediately
+      // Check if this is navigation within dashboard (internal navigation)
+      const isDashboardNavigation = 
+        prevPathnameRef.current?.startsWith('/dashboard') && 
+        pathname.startsWith('/dashboard');
+      
+      // Show loading bar for all navigation (including dashboard)
+      // But disable overlay for dashboard navigation
       setIsLoading(true);
       setLoadingMessage(undefined);
       setLoadingDuration(undefined);
+      
+      // Disable overlay for dashboard navigation
+      if (isDashboardNavigation) {
+        setShowOverlay(false);
+      } else {
+        setShowOverlay(true);
+      }
 
       // Clear any existing timeout
       if (navigationTimeoutRef.current) {
@@ -45,12 +58,13 @@ export function LoadingProvider({ children }: { children: ReactNode }) {
       }
 
       // Hide loading bar after navigation completes
-      // Use a longer delay to ensure the bar is visible during navigation
+      // Use a shorter delay for dashboard navigation, longer for others
+      const delay = isDashboardNavigation ? 300 : 800;
       navigationTimeoutRef.current = setTimeout(() => {
         setIsLoading(false);
         setLoadingMessage(undefined);
         setLoadingDuration(undefined);
-      }, 800);
+      }, delay);
 
       // Update previous pathname
       prevPathnameRef.current = pathname;
@@ -75,11 +89,23 @@ export function LoadingProvider({ children }: { children: ReactNode }) {
         
         // Only show loading for same-origin navigation
         if (url.origin === currentUrl.origin && url.pathname !== currentUrl.pathname) {
-          // Don't show for external links or special links
+          // Check if this is navigation within dashboard (internal navigation)
+          const isDashboardNavigation = 
+            currentUrl.pathname.startsWith('/dashboard') && 
+            url.pathname.startsWith('/dashboard');
+          
+          // Show loading bar for all navigation, but disable overlay for dashboard
           if (!link.hasAttribute('download') && !link.hasAttribute('target')) {
             setIsLoading(true);
             setLoadingMessage(undefined);
             setLoadingDuration(undefined);
+            
+            // Disable overlay for dashboard navigation
+            if (isDashboardNavigation) {
+              setShowOverlay(false);
+            } else {
+              setShowOverlay(true);
+            }
           }
         }
       }
@@ -142,6 +168,7 @@ export function LoadingProvider({ children }: { children: ReactNode }) {
     <LoadingContext.Provider value={{ isLoading, setLoading, loadingMessage, loadingDuration, showOverlay }}>
       {children}
       <LoadingBar isLoading={isLoading} duration={loadingDuration} />
+      {/* Only show overlay when explicitly enabled (not for dashboard navigation) */}
       <LoadingOverlay isLoading={isLoading && showOverlay} message={loadingMessage} />
     </LoadingContext.Provider>
   );

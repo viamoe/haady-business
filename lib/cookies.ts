@@ -58,6 +58,7 @@ export function setCookie(name: string, value: string, options: CookieOptions = 
     'sb-refresh-token',
     'cookie_consent',
     COOKIE_NAMES.OAUTH_ORIGIN,
+    COOKIE_NAMES.LOCALE, // Locale is essential for app functionality
   ];
 
   // If not essential and user hasn't consented, don't set the cookie
@@ -162,7 +163,12 @@ export const COOKIE_NAMES = {
  */
 export const UserPreferencesCookies = {
   setLocale: (locale: string) => {
-    setCookie(COOKIE_NAMES.LOCALE, locale, { maxAge: 31536000 }); // 1 year
+    // Set cookie with explicit path to ensure it's accessible
+    setCookie(COOKIE_NAMES.LOCALE, locale, { 
+      maxAge: 31536000, // 1 year
+      path: '/',
+      sameSite: 'Lax' // Ensure cookie is sent on navigation
+    });
   },
 
   getLocale: (): string | null => {

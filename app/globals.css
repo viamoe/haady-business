@@ -157,6 +157,30 @@
   [class*="Arabic"] {
     font-family: var(--font-ibm-plex-arabic), sans-serif !important;
   }
+
+  /* Apply IBM font to dropdown menus when in RTL/Arabic mode */
+  html[dir="rtl"] [data-slot="dropdown-menu-content"],
+  html[lang="ar"] [data-slot="dropdown-menu-content"],
+  html[dir="rtl"] [data-slot="dropdown-menu-content"] *,
+  html[lang="ar"] [data-slot="dropdown-menu-content"] *,
+  [dir="rtl"] [data-slot="dropdown-menu-content"],
+  [lang="ar"] [data-slot="dropdown-menu-content"],
+  [dir="rtl"] [data-slot="dropdown-menu-content"] *,
+  [lang="ar"] [data-slot="dropdown-menu-content"] * {
+    font-family: var(--font-ibm-plex-arabic), sans-serif !important;
+  }
+}
+
+/* Additional rule outside @layer for dropdown menus - higher specificity */
+html[dir="rtl"] [data-slot="dropdown-menu-content"],
+html[lang="ar"] [data-slot="dropdown-menu-content"],
+html[dir="rtl"] [data-slot="dropdown-menu-content"] *,
+html[lang="ar"] [data-slot="dropdown-menu-content"] *,
+[data-slot="dropdown-menu-content"][dir="rtl"],
+[data-slot="dropdown-menu-content"][lang="ar"],
+[data-slot="dropdown-menu-content"][dir="rtl"] *,
+[data-slot="dropdown-menu-content"][lang="ar"] * {
+  font-family: var(--font-ibm-plex-arabic), "IBM Plex Sans Arabic", sans-serif !important;
 }
 
 @keyframes fadeInUp {
@@ -207,6 +231,29 @@
   }
 }
 
+@keyframes slideUp {
+  0% {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes subtleRotate {
+  0%, 100% {
+    transform: rotate(0deg);
+  }
+  25% {
+    transform: rotate(0.5deg);
+  }
+  75% {
+    transform: rotate(-0.5deg);
+  }
+}
+
 .shimmer-text {
   background: linear-gradient(
     90deg,
@@ -237,6 +284,66 @@
 
 .loading-bar-shimmer {
   animation: loadingBarShimmer 1.5s linear infinite;
+}
+
+/* One-way loading bar animation - exits right, enters left (LTR) */
+@keyframes pingpong {
+  /* Start at left edge, normal width */
+  0% {
+    transform: translateX(-100%) scaleX(1);
+  }
+  /* Shrink in middle */
+  25% {
+    transform: translateX(calc(200% - 100%)) scaleX(1);
+  }
+  /* Expand at right edge */
+  50% {
+    transform: translateX(calc(400% - 100%)) scaleX(2);
+  }
+  /* Exit from right side */
+  100% {
+    transform: translateX(calc(500% - 100%)) scaleX(2);
+  }
+}
+
+/* One-way loading bar animation - exits left, enters right (RTL) */
+@keyframes pingpong-rtl {
+  /* Start at right edge, normal width */
+  0% {
+    transform: translateX(100%) scaleX(1);
+  }
+  /* Shrink in middle */
+  25% {
+    transform: translateX(calc(-200% + 100%)) scaleX(1);
+  }
+  /* Expand at left edge */
+  50% {
+    transform: translateX(calc(-400% + 100%)) scaleX(2);
+  }
+  /* Exit from left side */
+  100% {
+    transform: translateX(calc(-500% + 100%)) scaleX(2);
+  }
+}
+
+/* Fast one-way wave animation (light orange layer) */
+@keyframes wave-fast {
+  0% {
+    background-position: -50% 0;
+  }
+  100% {
+    background-position: 150% 0;
+  }
+}
+
+/* Bouncing wave animation (orange layer) */
+@keyframes wave-bounce {
+  0% {
+    background-position: -50% 0;
+  }
+  100% {
+    background-position: 150% 0;
+  }
 }
 
 /* Blink animation for sync indicator */

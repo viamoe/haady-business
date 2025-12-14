@@ -12,6 +12,10 @@ export default async function middleware(req: NextRequest) {
   let newPathname: string = pathname;
   let shouldRewrite = false;
 
+  // Check for locale override in query params (from language switcher)
+  const localeOverride = req.nextUrl.searchParams.get('_locale');
+  const existingLocaleCookie = req.cookies.get('locale')?.value;
+
   if (urlMatch) {
     currentLocale = urlMatch[1].toLowerCase();
     currentCountryCode = urlMatch[2].toUpperCase();
@@ -22,14 +26,51 @@ export default async function middleware(req: NextRequest) {
     pathname = newPathname;
   }
 
+  // If locale override is provided in query params, use it instead of URL pattern
+  // This allows the language switcher to work even with URL-based locale routing
+  if (localeOverride && (localeOverride === 'en' || localeOverride === 'ar')) {
+    currentLocale = localeOverride;
+    
+    // If we have a URL pattern and the locale changed, redirect to the new URL
+    if (urlMatch && urlMatch[1].toLowerCase() !== localeOverride) {
+      const newUrl = req.nextUrl.clone();
+      newUrl.pathname = `/${localeOverride}-${urlMatch[2].toLowerCase()}${urlMatch[3] || ''}`;
+      newUrl.searchParams.delete('_locale');
+      newUrl.searchParams.delete('_t');
+      const redirectResponse = NextResponse.redirect(newUrl);
+      redirectResponse.cookies.set('locale', localeOverride, { path: '/', maxAge: 31536000 });
+      return redirectResponse;
+    }
+  } else if (existingLocaleCookie && (existingLocaleCookie === 'en' || existingLocaleCookie === 'ar')) {
+    // If no override but cookie exists, use cookie value (but still respect URL pattern for country)
+    // Only override locale if it's different from URL pattern
+    if (!urlMatch || currentLocale !== existingLocaleCookie) {
+      currentLocale = existingLocaleCookie;
+      
+      // If we have a URL pattern and the locale in URL doesn't match cookie, redirect
+      if (urlMatch && urlMatch[1].toLowerCase() !== existingLocaleCookie) {
+        const newUrl = req.nextUrl.clone();
+        newUrl.pathname = `/${existingLocaleCookie}-${urlMatch[2].toLowerCase()}${urlMatch[3] || ''}`;
+        const redirectResponse = NextResponse.redirect(newUrl);
+        redirectResponse.cookies.set('locale', existingLocaleCookie, { path: '/', maxAge: 31536000 });
+        return redirectResponse;
+      }
+    }
+  }
+
   // Allow root landing page to pass through without any checks
   if (pathname === '/' || pathname === '') {
-    if (shouldRewrite) {
+    if (shouldRewrite && currentLocale) {
       const url = req.nextUrl.clone();
       url.pathname = newPathname;
       const rewrittenResponse = NextResponse.rewrite(url);
-      rewrittenResponse.cookies.set('locale', currentLocale!, { path: '/', maxAge: 31536000 });
-      rewrittenResponse.cookies.set('country', currentCountryCode!, { path: '/', maxAge: 31536000 });
+      // Only set locale cookie if it's different from existing or if override was provided
+      if (localeOverride || !existingLocaleCookie || existingLocaleCookie !== currentLocale) {
+        rewrittenResponse.cookies.set('locale', currentLocale, { path: '/', maxAge: 31536000 });
+      }
+      if (currentCountryCode) {
+        rewrittenResponse.cookies.set('country', currentCountryCode, { path: '/', maxAge: 31536000 });
+      }
       return rewrittenResponse;
     }
     return NextResponse.next();
@@ -229,12 +270,22 @@ export default async function middleware(req: NextRequest) {
   }
 
   // If we had a URL rewrite, create the rewritten response
-  if (shouldRewrite) {
+  if (shouldRewrite && currentLocale) {
     const url = req.nextUrl.clone();
     url.pathname = newPathname;
+    // Remove locale override query params to clean up URL
+    if (localeOverride) {
+      url.searchParams.delete('_locale');
+      url.searchParams.delete('_t');
+    }
     const rewrittenResponse = NextResponse.rewrite(url);
-    rewrittenResponse.cookies.set('locale', currentLocale!, { path: '/', maxAge: 31536000 });
-    rewrittenResponse.cookies.set('country', currentCountryCode!, { path: '/', maxAge: 31536000 });
+    // Only set locale cookie if it's different from existing or if override was provided
+    if (localeOverride || !existingLocaleCookie || existingLocaleCookie !== currentLocale) {
+      rewrittenResponse.cookies.set('locale', currentLocale, { path: '/', maxAge: 31536000 });
+    }
+    if (currentCountryCode) {
+      rewrittenResponse.cookies.set('country', currentCountryCode, { path: '/', maxAge: 31536000 });
+    }
     return rewrittenResponse;
   }
 

@@ -34,9 +34,9 @@ interface CommandDialogProps extends DialogProps {}
 const CommandDialog = ({ children, ...props }: CommandDialogProps) => {
   return (
     <Dialog {...props}>
-      <DialogContent className="overflow-hidden p-4 rounded-3xl z-[100] w-[600px] h-[600px] max-w-[600px] max-h-[600px] flex flex-col">
+      <DialogContent className="overflow-hidden p-0 rounded-2xl z-[100] w-[640px] h-[600px] max-w-[90vw] max-h-[85vh] flex flex-col border shadow-2xl">
         <DialogTitle className="sr-only">Command Menu</DialogTitle>
-        <Command className="flex-1 flex flex-col [&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-muted-foreground [&_[cmdk-group]:not([hidden])_~[cmdk-group]]:pt-0 [&_[cmdk-group]]:px-2 [&_[cmdk-input-wrapper]_svg]:h-4 [&_[cmdk-input-wrapper]_svg]:w-4 [&_[cmdk-input]]:h-12 [&_[cmdk-item]]:px-2 [&_[cmdk-item]]:py-3 [&_[cmdk-item]_svg]:h-4 [&_[cmdk-item]_svg]:w-4" shouldFilter={false}>
+        <Command className="flex-1 flex flex-col [&_[cmdk-group-heading]]:px-4 [&_[cmdk-group-heading]]:font-semibold [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:text-muted-foreground [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:tracking-wider [&_[cmdk-group]:not([hidden])_~[cmdk-group]]:pt-4 [&_[cmdk-group]]:px-2 [&_[cmdk-input-wrapper]_svg]:h-4 [&_[cmdk-input-wrapper]_svg]:w-4 [&_[cmdk-input]]:h-14 [&_[cmdk-item]]:px-3 [&_[cmdk-item]]:py-2.5 [&_[cmdk-item]_svg]:h-4 [&_[cmdk-item]_svg]:w-4" shouldFilter={false}>
           {children}
         </Command>
       </DialogContent>
@@ -62,12 +62,11 @@ const CommandInput = React.forwardRef<
   React.ElementRef<typeof CommandPrimitive.Input>,
   CommandInputProps
 >(({ className, selectedCategory, categories, onCategorySelect, ...props }, ref) => (
-  <div className="flex items-center px-4 gap-3" cmdk-input-wrapper="">
-    <Search className="h-4 w-4 text-muted-foreground shrink-0" />
+  <div className="flex items-center" cmdk-input-wrapper="">
     <CommandPrimitive.Input
       ref={ref}
       className={cn(
-        "flex h-11 w-full rounded-md bg-transparent py-3 text-sm outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50",
+        "flex h-12 w-full rounded-md bg-transparent py-3 text-base outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50",
         className
       )}
       {...props}
@@ -96,7 +95,7 @@ const CommandEmpty = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <CommandPrimitive.Empty
     ref={ref}
-    className={cn("flex flex-col items-center justify-center flex-1 min-h-0 py-6 text-center text-sm", className)}
+    className={cn("flex flex-col items-center justify-center flex-1 min-h-0 py-12 text-center text-sm text-muted-foreground", className)}
     {...props}
   />
 ))
@@ -110,7 +109,7 @@ const CommandGroup = React.forwardRef<
   <CommandPrimitive.Group
     ref={ref}
     className={cn(
-      "overflow-hidden p-1 text-foreground [&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-muted-foreground",
+      "overflow-hidden p-2 text-foreground [&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-2 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:font-semibold [&_[cmdk-group-heading]]:text-muted-foreground",
       className
     )}
     {...props}
@@ -138,7 +137,12 @@ const CommandItem = React.forwardRef<
   <CommandPrimitive.Item
     ref={ref}
     className={cn(
-      "relative flex cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none opacity-40 hover:opacity-100 aria-selected:bg-accent aria-selected:text-accent-foreground aria-selected:opacity-100 data-[highlighted]:opacity-100 data-[disabled='true']:pointer-events-none data-[disabled='true']:opacity-50 pointer-events-auto",
+      "relative flex cursor-pointer select-none items-center gap-3 rounded-lg px-3 py-2.5 text-sm outline-none transition-colors",
+      "opacity-60 hover:opacity-100 hover:bg-accent/50",
+      "aria-selected:bg-accent aria-selected:text-accent-foreground aria-selected:opacity-100",
+      "data-[highlighted]:bg-accent data-[highlighted]:opacity-100",
+      "data-[disabled='true']:pointer-events-none data-[disabled='true']:opacity-50",
+      "pointer-events-auto",
       className
     )}
     {...props}
@@ -154,7 +158,7 @@ const CommandShortcut = ({
   return (
     <span
       className={cn(
-        "ml-auto text-xs tracking-widest text-muted-foreground",
+        "ml-auto text-xs font-mono tracking-wider text-muted-foreground px-1.5 py-0.5 rounded bg-muted/50",
         className
       )}
       {...props}

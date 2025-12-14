@@ -14,6 +14,13 @@ export default getRequestConfig(async () => {
     const cookieLocale = cookieStore.get('locale')?.value as Locale;
     if (cookieLocale && locales.includes(cookieLocale)) {
       locale = cookieLocale;
+    } else {
+      // Fallback: try to get from allCookies if get() didn't work
+      const allCookies = cookieStore.getAll();
+      const localeCookie = allCookies.find(c => c.name === 'locale');
+      if (localeCookie && locales.includes(localeCookie.value as Locale)) {
+        locale = localeCookie.value as Locale;
+      }
     }
   } catch (error) {
     // If cookies() fails (e.g., in middleware), use default locale

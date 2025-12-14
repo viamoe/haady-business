@@ -12,6 +12,7 @@ import { ICON_BUTTON_CLASSES, DEFAULT_ICON_SIZE } from "@/lib/ui-constants"
 import { useIsMobile } from "@/hooks/use-mobile"
 import { cn } from "@/lib/utils"
 import { UIStateCookies } from "@/lib/cookies"
+import { useLocale } from "@/i18n/context"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Separator } from "@/components/ui/separator"
@@ -340,7 +341,11 @@ function SidebarTrigger({
   ...props
 }: React.ComponentProps<typeof Button>) {
   const { toggleSidebar, state } = useSidebar()
+  const { isRTL } = useLocale()
   const isCollapsed = state === "collapsed"
+  
+  // Reverse icons only for English (LTR), keep normal for Arabic (RTL)
+  const shouldReverseIcons = !isRTL
 
   return (
     <Button
@@ -356,10 +361,20 @@ function SidebarTrigger({
       {...props}
     >
       <AnimateIcon animateOnHover>
-        {isCollapsed ? (
-          <PanelLeftOpen size={DEFAULT_ICON_SIZE} />
+        {shouldReverseIcons ? (
+          // English (LTR): reversed icons
+          isCollapsed ? (
+            <PanelLeftOpen size={DEFAULT_ICON_SIZE} />
+          ) : (
+            <PanelLeftClose size={DEFAULT_ICON_SIZE} />
+          )
         ) : (
-          <PanelLeftClose size={DEFAULT_ICON_SIZE} />
+          // Arabic (RTL): normal icons
+          isCollapsed ? (
+            <PanelLeftClose size={DEFAULT_ICON_SIZE} />
+          ) : (
+            <PanelLeftOpen size={DEFAULT_ICON_SIZE} />
+          )
         )}
       </AnimateIcon>
       <span className="sr-only">Toggle Sidebar</span>
@@ -397,7 +412,7 @@ function SidebarInset({ className, ...props }: React.ComponentProps<"main">) {
     <main
       data-slot="sidebar-inset"
       className={cn(
-        "bg-background relative flex w-full flex-1 flex-col h-screen overflow-hidden",
+        "bg-background relative flex w-full flex-1 flex-col h-[98vh] overflow-hidden",
         "md:peer-data-[variant=inset]:m-2 md:peer-data-[variant=inset]:ml-0 md:peer-data-[variant=inset]:rounded-xl md:peer-data-[variant=inset]:shadow-sm md:peer-data-[variant=inset]:peer-data-[state=collapsed]:ml-2",
         className
       )}

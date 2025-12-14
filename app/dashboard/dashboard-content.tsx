@@ -32,6 +32,7 @@ import { OnboardingPanel } from '@/components/onboarding-panel'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useState, useEffect, useRef, useMemo, useCallback, memo } from 'react'
 import { usePathname } from 'next/navigation'
+import { useTranslations } from 'next-intl'
 import { toast } from '@/lib/toast'
 import { useStoreConnection } from '@/lib/store-connection-context'
 import { supabase } from '@/lib/supabase/client'
@@ -64,11 +65,11 @@ interface DashboardContentProps {
 }
 
 // Get greeting based on time of day - memoized to avoid recalculation
-const getGreeting = () => {
+const getGreeting = (t: any) => {
   const hour = new Date().getHours()
-  if (hour < 12) return 'Good morning'
-  if (hour < 17) return 'Good afternoon'
-  return 'Good evening'
+  if (hour < 12) return t('dashboard.greeting.morning')
+  if (hour < 17) return t('dashboard.greeting.afternoon')
+  return t('dashboard.greeting.evening')
 }
 
 // Stats card component
@@ -108,7 +109,7 @@ function StatsCard({
                   : 'bg-red-50 text-red-600 border-red-200'
               }`}
             >
-              <ArrowUpRight className={`h-3 w-3 mr-0.5 ${!trend.positive && 'rotate-90'}`} />
+              <ArrowUpRight className={`h-3 w-3 me-0.5 ${!trend.positive && 'rotate-90'}`} />
               {trend.value}
             </Badge>
           )}
@@ -167,6 +168,7 @@ export function DashboardContent({
   storeConnections = [],
 }: DashboardContentProps) {
   const pathname = usePathname()
+  const t = useTranslations()
   const { selectedConnectionId } = useStoreConnection()
   const [isLoading, setIsLoading] = useState(true)
   const [storeCount, setStoreCount] = useState(initialStoreCount)
@@ -177,8 +179,10 @@ export function DashboardContent({
   const hasLoadedRef = useRef(false)
   
   // Get page name from pathname
-  const pageName = pathname.split('/').filter(Boolean).pop() || 'Dashboard'
-  const capitalizedPageName = pageName.charAt(0).toUpperCase() + pageName.slice(1)
+  const pageName = pathname.split('/').filter(Boolean).pop() || 'dashboard'
+  const capitalizedPageName = pageName === 'dashboard' 
+    ? t('dashboard.pageName.dashboard')
+    : pageName.charAt(0).toUpperCase() + pageName.slice(1)
 
   // Fetch store-specific data when selected connection changes
   useEffect(() => {
@@ -350,20 +354,20 @@ export function DashboardContent({
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
               <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">
-                {getGreeting()}, {userName}! 👋
+                {getGreeting(t)}, {userName}! 👋
               </h1>
               <p className="text-muted-foreground mt-1">
                 {selectedConnectionId ? (
                   <>
-                    Viewing dashboard for <span className="font-medium text-foreground">
+                    {t('dashboard.viewing.dashboardFor')} <span className="font-medium text-foreground">
                       {storeConnections.find(c => c.id === selectedConnectionId)?.store_name || 
                        storeConnections.find(c => c.id === selectedConnectionId)?.platform || 
-                       'selected store'}
+                       t('dashboard.viewing.selectedStore')}
                     </span>
                   </>
                 ) : (
                   <>
-                    Here's what's happening with <span className="font-medium text-foreground">{merchantName}</span> today.
+                    {t('dashboard.viewing.happeningWith')} <span className="font-medium text-foreground">{merchantName}</span> {t('dashboard.viewing.today')}.
                   </>
                 )}
               </p>

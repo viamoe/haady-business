@@ -20,17 +20,47 @@ export function LocaleProvider({
   children: React.ReactNode;
   initialLocale?: Locale;
 }) {
-  const [locale, setLocaleState] = useState<Locale>(initialLocale);
+  // Initialize from server-side locale, but also check cookie on client
+  const [locale, setLocaleState] = useState<Locale>(() => {
+    if (typeof window !== 'undefined') {
+      const cookieLocale = UserPreferencesCookies.getLocale() as Locale | null;
+      if (cookieLocale && (cookieLocale === 'en' || cookieLocale === 'ar')) {
+        return cookieLocale;
+      }
+    }
+    return initialLocale;
+  });
 
   const dir = locale === 'ar' ? 'rtl' : 'ltr';
   const isRTL = locale === 'ar';
 
+  // Sync with cookie on mount
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const cookieLocale = UserPreferencesCookies.getLocale() as Locale | null;
+      if (cookieLocale && (cookieLocale === 'en' || cookieLocale === 'ar') && cookieLocale !== locale) {
+        setLocaleState(cookieLocale);
+      }
+    }
+  }, []);
+
   const setLocale = useCallback((newLocale: Locale) => {
+    // Set cookie directly using document.cookie (simpler, more reliable)
+    if (typeof document !== 'undefined') {
+      // Use the same approach as haady-app for consistency
+      document.cookie = `locale=${newLocale};path=/;max-age=31536000;sameSite=Lax`;
+    }
+    // Update state
     setLocaleState(newLocale);
-    // Set cookie for server-side using cookie utility
-    UserPreferencesCookies.setLocale(newLocale);
-    // Reload to apply new locale
-    window.location.reload();
+    // Use replace() instead of href assignment to ensure cookie is sent with navigation
+    // Adding a small delay to ensure cookie is persisted before navigation
+    setTimeout(() => {
+      // Use replace() to avoid adding to history, and add cache-busting query param
+      const url = new URL(window.location.href);
+      url.searchParams.set('_locale', newLocale);
+      url.searchParams.set('_t', Date.now().toString());
+      window.location.replace(url.toString());
+    }, 100);
   }, []);
 
   useEffect(() => {

@@ -129,7 +129,367 @@
   "footer": {
     "copyright": "© {year} هادي بيزنس. جميع الحقوق محفوظة."
   },
+  "dashboard": {
+    "greeting": {
+      "morning": "صباح الخير",
+      "afternoon": "مساء الخير",
+      "evening": "مساء الخير"
+    },
+    "viewing": {
+      "dashboardFor": "عرض لوحة التحكم لـ",
+      "selectedStore": "المتجر المحدد",
+      "happeningWith": "إليك ما يحدث مع",
+      "today": "اليوم"
+    },
+    "pageName": {
+      "dashboard": "لوحة التحكم"
+    }
+  },
+  "sidebar": {
+    "navigation": "التنقل",
+    "menu": {
+      "dashboard": "لوحة التحكم",
+      "stores": "المتاجر",
+      "products": "المنتجات",
+      "orders": "الطلبات",
+      "settings": "الإعدادات"
+    },
+    "store": {
+      "selectStore": "اختر متجراً",
+      "noStores": "لا توجد متاجر",
+      "connected": "متصل",
+      "noConnectedStores": "لا توجد متاجر متصلة",
+      "addStore": "إضافة متجر",
+      "createOrConnect": "إنشاء أو ربط متجر",
+      "store": "متجر"
+    },
+    "user": {
+      "profile": "الملف الشخصي",
+      "accountSettings": "إعدادات الحساب",
+      "signOut": "تسجيل الخروج"
+    }
+  },
+  "commandMenu": {
+    "open": "فتح قائمة الأوامر",
+    "placeholder": "اكتب أمراً أو ابحث...",
+    "searchPlaceholder": "ابحث عن المنتجات، الطلبات، العملاء ...",
+    "noResults": "لم يتم العثور على نتائج.",
+    "navigation": "التنقل",
+    "settings": "الإعدادات",
+    "help": "المساعدة",
+    "dashboard": "لوحة التحكم",
+    "products": "المنتجات",
+    "orders": "الطلبات",
+    "customers": "العملاء",
+    "stores": "المتاجر",
+    "analytics": "التحليلات",
+    "accountSettings": "إعدادات الحساب",
+    "storeSettings": "إعدادات المتجر",
+    "billing": "الفوترة",
+    "helpCenter": "مركز المساعدة",
+    "documentation": "التوثيق",
+    "addProduct": "إضافة منتج",
+    "addStore": "إضافة متجر",
+    "pendingOrders": "الطلبات المعلقة"
+  },
+  "header": {
+    "search": {
+      "placeholder": "ابحث عن المنتجات، الطلبات، العملاء ..."
+    },
+    "sync": {
+      "products": "مزامنة المنتجات",
+      "updated": "تم التحديث",
+      "phrases": {
+        "fetchingProducts": "جاري جلب المنتجات",
+        "countingInventory": "جاري عد المخزون",
+        "polishingThings": "جاري التحسين"
+      }
+    },
+    "loading": {
+      "switchingStore": "جاري تبديل المتجر...",
+      "preparingDashboard": "جاري تحضير لوحة التحكم"
+    },
+    "time": {
+      "justNow": "الآن",
+      "minAgo": "منذ {count} دقيقة",
+      "hourAgo": "منذ {count} ساعة",
+      "hoursAgo": "منذ {count} ساعة",
+      "dayAgo": "منذ {count} يوم",
+      "daysAgo": "منذ {count} يوم",
+      "weekAgo": "منذ {count} أسبوع",
+      "weeksAgo": "منذ {count} أسبوع",
+      "monthAgo": "منذ {count} شهر",
+      "monthsAgo": "منذ {count} شهر",
+      "yearAgo": "منذ {count} سنة",
+      "yearsAgo": "منذ {count} سنة"
+    }
+  },
+  "onboarding": {
+    "modal": {
+      "title": {
+        "welcome": "لنعد عملك جاهزاً",
+        "choosePlatform": "اختر منصتك"
+      },
+      "subtitle": {
+        "welcome": "هل تبيع بالفعل عبر الإنترنت، أم أنك تنشئ شيئاً جديداً مع Haady؟",
+        "choosePlatform": "اختر منصة التجارة الإلكترونية التي تريد الاتصال بها"
+      },
+      "connectStore": {
+        "title": "ربط متجر موجود",
+        "description": "تبيع بالفعل على Salla أو Zid أو Shopify؟ اربط حسابك لمزامنة منتجاتك ومخزونك وأسعارك تلقائياً على الفور.",
+        "features": {
+          "noManualEntry": "لا حاجة لإدخال يدوي",
+          "autoSync": "مزامنة تلقائية للمخزون على مدار الساعة",
+          "unifiedOrders": "إدارة موحدة للطلبات"
+        },
+        "button": "ربط المتجر"
+      },
+      "createStore": {
+        "title": "إنشاء متجر جديد",
+        "description": "تبدأ من الصفر؟ استخدم أداة Haady القوية لإعداد قائمتك وتحديد مناطق التوصيل والبدء في البيع اليوم.",
+        "features": {
+          "giftFirst": "ميزات متجر \"الهدايا أولاً\" مخصصة",
+          "integratedDelivery": "توصيل Haady المتكامل",
+          "aiMarketing": "أدوات تسويق بالذكاء الاصطناعي مدمجة"
+        },
+        "button": "إنشاء متجر جديد"
+      },
+      "back": "رجوع",
+      "connect": "ربط",
+      "shopifyDialog": {
+        "title": "أدخل اسم متجر Shopify الخاص بك",
+        "description": "يمكنك إدخال اسم المتجر فقط (مثل \"متجري\") أو النطاق الكامل.",
+        "label": "اسم المتجر",
+        "placeholder": "متجري أو متجري.myshopify.com",
+        "examples": "أمثلة: متجري، متجري.myshopify.com",
+        "cancel": "إلغاء",
+        "continue": "متابعة"
+      },
+      "platforms": {
+        "salla": {
+          "description": "اربط متجر Salla الخاص بك لمزامنة المنتجات والمخزون والطلبات تلقائياً.",
+          "features": {
+            "autoSync": "مزامنة تلقائية للمنتجات",
+            "realTimeInventory": "مخزون في الوقت الفعلي",
+            "orderManagement": "إدارة الطلبات"
+          }
+        },
+        "zid": {
+          "description": "اربط متجر Zid الخاص بك لاستيراد كتالوجك وإدارة كل شيء من Haady.",
+          "features": {
+            "productImport": "استيراد المنتجات",
+            "inventorySync": "مزامنة المخزون",
+            "unifiedDashboard": "لوحة تحكم موحدة"
+          }
+        },
+        "shopify": {
+          "description": "ادمج متجر Shopify الخاص بك لمزامنة سلسة للمنتجات والطلبات.",
+          "features": {
+            "fullCatalogSync": "مزامنة كاملة للكتالوج",
+            "multiCurrency": "متعدد العملات",
+            "orderTracking": "تتبع الطلبات"
+          }
+        }
+      }
+    }
+  },
+  "searchModal": {
+    "emptyState": {
+      "title": "ابدأ البحث",
+      "description": "اكتب في مربع البحث أعلاه أو اختر فئة لتصفية النتائج.",
+      "noResults": "لم يتم العثور على نتائج",
+      "tryAgain": "حاول تعديل مصطلحات البحث أو جرب فئة مختلفة."
+    }
+  },
+  "notifications": {
+    "title": "الإشعارات",
+    "updates": "التحديثات",
+    "messages": "الرسائل",
+    "markAllAsRead": "تحديد الكل كمقروء",
+    "noUpdates": "لا توجد تحديثات في الوقت الحالي.",
+    "noMessages": "لا توجد رسائل في الوقت الحالي.",
+    "time": {
+      "30minAgo": "منذ 30 دقيقة",
+      "1hourAgo": "منذ ساعة",
+      "2hoursAgo": "منذ ساعتين",
+      "3hoursAgo": "منذ 3 ساعات",
+      "5hoursAgo": "منذ 5 ساعات",
+      "6hoursAgo": "منذ 6 ساعات",
+      "8hoursAgo": "منذ 8 ساعات",
+      "10hoursAgo": "منذ 10 ساعات",
+      "12hoursAgo": "منذ 12 ساعة",
+      "1dayAgo": "منذ يوم",
+      "2daysAgo": "منذ يومين",
+      "3daysAgo": "منذ 3 أيام",
+      "4daysAgo": "منذ 4 أيام",
+      "5daysAgo": "منذ 5 أيام",
+      "1weekAgo": "منذ أسبوع"
+    },
+    "updatesList": {
+      "1": {
+        "title": "ميزة جديدة: مزامنة المنتجات",
+        "description": "لقد أضفنا مزامنة تلقائية للمنتجات مع متجرك. ستظل منتجاتك متزامنة تلقائياً."
+      },
+      "2": {
+        "title": "اكتمال صيانة النظام",
+        "description": "تم إكمال الصيانة المجدولة بنجاح. جميع الأنظمة تعمل الآن بسلاسة."
+      },
+      "3": {
+        "title": "مرحباً بك في Haady Business",
+        "description": "شكراً لانضمامك إلى Haady Business! ابدأ بربط متجرك الأول."
+      },
+      "4": {
+        "title": "تحديث المخزون متاح",
+        "description": "تم تحديث مستويات المخزون الخاصة بك. تحقق من لوحة التحكم لرؤية أحدث معلومات المخزون."
+      },
+      "5": {
+        "title": "تم استلام طلب جديد",
+        "description": "لقد استلمت طلباً جديداً. راجعه وقم بمعالجته من لوحة تحكم الطلبات."
+      },
+      "6": {
+        "title": "تمت معالجة الدفع",
+        "description": "تمت معالجة دفعتك بنجاح. اشتراكك نشط الآن."
+      },
+      "7": {
+        "title": "تم إنشاء اتصال المتجر",
+        "description": "تم إنشاء اتصال متجرك بنجاح. يمكنك الآن مزامنة منتجاتك."
+      },
+      "8": {
+        "title": "التقرير الأسبوعي جاهز",
+        "description": "تقرير المبيعات الأسبوعي متاح الآن. اعرضه في قسم التقارير."
+      },
+      "9": {
+        "title": "اكتملت مزامنة المنتجات",
+        "description": "اكتملت مزامنة منتجاتك. تمت مزامنة 45 منتجاً بنجاح."
+      },
+      "10": {
+        "title": "تكامل جديد متاح",
+        "description": "لقد أضفنا دعم منصة تجارة إلكترونية جديدة. اربط متجرك الآن للبدء."
+      },
+      "11": {
+        "title": "تم تحديث إعدادات الحساب",
+        "description": "تم تحديث إعدادات حسابك بنجاح. ستدخل التغييرات حيز التنفيذ فوراً."
+      },
+      "12": {
+        "title": "اكتمل النسخ الاحتياطي",
+        "description": "اكتمل النسخ الاحتياطي لبياناتك بنجاح. معلوماتك آمنة ومحمية."
+      },
+      "13": {
+        "title": "تحسين الأداء",
+        "description": "لقد قمنا بتحسين أداء لوحة التحكم. يجب أن تلاحظ أوقات تحميل أسرع."
+      },
+      "14": {
+        "title": "تنبيه أمني",
+        "description": "تم تسجيل الدخول إلى حسابك من جهاز جديد. إذا لم تكن أنت، يرجى تغيير كلمة المرور."
+      },
+      "15": {
+        "title": "تحديث الميزات",
+        "description": "تمت إضافة ميزات جديدة إلى لوحة التحكم. استكشفها لتحسين سير عملك."
+      }
+    },
+    "messagesList": {
+      "m1": {
+        "title": "استفسار عميل جديد",
+        "description": "لقد تلقيت استفساراً جديداً من عميل حول منتجاتك. يرجى الرد خلال 24 ساعة."
+      },
+      "m2": {
+        "title": "سؤال حول الطلب",
+        "description": "لدى عميل سؤال حول طلبه الأخير. تحقق من تفاصيل الطلب ورد."
+      },
+      "m3": {
+        "title": "تم إنشاء تذكرة دعم",
+        "description": "تم إنشاء تذكرة دعم جديدة. راجعها وقم بتعيينها لعضو الفريق المناسب."
+      },
+      "m4": {
+        "title": "تم استلام تقييم منتج",
+        "description": "لقد تلقيت تقييماً جديداً للمنتج. تحقق منه ورد إذا لزم الأمر."
+      },
+      "m5": {
+        "title": "طلب استرداد",
+        "description": "طلب عميل استرداداً لطلبه. راجع الطلب وقم بالمعالجة وفقاً لذلك."
+      },
+      "m6": {
+        "title": "تحديث الشحن",
+        "description": "أرسل مزود الشحن الخاص بك تحديثاً حول تسليم الطرد. تحقق من معلومات التتبع."
+      },
+      "m7": {
+        "title": "ملاحظات العميل",
+        "description": "ترك عميل ملاحظات حول تجربة التسوق الخاصة به. اقرأ تعليقاته."
+      },
+      "m8": {
+        "title": "التحقق من الحساب",
+        "description": "يحتاج حساب عميل جديد إلى التحقق. راجع الحساب ووافق عليه."
+      },
+      "m9": {
+        "title": "مشكلة في الدفع",
+        "description": "هناك مشكلة في الدفع مع أحد طلباتك. راجع المشكلة وحلها."
+      },
+      "m10": {
+        "title": "تنبيه المخزون",
+        "description": "أحد منتجاتك ينفد من المخزون. فكر في إعادة التخزين قريباً لتجنب نفاد المخزون."
+      },
+      "m11": {
+        "title": "طلب مساعدة",
+        "description": "يحتاج عميل إلى مساعدة في استخدام منصتك. قدم المساعدة من خلال قناة الدعم."
+      },
+      "m12": {
+        "title": "إشعار الأمان",
+        "description": "تم تحديث إعدادات أمان حسابك. إذا لم تكن أنت، يرجى مراجعة حسابك."
+      },
+      "m13": {
+        "title": "تقرير المبيعات",
+        "description": "تقرير المبيعات الشهري جاهز. راجع مقاييس الأداء والرؤى الخاصة بك."
+      },
+      "m14": {
+        "title": "تم تغيير الإعدادات",
+        "description": "تم تعديل إعدادات حسابك. راجع التغييرات للتأكد من أن كل شيء صحيح."
+      },
+      "m15": {
+        "title": "رسالة ترحيب",
+        "description": "مرحباً بك في Haady Business! نحن هنا لمساعدتك على النجاح. لا تتردد في التواصل إذا كان لديك أي أسئلة."
+      }
+    }
+  },
   "toast": {
+    "success": {
+      "syncCompleted": "اكتملت المزامنة بنجاح!",
+      "productsSynchronized": "تمت مزامنة منتجاتك",
+      "productsCreatedAndUpdated": "تم إنشاء {created} منتج جديد وتحديث {updated} منتج",
+      "productsCreated": "تمت إضافة {count} منتج جديد إلى متجرك",
+      "productsUpdated": "تم تحديث {count} منتج بنجاح",
+      "productsSynced": "تمت مزامنة {count} منتج بنجاح",
+      "storeInfoRefreshed": "تم تحديث معلومات المتجر: {storeName}",
+      "storeDisconnected": "تم قطع اتصال متجر {platform} بنجاح",
+      "tokenRefreshed": "تم تحديث الرمز المميز بنجاح",
+      "allNotificationsRead": "تم تحديد جميع الإشعارات كمقروءة",
+      "updated": "تم التحديث"
+    },
+    "error": {
+      "noStoreSelected": "لم يتم اختيار متجر",
+      "noStoreSelectedDesc": "يرجى اختيار اتصال متجر أولاً.",
+      "failedToConnectStore": "فشل الاتصال بمتجر {platform}",
+      "failedToConnectStoreDesc": "يرجى المحاولة مرة أخرى أو الاتصال بالدعم",
+      "shopDomainRequired": "اسم المتجر مطلوب",
+      "shopDomainRequiredDesc": "يرجى إدخال اسم متجر Shopify الخاص بك",
+      "invalidShopDomain": "اسم المتجر غير صحيح",
+      "invalidShopDomainDesc": "يجب أن يحتوي اسم المتجر على أحرف وأرقام وشرطات وشرطات سفلية فقط. مثال: متجري",
+      "shopifyClientIdNotConfigured": "معرف عميل Shopify غير مُكوّن",
+      "shopifyClientIdNotConfiguredDesc": "يرجى تعيين NEXT_PUBLIC_SHOPIFY_CLIENT_ID في متغيرات البيئة",
+      "userNotAuthenticated": "المستخدم غير مصادق عليه",
+      "userNotAuthenticatedDesc": "يرجى تسجيل الدخول للاتصال بمتجر",
+      "invalidOAuthUrl": "رابط OAuth غير صحيح",
+      "invalidOAuthUrlDesc": "تنسيق رابط OAuth غير صحيح. يرجى التحقق من وحدة التحكم للتفاصيل.",
+      "zidClientIdNotConfigured": "معرف عميل Zid غير مُكوّن",
+      "zidClientIdNotConfiguredDesc": "يرجى تعيين NEXT_PUBLIC_ZID_CLIENT_ID في متغيرات البيئة",
+      "invalidRedirectUri": "رابط إعادة التوجيه غير صحيح",
+      "invalidRedirectUriDesc": "يتطلب Zid HTTPS. يرجى تعيين NEXT_PUBLIC_ZID_REDIRECT_URI برابط HTTPS (استخدم ngrok للتطوير المحلي)",
+      "syncFailed": "فشلت المزامنة",
+      "failedToStartSync": "فشل بدء المزامنة. يرجى المحاولة مرة أخرى."
+    },
+    "info": {
+      "featureComingSoon": "الميزة قادمة قريباً",
+      "featureComingSoonDesc": "هذه الميزة قيد التطوير وستكون متاحة قريباً."
+    },
     "errors": {
       "network": {
         "title": "خطأ في الشبكة",
@@ -169,12 +529,6 @@
         "title": "خطأ",
         "message": "حدث خطأ غير متوقع. يرجى المحاولة مرة أخرى."
       }
-    },
-    "success": {
-      "syncCompleted": "اكتمل المزامنة",
-      "productsUpdated": "تم تحديث 20 منتجاً",
-      "retrySuccessful": "نجحت إعادة المحاولة",
-      "operationCompleted": "اكتملت العملية بعد إعادة المحاولة"
     }
   }
 }

@@ -14,10 +14,13 @@ import {
   Plus,
 } from "lucide-react"
 import Link from "next/link"
+import Image from "next/image"
 import { usePathname, useRouter } from "next/navigation"
+import { useTranslations } from "next-intl"
 import { useAuth } from "@/lib/auth/auth-context"
 import { useLoading } from "@/lib/loading-context"
 import { useStoreConnection } from "@/lib/store-connection-context"
+import { useLocale } from "@/i18n/context"
 import { supabase } from "@/lib/supabase/client"
 import {
   Sidebar,
@@ -40,31 +43,34 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { cn } from "@/lib/utils"
 
-// Navigation items for business dashboard
-const navItems = [
+const HAADY_LOGO_URL = 'https://rovphhvuuxwbhgnsifto.supabase.co/storage/v1/object/public/assets/haady-icon.svg';
+
+// Navigation items for business dashboard - will be translated in component
+const getNavItems = (t: any) => [
   {
-    title: "Dashboard",
+    title: t("sidebar.menu.dashboard"),
     url: "/dashboard",
     icon: LayoutDashboard,
   },
   {
-    title: "Stores",
+    title: t("sidebar.menu.stores"),
     url: "/dashboard/stores",
     icon: Store,
   },
   {
-    title: "Products",
+    title: t("sidebar.menu.products"),
     url: "/dashboard/products",
     icon: Package,
   },
   {
-    title: "Orders",
+    title: t("sidebar.menu.orders"),
     url: "/dashboard/orders",
     icon: ShoppingBag,
   },
   {
-    title: "Settings",
+    title: t("sidebar.menu.settings"),
     url: "/dashboard/settings/store",
     icon: Settings,
   },
@@ -116,7 +122,9 @@ function containsArabic(text: string): boolean {
 function ProjectSelector() {
   const { user } = useAuth()
   const router = useRouter()
+  const t = useTranslations()
   const { isAnyStoreSyncing, setSelectedConnectionId: setSelectedConnectionIdFromContext, selectedConnectionId: contextSelectedConnectionId, isChangingStore } = useStoreConnection()
+  const { isRTL } = useLocale()
   const [connections, setConnections] = React.useState<StoreConnection[]>([])
   const [selectedConnectionId, setSelectedConnectionId] = React.useState<string | null>(null)
   const [isLoading, setIsLoading] = React.useState(true)
@@ -211,11 +219,11 @@ function ProjectSelector() {
         <SidebarMenuItem>
           <SidebarMenuButton size="lg" className="text-foreground opacity-100 !opacity-100 rounded-2xl" disabled>
             <Skeleton className="size-8 rounded-lg shrink-0 bg-gray-200" />
-            <div className="grid flex-1 text-left text-sm leading-tight gap-1 group-data-[collapsible=icon]:hidden">
+            <div className="grid flex-1 text-start text-sm leading-tight gap-1 group-data-[collapsible=icon]:hidden">
               <Skeleton className="h-4 w-24 bg-gray-200" />
               <Skeleton className="h-3 w-16 bg-gray-200" />
             </div>
-            <Skeleton className="ml-auto size-4 rounded group-data-[collapsible=icon]:hidden bg-gray-200" />
+            <Skeleton className="ms-auto size-4 rounded group-data-[collapsible=icon]:hidden bg-gray-200" />
           </SidebarMenuButton>
         </SidebarMenuItem>
       </SidebarMenu>
@@ -235,11 +243,11 @@ function ProjectSelector() {
               {isLoading || isChangingStore ? (
                 <>
                   <Skeleton className="size-8 rounded-lg shrink-0 bg-gray-200" />
-                  <div className="grid flex-1 text-left text-sm leading-tight gap-1 group-data-[collapsible=icon]:hidden">
+                  <div className="grid flex-1 text-start text-sm leading-tight gap-1 group-data-[collapsible=icon]:hidden">
                     <Skeleton className="h-4 w-24 bg-gray-200" />
                     <Skeleton className="h-3 w-16 bg-gray-200" />
                   </div>
-                  <Skeleton className="ml-auto size-4 rounded group-data-[collapsible=icon]:hidden bg-gray-200" />
+                  <Skeleton className="ms-auto size-4 rounded group-data-[collapsible=icon]:hidden bg-gray-200" />
                 </>
               ) : (
                 <>
@@ -258,7 +266,7 @@ function ProjectSelector() {
                       <Store className="size-4 relative z-10 text-gray-400" />
                     )}
                   </div>
-                  <div className="grid flex-1 text-left text-sm leading-tight group-data-[collapsible=icon]:hidden">
+                  <div className="grid flex-1 text-start text-sm leading-tight group-data-[collapsible=icon]:hidden">
                     <span 
                       className="truncate font-semibold text-foreground"
                       style={selectedConnection?.store_name && containsArabic(selectedConnection.store_name)
@@ -266,23 +274,26 @@ function ProjectSelector() {
                         : undefined}
                     >
                       {selectedConnection 
-                        ? (selectedConnection.store_name || `${getPlatformName(selectedConnection.platform)} Store`)
-                        : 'Select Store'}
+                        ? (selectedConnection.store_name || `${getPlatformName(selectedConnection.platform)} ${t('sidebar.store.store')}`)
+                        : t('sidebar.store.selectStore')}
                     </span>
                     <span className="truncate text-xs text-gray-500">
                       {selectedConnection 
                         ? getPlatformName(selectedConnection.platform)
-                        : connections.length > 0 ? `${connections.length} connected` : 'No stores'}
+                        : connections.length > 0 ? `${connections.length} ${t('sidebar.store.connected')}` : t('sidebar.store.noStores')}
                     </span>
                   </div>
-                  <ChevronDown className="ml-auto size-4 text-foreground group-data-[collapsible=icon]:hidden" />
+                  <ChevronDown className="ms-auto size-4 text-foreground group-data-[collapsible=icon]:hidden" />
                 </>
               )}
             </SidebarMenuButton>
           </DropdownMenuTrigger>
           <DropdownMenuContent
-            className="w-[--radix-dropdown-menu-trigger-width] min-w-56 rounded-xl overflow-hidden p-1 ml-2"
-            align="start"
+            className={cn(
+              "w-[--radix-dropdown-menu-trigger-width] min-w-56 rounded-xl overflow-hidden p-1",
+              isRTL ? "mr-2" : "ml-2"
+            )}
+            align={isRTL ? "end" : "start"}
             side="bottom"
             sideOffset={4}
           >
@@ -316,11 +327,13 @@ function ProjectSelector() {
                     return (
                       <DropdownMenuItem
                         key={connection.id}
-                        className={`group gap-2 rounded-lg transition-colors ${
+                        className={cn(
+                          "group gap-2 rounded-lg transition-colors",
                           isSelected 
                             ? 'bg-[#F4610B] text-white cursor-default' 
-                            : 'cursor-pointer hover:bg-[#F4610B]/10 hover:text-[#F4610B]'
-                        }`}
+                            : 'cursor-pointer hover:bg-[#F4610B]/10 hover:text-[#F4610B]',
+                          isRTL && "flex-row-reverse"
+                        )}
                         onClick={() => {
                           // Prevent selection change while syncing
                           if (isAnyStoreSyncing) {
@@ -349,7 +362,10 @@ function ProjectSelector() {
                             <Store className="size-4 relative z-10 text-gray-400" />
                           )}
                         </div>
-                        <div className="flex flex-col flex-1 min-w-0">
+                        <div className={cn(
+                          "flex flex-col flex-1 min-w-0",
+                          isRTL && "text-end"
+                        )}>
                           <span 
                             className={`truncate transition-colors ${
                               isSelected 
@@ -360,7 +376,7 @@ function ProjectSelector() {
                               ? { fontFamily: 'var(--font-ibm-plex-arabic), sans-serif' }
                               : undefined}
                           >
-                            {connection.store_name || `${getPlatformName(connection.platform)} Store`}
+                            {connection.store_name || `${getPlatformName(connection.platform)} ${t('sidebar.store.store')}`}
                           </span>
                           <span className={`text-xs truncate transition-colors ${
                             isSelected 
@@ -371,21 +387,27 @@ function ProjectSelector() {
                           </span>
                         </div>
                         {isSelected && (
-                          <div className="ml-auto size-2 rounded-full bg-white shrink-0" />
+                          <div className={cn(
+                            "size-2 rounded-full bg-white shrink-0",
+                            isRTL ? "mr-auto" : "ml-auto"
+                          )} />
                         )}
                       </DropdownMenuItem>
                     )
                   })
                 ) : (
                   <DropdownMenuItem disabled className="text-xs text-muted-foreground rounded-lg">
-                    No connected stores
+                    {t('sidebar.store.noConnectedStores')}
                   </DropdownMenuItem>
                 )}
                 
                 {/* Add Store Button */}
                 {!isLoading && (
                   <DropdownMenuItem
-                    className="gap-2 cursor-pointer mt-2 rounded-lg transition-colors hover:bg-[#F4610B]/10 hover:text-[#F4610B]"
+                    className={cn(
+                      "gap-2 cursor-pointer mt-2 rounded-lg transition-colors hover:bg-[#F4610B]/10 hover:text-[#F4610B]",
+                      isRTL && "flex-row-reverse"
+                    )}
                     onClick={() => {
                       // Open the onboarding modal
                       window.dispatchEvent(new CustomEvent('openOnboardingModal'))
@@ -394,9 +416,12 @@ function ProjectSelector() {
                     <div className="flex size-6 items-center justify-center rounded-md border border-dashed">
                       <Plus className="size-4" />
                     </div>
-                    <div className="flex flex-col">
-                      <span>Add Store</span>
-                      <span className="text-xs text-muted-foreground">Create or connect a store</span>
+                    <div className={cn(
+                      "flex flex-col",
+                      isRTL && "text-end"
+                    )}>
+                      <span>{t('sidebar.store.addStore')}</span>
+                      <span className="text-xs text-muted-foreground">{t('sidebar.store.createOrConnect')}</span>
                     </div>
                   </DropdownMenuItem>
                 )}
@@ -412,7 +437,9 @@ function ProjectSelector() {
 function UserFooter() {
   const { user, signOut } = useAuth()
   const router = useRouter()
+  const t = useTranslations()
   const { setLoading } = useLoading()
+  const { isRTL } = useLocale()
   const [isOpen, setIsOpen] = React.useState(false)
   const [fullName, setFullName] = React.useState<string | null>(null)
   const [isLoading, setIsLoading] = React.useState(true)
@@ -510,7 +537,7 @@ function UserFooter() {
                   }
                 </AvatarFallback>
               </Avatar>
-              <div className="flex-1 min-w-0 text-left group-data-[collapsible=icon]:hidden">
+              <div className="flex-1 min-w-0 text-start group-data-[collapsible=icon]:hidden">
                 <p className="text-sm font-medium truncate">
                   {fullName || user.email?.split('@')[0] || 'User'}
                 </p>
@@ -523,36 +550,52 @@ function UserFooter() {
           )}
         </button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" side="top" className="w-[--radix-dropdown-menu-trigger-width] min-w-[13rem] mb-2 ml-2 rounded-xl overflow-hidden p-1">
+      <DropdownMenuContent 
+        align={isRTL ? "end" : "start"} 
+        side="top" 
+        className={cn(
+          "w-[--radix-dropdown-menu-trigger-width] min-w-[13rem] mb-2 rounded-xl overflow-hidden p-1",
+          isRTL ? "mr-2" : "ml-2"
+        )}
+      >
         <DropdownMenuItem
           onClick={() => {
             router.push('/dashboard/settings/account')
             setIsOpen(false)
           }}
-          className="cursor-pointer rounded-lg"
+          className={cn(
+            "cursor-pointer rounded-lg",
+            isRTL && "flex-row-reverse"
+          )}
         >
-          <User className="h-4 w-4 mr-2" />
-          Profile
+          <User className={cn("h-4 w-4", isRTL ? "ms-2" : "me-2")} />
+          {t('sidebar.user.profile')}
         </DropdownMenuItem>
         <DropdownMenuItem
           onClick={() => {
             router.push('/dashboard/settings/account')
             setIsOpen(false)
           }}
-          className="cursor-pointer rounded-lg"
+          className={cn(
+            "cursor-pointer rounded-lg",
+            isRTL && "flex-row-reverse"
+          )}
         >
-          <Settings className="h-4 w-4 mr-2" />
-          Account Settings
+          <Settings className={cn("h-4 w-4", isRTL ? "ms-2" : "me-2")} />
+          {t('sidebar.user.accountSettings')}
         </DropdownMenuItem>
         <DropdownMenuItem
           onClick={() => {
             handleSignOut()
             setIsOpen(false)
           }}
-          className="cursor-pointer text-destructive focus:text-destructive focus:bg-destructive/10 rounded-lg"
+          className={cn(
+            "cursor-pointer text-destructive focus:text-destructive focus:bg-destructive/10 rounded-lg",
+            isRTL && "flex-row-reverse"
+          )}
         >
-          <LogOut className="h-4 w-4 mr-2" />
-          Sign Out
+          <LogOut className={cn("h-4 w-4", isRTL ? "ms-2" : "me-2")} />
+          {t('sidebar.user.signOut')}
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
@@ -561,10 +604,13 @@ function UserFooter() {
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const pathname = usePathname()
+  const t = useTranslations()
   const { user } = useAuth()
   const { isChangingStore } = useStoreConnection()
   const [isLoading, setIsLoading] = React.useState(true)
   const hasLoadedRef = React.useRef(false)
+  
+  const navItems = React.useMemo(() => getNavItems(t), [t])
 
   React.useEffect(() => {
     // Only show skeleton on initial mount, not on subsequent renders
@@ -585,7 +631,16 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   return (
     <Sidebar variant="inset" {...props}>
       <SidebarHeader className="px-2">
-        <ProjectSelector />
+        <div className="flex items-center ml-4 group-data-[collapsible=icon]:ml-0">
+          <Image
+            src={HAADY_LOGO_URL}
+            alt="Haady"
+            width={42}
+            height={42}
+            className="h-12 w-auto"
+            unoptimized
+          />
+        </div>
       </SidebarHeader>
 
       <SidebarContent>
@@ -593,7 +648,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           {isLoading || isChangingStore ? (
             <Skeleton className="h-4 w-20 mb-2 bg-gray-200" />
           ) : (
-            <SidebarGroupLabel>Navigation</SidebarGroupLabel>
+            <SidebarGroupLabel>{t('sidebar.navigation')}</SidebarGroupLabel>
           )}
           <SidebarGroupContent>
             <SidebarMenu>
@@ -610,23 +665,41 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
               ) : (
                 // Content with fade-in animation
                 <div className="fade-in-content">
-                  {navItems.map((item) => {
-                    const isActive = pathname === item.url || pathname.startsWith(item.url + '/')
-                    return (
-                      <SidebarMenuItem key={item.title}>
-                        <SidebarMenuButton
-                          asChild
-                          isActive={isActive}
-                          tooltip={item.title}
-                        >
-                          <Link href={item.url} aria-current={isActive ? 'page' : undefined}>
-                            <item.icon className="w-[18px] h-[18px]" />
-                            <span>{item.title}</span>
-                          </Link>
-                        </SidebarMenuButton>
-                      </SidebarMenuItem>
-                    )
-                  })}
+                  {(() => {
+                    // Find the most specific matching item
+                    // Sort by URL length (longest first) to prioritize more specific routes
+                    const sortedItems = [...navItems].sort((a, b) => b.url.length - a.url.length)
+                    
+                    // Find the first (most specific) item that matches
+                    const activeItem = sortedItems.find(item => {
+                      if (pathname === item.url) {
+                        return true // Exact match
+                      }
+                      if (pathname.startsWith(item.url + '/')) {
+                        return true // Pathname is a child of this item
+                      }
+                      return false
+                    })
+                    
+                    return navItems.map((item) => {
+                      const isActive = activeItem?.url === item.url
+                      
+                      return (
+                        <SidebarMenuItem key={item.title}>
+                          <SidebarMenuButton
+                            asChild
+                            isActive={isActive}
+                            tooltip={item.title}
+                          >
+                            <Link href={item.url} aria-current={isActive ? 'page' : undefined}>
+                              <item.icon className="w-[18px] h-[18px]" />
+                              <span>{item.title}</span>
+                            </Link>
+                          </SidebarMenuButton>
+                        </SidebarMenuItem>
+                      )
+                    })
+                  })()}
                 </div>
               )}
             </SidebarMenu>

@@ -129,7 +129,367 @@
   "footer": {
     "copyright": "© {year} Haady Business. All rights reserved."
   },
+  "dashboard": {
+    "greeting": {
+      "morning": "Good morning",
+      "afternoon": "Good afternoon",
+      "evening": "Good evening"
+    },
+    "viewing": {
+      "dashboardFor": "Viewing dashboard for",
+      "selectedStore": "selected store",
+      "happeningWith": "Here's what's happening with",
+      "today": "today"
+    },
+    "pageName": {
+      "dashboard": "Dashboard"
+    }
+  },
+  "sidebar": {
+    "navigation": "Navigation",
+    "menu": {
+      "dashboard": "Dashboard",
+      "stores": "Stores",
+      "products": "Products",
+      "orders": "Orders",
+      "settings": "Settings"
+    },
+    "store": {
+      "selectStore": "Select Store",
+      "noStores": "No stores",
+      "connected": "connected",
+      "noConnectedStores": "No connected stores",
+      "addStore": "Add Store",
+      "createOrConnect": "Create or connect a store",
+      "store": "Store"
+    },
+    "user": {
+      "profile": "Profile",
+      "accountSettings": "Account Settings",
+      "signOut": "Sign Out"
+    }
+  },
+  "commandMenu": {
+    "open": "Open command menu",
+    "placeholder": "Type a command or search...",
+    "searchPlaceholder": "Search for Products, Orders, Customers ...",
+    "noResults": "No results found.",
+    "navigation": "Navigation",
+    "settings": "Settings",
+    "help": "Help",
+    "dashboard": "Dashboard",
+    "products": "Products",
+    "orders": "Orders",
+    "customers": "Customers",
+    "stores": "Stores",
+    "analytics": "Analytics",
+    "accountSettings": "Account Settings",
+    "storeSettings": "Store Settings",
+    "billing": "Billing",
+    "helpCenter": "Help Center",
+    "documentation": "Documentation",
+    "addProduct": "Add Product",
+    "addStore": "Add Store",
+    "pendingOrders": "Pending Orders"
+  },
+  "header": {
+    "search": {
+      "placeholder": "Search for Products, Orders, Customers ..."
+    },
+    "sync": {
+      "products": "Sync Products",
+      "updated": "Updated",
+      "phrases": {
+        "fetchingProducts": "Fetching Products",
+        "countingInventory": "Counting Inventory",
+        "polishingThings": "Polishing Things"
+      }
+    },
+    "loading": {
+      "switchingStore": "Switching store...",
+      "preparingDashboard": "Preparing your dashboard"
+    },
+    "time": {
+      "justNow": "just now",
+      "minAgo": "{count} min ago",
+      "hourAgo": "{count} hour ago",
+      "hoursAgo": "{count} hours ago",
+      "dayAgo": "{count} day ago",
+      "daysAgo": "{count} days ago",
+      "weekAgo": "{count} week ago",
+      "weeksAgo": "{count} weeks ago",
+      "monthAgo": "{count} month ago",
+      "monthsAgo": "{count} months ago",
+      "yearAgo": "{count} year ago",
+      "yearsAgo": "{count} years ago"
+    }
+  },
+  "onboarding": {
+    "modal": {
+      "title": {
+        "welcome": "Let's get your business ready",
+        "choosePlatform": "Choose your platform"
+      },
+      "subtitle": {
+        "welcome": "Do you already sell online, or are you creating something new with Haady?",
+        "choosePlatform": "Select the e-commerce platform you want to connect"
+      },
+      "connectStore": {
+        "title": "Connect Existing Store",
+        "description": "Already selling on Salla, Zid, or Shopify? Link your account to auto-sync your products, inventory, and prices instantly.",
+        "features": {
+          "noManualEntry": "No manual entry required",
+          "autoSync": "Auto-syncs inventory 24/7",
+          "unifiedOrders": "Unified order management"
+        },
+        "button": "Connect Store"
+      },
+      "createStore": {
+        "title": "Create New Store",
+        "description": "Starting from scratch? Use Haady's powerful builder to set up your menu, define your delivery zones, and start selling today.",
+        "features": {
+          "giftFirst": "Custom \"Gift-First\" store features",
+          "integratedDelivery": "Integrated Haady Delivery",
+          "aiMarketing": "Built-in AI Marketing tools"
+        },
+        "button": "Create new Store"
+      },
+      "back": "Back",
+      "connect": "Connect",
+      "shopifyDialog": {
+        "title": "Enter Your Shopify Store Domain",
+        "description": "You can enter just the shop name (e.g., \"mystore\") or the full domain.",
+        "label": "Shop Domain",
+        "placeholder": "mystore or mystore.myshopify.com",
+        "examples": "Examples: mystore, mystore.myshopify.com",
+        "cancel": "Cancel",
+        "continue": "Continue"
+      },
+      "platforms": {
+        "salla": {
+          "description": "Connect your Salla store to sync products, inventory, and orders automatically.",
+          "features": {
+            "autoSync": "Auto-sync products",
+            "realTimeInventory": "Real-time inventory",
+            "orderManagement": "Order management"
+          }
+        },
+        "zid": {
+          "description": "Link your Zid store to import your catalog and manage everything from Haady.",
+          "features": {
+            "productImport": "Product import",
+            "inventorySync": "Inventory sync",
+            "unifiedDashboard": "Unified dashboard"
+          }
+        },
+        "shopify": {
+          "description": "Integrate your Shopify store for seamless product and order synchronization.",
+          "features": {
+            "fullCatalogSync": "Full catalog sync",
+            "multiCurrency": "Multi-currency",
+            "orderTracking": "Order tracking"
+          }
+        }
+      }
+    }
+  },
+  "searchModal": {
+    "emptyState": {
+      "title": "Start searching",
+      "description": "Type in the search box above or select a category to filter your results.",
+      "noResults": "No results found",
+      "tryAgain": "Try adjusting your search terms or try a different category."
+    }
+  },
+  "notifications": {
+    "title": "Notifications",
+    "updates": "Updates",
+    "messages": "Messages",
+    "markAllAsRead": "Mark all as read",
+    "noUpdates": "No updates at this time.",
+    "noMessages": "No messages at this time.",
+    "time": {
+      "30minAgo": "30 min ago",
+      "1hourAgo": "1 hour ago",
+      "2hoursAgo": "2 hours ago",
+      "3hoursAgo": "3 hours ago",
+      "5hoursAgo": "5 hours ago",
+      "6hoursAgo": "6 hours ago",
+      "8hoursAgo": "8 hours ago",
+      "10hoursAgo": "10 hours ago",
+      "12hoursAgo": "12 hours ago",
+      "1dayAgo": "1 day ago",
+      "2daysAgo": "2 days ago",
+      "3daysAgo": "3 days ago",
+      "4daysAgo": "4 days ago",
+      "5daysAgo": "5 days ago",
+      "1weekAgo": "1 week ago"
+    },
+    "updatesList": {
+      "1": {
+        "title": "New Feature: Product Sync",
+        "description": "We've added automatic product synchronization with your store. Your products will now stay in sync automatically."
+      },
+      "2": {
+        "title": "System Maintenance Complete",
+        "description": "Scheduled maintenance has been completed successfully. All systems are now running smoothly."
+      },
+      "3": {
+        "title": "Welcome to Haady Business",
+        "description": "Thank you for joining Haady Business! Get started by connecting your first store."
+      },
+      "4": {
+        "title": "Inventory Update Available",
+        "description": "Your inventory levels have been updated. Check your dashboard to see the latest stock information."
+      },
+      "5": {
+        "title": "New Order Received",
+        "description": "You have received a new order. Review and process it from your orders dashboard."
+      },
+      "6": {
+        "title": "Payment Processed",
+        "description": "Your payment has been successfully processed. Your subscription is now active."
+      },
+      "7": {
+        "title": "Store Connection Established",
+        "description": "Your store connection has been successfully established. You can now sync your products."
+      },
+      "8": {
+        "title": "Weekly Report Ready",
+        "description": "Your weekly sales report is now available. View it in the reports section."
+      },
+      "9": {
+        "title": "Product Sync Completed",
+        "description": "Your product synchronization has been completed. 45 products have been synced successfully."
+      },
+      "10": {
+        "title": "New Integration Available",
+        "description": "We've added support for a new e-commerce platform. Connect your store now to get started."
+      },
+      "11": {
+        "title": "Account Settings Updated",
+        "description": "Your account settings have been successfully updated. Changes will take effect immediately."
+      },
+      "12": {
+        "title": "Backup Completed",
+        "description": "Your data backup has been completed successfully. Your information is safe and secure."
+      },
+      "13": {
+        "title": "Performance Optimization",
+        "description": "We've optimized your dashboard performance. You should notice faster loading times."
+      },
+      "14": {
+        "title": "Security Alert",
+        "description": "A new device has logged into your account. If this wasn't you, please change your password."
+      },
+      "15": {
+        "title": "Feature Update",
+        "description": "New features have been added to your dashboard. Explore them to enhance your workflow."
+      }
+    },
+    "messagesList": {
+      "m1": {
+        "title": "New Customer Inquiry",
+        "description": "You have received a new customer inquiry about your products. Please respond within 24 hours."
+      },
+      "m2": {
+        "title": "Order Question",
+        "description": "A customer has a question about their recent order. Check the order details and respond."
+      },
+      "m3": {
+        "title": "Support Ticket Created",
+        "description": "A new support ticket has been created. Review and assign it to the appropriate team member."
+      },
+      "m4": {
+        "title": "Product Review Received",
+        "description": "You have received a new product review. Check it out and respond if needed."
+      },
+      "m5": {
+        "title": "Refund Request",
+        "description": "A customer has requested a refund for their order. Review the request and process accordingly."
+      },
+      "m6": {
+        "title": "Shipping Update",
+        "description": "Your shipping provider has sent an update about a package delivery. Check the tracking information."
+      },
+      "m7": {
+        "title": "Customer Feedback",
+        "description": "A customer has left feedback about their shopping experience. Read their comments."
+      },
+      "m8": {
+        "title": "Account Verification",
+        "description": "A new customer account needs verification. Review and approve the account."
+      },
+      "m9": {
+        "title": "Payment Issue",
+        "description": "There is a payment issue with one of your orders. Review and resolve the payment problem."
+      },
+      "m10": {
+        "title": "Inventory Alert",
+        "description": "One of your products is running low on stock. Consider restocking soon to avoid out-of-stock situations."
+      },
+      "m11": {
+        "title": "Help Request",
+        "description": "A customer needs help with using your platform. Provide assistance through the support channel."
+      },
+      "m12": {
+        "title": "Security Notification",
+        "description": "Your account security settings have been updated. If this wasn't you, please review your account."
+      },
+      "m13": {
+        "title": "Sales Report",
+        "description": "Your monthly sales report is ready. Review your performance metrics and insights."
+      },
+      "m14": {
+        "title": "Settings Changed",
+        "description": "Your account settings have been modified. Review the changes to ensure everything is correct."
+      },
+      "m15": {
+        "title": "Welcome Message",
+        "description": "Welcome to Haady Business! We're here to help you succeed. Feel free to reach out if you have any questions."
+      }
+    }
+  },
   "toast": {
+    "success": {
+      "syncCompleted": "Sync completed successfully!",
+      "productsSynchronized": "Your products have been synchronized",
+      "productsCreatedAndUpdated": "{created} new products created, {updated} products updated",
+      "productsCreated": "{count} new products added to your store",
+      "productsUpdated": "{count} products updated successfully",
+      "productsSynced": "{count} products synced successfully",
+      "storeInfoRefreshed": "Store info refreshed: {storeName}",
+      "storeDisconnected": "{platform} store disconnected successfully",
+      "tokenRefreshed": "Token refreshed successfully",
+      "allNotificationsRead": "All notifications marked as read",
+      "updated": "Updated"
+    },
+    "error": {
+      "noStoreSelected": "No store selected",
+      "noStoreSelectedDesc": "Please select a store connection first.",
+      "failedToConnectStore": "Failed to connect {platform} store",
+      "failedToConnectStoreDesc": "Please try again or contact support",
+      "shopDomainRequired": "Shop domain required",
+      "shopDomainRequiredDesc": "Please enter your Shopify store domain",
+      "invalidShopDomain": "Invalid shop domain",
+      "invalidShopDomainDesc": "Shop domain should only contain letters, numbers, hyphens, and underscores. Example: mystore",
+      "shopifyClientIdNotConfigured": "Shopify Client ID not configured",
+      "shopifyClientIdNotConfiguredDesc": "Please set NEXT_PUBLIC_SHOPIFY_CLIENT_ID in your environment variables",
+      "userNotAuthenticated": "User not authenticated",
+      "userNotAuthenticatedDesc": "Please sign in to connect a store",
+      "invalidOAuthUrl": "Invalid OAuth URL",
+      "invalidOAuthUrlDesc": "The OAuth URL format is incorrect. Please check the console for details.",
+      "zidClientIdNotConfigured": "Zid Client ID not configured",
+      "zidClientIdNotConfiguredDesc": "Please set NEXT_PUBLIC_ZID_CLIENT_ID in your environment variables",
+      "invalidRedirectUri": "Invalid Redirect URI",
+      "invalidRedirectUriDesc": "Zid requires HTTPS. Please set NEXT_PUBLIC_ZID_REDIRECT_URI with an HTTPS URL (use ngrok for local development)",
+      "syncFailed": "Sync failed",
+      "failedToStartSync": "Failed to start sync. Please try again."
+    },
+    "info": {
+      "featureComingSoon": "Feature coming soon",
+      "featureComingSoonDesc": "This feature is being developed and will be available soon."
+    },
     "errors": {
       "network": {
         "title": "Network Error",
@@ -169,12 +529,6 @@
         "title": "Error",
         "message": "An unexpected error occurred. Please try again."
       }
-    },
-    "success": {
-      "syncCompleted": "Sync completed",
-      "productsUpdated": "20 products updated",
-      "retrySuccessful": "Retry successful",
-      "operationCompleted": "Operation completed after retry"
     }
   }
 }

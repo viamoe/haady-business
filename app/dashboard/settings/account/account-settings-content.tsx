@@ -194,15 +194,15 @@ export function AccountSettingsContent({
         </CardHeader>
         <CardContent className="space-y-2">
           <Button variant="outline" className="w-full justify-start">
-            <Store className="h-4 w-4 mr-2" />
+            <Store className="h-4 w-4 me-2" />
             {locale === 'ar' ? 'إدارة المتاجر' : 'Manage Stores'}
           </Button>
           <Button variant="outline" className="w-full justify-start">
-            <Mail className="h-4 w-4 mr-2" />
+            <Mail className="h-4 w-4 me-2" />
             {locale === 'ar' ? 'تغيير البريد الإلكتروني' : 'Change Email'}
           </Button>
           <Button variant="outline" className="w-full justify-start">
-            <User className="h-4 w-4 mr-2" />
+            <User className="h-4 w-4 me-2" />
             {locale === 'ar' ? 'تحديث الملف الشخصي' : 'Update Profile'}
           </Button>
         </CardContent>

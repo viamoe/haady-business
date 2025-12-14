@@ -7,6 +7,7 @@ import { useStoreConnection } from '@/lib/store-connection-context'
 import { useLocale } from '@/i18n/context'
 import { useState, useEffect, useRef, useMemo, useCallback, memo } from 'react'
 import { usePathname } from 'next/navigation'
+import { useTranslations } from 'next-intl'
 import { toast } from '@/lib/toast'
 import { handleError, safeFetch } from '@/lib/error-handler'
 import {
@@ -55,6 +56,7 @@ const ECOMMERCE_STORAGE_URL = 'https://rovphhvuuxwbhgnsifto.supabase.co/storage/
 
 export function StoreSettingsContent({ storeConnections = [] }: SettingsContentProps) {
   const pathname = usePathname()
+  const t = useTranslations()
   const { selectedConnectionId } = useStoreConnection()
   const { locale, isRTL } = useLocale()
   const [isLoading, setIsLoading] = useState(true)
@@ -257,7 +259,9 @@ const StoreConnectionCard = memo(function StoreConnectionCard({
       )
 
       const data = await response.json()
-      toast.success(`Store info refreshed: ${data.store_name || 'Updated'}`)
+      toast.success(t('toast.success.storeInfoRefreshed', { 
+        storeName: data.store_name || t('toast.success.updated')
+      }))
       
       setLocalConnection(prev => ({
         ...prev,
@@ -404,7 +408,9 @@ const StoreConnectionCard = memo(function StoreConnectionCard({
         { context: 'Disconnect store' }
       )
 
-      toast.success(`${localConnection.platform} store disconnected successfully`)
+      toast.success(t('toast.success.storeDisconnected', { 
+        platform: localConnection.platform 
+      }))
       setShowDisconnectDialog(false)
       onDisconnect()
     } catch (error: any) {
@@ -484,29 +490,32 @@ const StoreConnectionCard = memo(function StoreConnectionCard({
       const data = await response.json()
       
       if (data.comingSoon) {
-        toast.info('Feature coming soon', {
-          description: data.message || 'This feature is being developed and will be available soon.',
+        toast.info(t('toast.info.featureComingSoon'), {
+          description: data.message || t('toast.info.featureComingSoonDesc'),
         })
         return
       }
       
       if (data.details) {
         const { productsCreated, productsUpdated } = data.details
-        let title = 'Sync completed successfully!'
-        let description = 'Your products have been synchronized'
+        let title = t('toast.success.syncCompleted')
+        let description = t('toast.success.productsSynchronized')
         
         if (productsCreated > 0 && productsUpdated > 0) {
-          description = `${productsCreated} new products created, ${productsUpdated} products updated`
+          description = t('toast.success.productsCreatedAndUpdated', { 
+            created: productsCreated, 
+            updated: productsUpdated 
+          })
         } else if (productsCreated > 0) {
-          description = `${productsCreated} new products added to your store`
+          description = t('toast.success.productsCreated', { count: productsCreated })
         } else if (productsUpdated > 0) {
-          description = `${productsUpdated} products updated successfully`
+          description = t('toast.success.productsUpdated', { count: productsUpdated })
         }
         
         toast.success(title, { description })
       } else {
-        toast.success('Sync completed successfully!', { 
-          description: 'Your products have been synchronized' 
+        toast.success(t('toast.success.syncCompleted'), { 
+          description: t('toast.success.productsSynchronized')
         })
       }
       
@@ -687,7 +696,7 @@ const StoreConnectionCard = memo(function StoreConnectionCard({
         { context: 'Refresh token' }
       )
 
-      toast.success('Token refreshed successfully')
+      toast.success(t('toast.success.tokenRefreshed'))
       setLocalConnection(prev => ({
         ...prev,
         connection_status: 'connected',
@@ -777,9 +786,9 @@ const StoreConnectionCard = memo(function StoreConnectionCard({
                   className="h-8 text-xs"
                 >
                   {isRefreshing ? (
-                    <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                    <Loader2 className="h-3 w-3 animate-spin me-1" />
                   ) : (
-                    <RefreshCw className="h-3 w-3 mr-1" />
+                    <RefreshCw className="h-3 w-3 me-1" />
                   )}
                   Refresh
                 </Button>
@@ -794,9 +803,9 @@ const StoreConnectionCard = memo(function StoreConnectionCard({
                   title="Refresh store information from platform"
                 >
                   {isRefreshingStoreInfo ? (
-                    <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                    <Loader2 className="h-3 w-3 animate-spin me-1" />
                   ) : (
-                    <Link2 className="h-3 w-3 mr-1" />
+                    <Link2 className="h-3 w-3 me-1" />
                   )}
                   Fetch Store Info
                 </Button>
@@ -810,9 +819,9 @@ const StoreConnectionCard = memo(function StoreConnectionCard({
                   className="h-8 text-xs"
                 >
                   {(isSyncing || isLoadingPreview) ? (
-                    <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                    <Loader2 className="h-3 w-3 animate-spin me-1" />
                   ) : (
-                    <RefreshCw className="h-3 w-3 mr-1" />
+                    <RefreshCw className="h-3 w-3 me-1" />
                   )}
                   Sync
                 </Button>
@@ -849,7 +858,7 @@ const StoreConnectionCard = memo(function StoreConnectionCard({
             >
               {isDisconnecting ? (
                 <>
-                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  <Loader2 className="h-4 w-4 animate-spin me-2" />
                   Disconnecting...
                 </>
               ) : (

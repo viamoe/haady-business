@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef, Suspense, useCallback } from 'react'
+import React, { useState, useEffect, useRef, Suspense, useCallback } from 'react'
 import { AppSidebar } from '@/components/app-sidebar'
 import { StoreConnectionProvider } from '@/lib/store-connection-context'
 import { OnboardingModalProvider, useOnboardingModal } from '@/lib/onboarding-modal-context'
@@ -16,6 +16,7 @@ import {
   BreadcrumbPage,
 } from '@/components/ui/breadcrumb'
 import { usePathname, useSearchParams, useRouter } from 'next/navigation'
+import { useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { AnimateIcon } from '@/components/animate-ui/icons/icon'
 import { RefreshCcw } from '@/components/animate-ui/icons/refresh-ccw'
@@ -23,14 +24,21 @@ import { ICON_BUTTON_CLASSES, DEFAULT_ICON_SIZE } from '@/lib/ui-constants'
 import { WideCardModal } from '@/components/ui/wide-card-modal'
 import { useAuth } from '@/lib/auth/auth-context'
 import { useStoreConnection } from '@/lib/store-connection-context'
+import { useLocale } from '@/i18n/context'
 import { toast } from '@/lib/toast'
 import { safeFetch, handleError } from '@/lib/error-handler'
 import Image from 'next/image'
-import { Check, ArrowRight, ArrowLeft, Zap, CheckCircle2, Gift, MessageSquare, Mail, Bell, AlertCircle, Info, HelpCircle, User, ShoppingCart, Package, CreditCard, Settings, Shield, TrendingUp, Star, Loader2, Store } from 'lucide-react'
+import { Check, ArrowRight, ArrowLeft, Zap, CheckCircle2, Gift, MessageSquare, Mail, Bell, AlertCircle, Info, HelpCircle, User, ShoppingCart, Package, CreditCard, Settings as SettingsIcon, Shield, TrendingUp, Star, Loader2, Store, Copy } from 'lucide-react'
+import { ChevronDown } from '@/components/animate-ui/icons/chevron-down'
+import { Plus } from '@/components/animate-ui/icons/plus'
+import { MessageCircleQuestion } from '@/components/animate-ui/icons/message-circle-question'
+import { Settings } from '@/components/animate-ui/icons/settings'
+import { LogOut } from '@/components/animate-ui/icons/log-out'
 import { Unplug } from '@/components/animate-ui/icons/unplug'
 import { Sparkles } from '@/components/animate-ui/icons/sparkles'
 import { supabase } from '@/lib/supabase/client'
 import { CelebrationModal } from '@/components/celebration-modal'
+import { Wormmy } from '@/components/wormmy'
 import {
   Dialog,
   DialogContent,
@@ -44,33 +52,33 @@ import { Label } from '@/components/ui/label'
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 import { NotificationDrawer } from '@/components/notification-drawer'
+import { HeaderLanguageSwitcher } from '@/components/header-language-switcher'
+import { SearchModal } from '@/components/search-modal'
+import { Search } from 'lucide-react'
+import { Kbd } from '@/components/ui/kbd'
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuLabel,
+  DropdownMenuSub,
+  DropdownMenuSubTrigger,
+  DropdownMenuSubContent,
+} from '@/components/ui/dropdown-menu'
 
 const ECOMMERCE_STORAGE_URL = 'https://rovphhvuuxwbhgnsifto.supabase.co/storage/v1/object/public/assets/ecommerce';
 
+// Platform logos mapping (matching app-sidebar.tsx)
+const PLATFORM_LOGOS: Record<string, string> = {
+  salla: 'https://rovphhvuuxwbhgnsifto.supabase.co/storage/v1/object/public/assets/ecommerce/salla-icon.png',
+  zid: 'https://rovphhvuuxwbhgnsifto.supabase.co/storage/v1/object/public/assets/ecommerce/zid.svg',
+  shopify: 'https://rovphhvuuxwbhgnsifto.supabase.co/storage/v1/object/public/assets/ecommerce/shopify-icon.png',
+};
+
 // E-commerce platforms data
-const ECOMMERCE_PLATFORMS = [
-  {
-    id: 'salla',
-    name: 'Salla',
-    logo: `${ECOMMERCE_STORAGE_URL}/salla-logo.png`,
-    description: 'Connect your Salla store to sync products, inventory, and orders automatically.',
-    features: ['Auto-sync products', 'Real-time inventory', 'Order management'],
-  },
-  {
-    id: 'zid',
-    name: 'Zid',
-    logo: `${ECOMMERCE_STORAGE_URL}/zid-logo.png`,
-    description: 'Link your Zid store to import your catalog and manage everything from Haady.',
-    features: ['Product import', 'Inventory sync', 'Unified dashboard'],
-  },
-  {
-    id: 'shopify',
-    name: 'Shopify',
-    logo: `${ECOMMERCE_STORAGE_URL}/shopify-logo.png`,
-    description: 'Integrate your Shopify store for seamless product and order synchronization.',
-    features: ['Full catalog sync', 'Multi-currency', 'Order tracking'],
-  },
-];
+// ECOMMERCE_PLATFORMS will be created inside the component to use translations
 
 function DashboardLayoutContentInner({
   children,
@@ -80,8 +88,10 @@ function DashboardLayoutContentInner({
   const pathname = usePathname()
   const searchParams = useSearchParams()
   const router = useRouter()
-  const { user } = useAuth()
-  const { selectedConnectionId, isChangingStore } = useStoreConnection()
+  const t = useTranslations()
+  const { user, signOut } = useAuth()
+  const { selectedConnectionId, isChangingStore, selectedConnection, setSelectedConnectionId } = useStoreConnection()
+  const { isRTL, locale } = useLocale()
   const { isOpen: isWelcomeModalOpen, open: openModal, close: closeModal, step: modalStep, setStep: setModalStep } = useOnboardingModal()
   const pageName = pathname.split('/').filter(Boolean).pop() || 'Dashboard'
   const capitalizedPageName = pageName.charAt(0).toUpperCase() + pageName.slice(1)
@@ -91,19 +101,88 @@ function DashboardLayoutContentInner({
   const [isCardHovered, setIsCardHovered] = useState(false)
   const [isCard2Hovered, setIsCard2Hovered] = useState(false)
   const [hoveredPlatform, setHoveredPlatform] = useState<string | null>(null)
+  const [isStoresExpandedHover, setIsStoresExpandedHover] = useState(false)
+  const [isAddStoreHover, setIsAddStoreHover] = useState(false)
+  const [isSupportHover, setIsSupportHover] = useState(false)
+  const [isSettingsHover, setIsSettingsHover] = useState(false)
+  const [isLogoutHover, setIsLogoutHover] = useState(false)
+  const [isStoreDropdownOpen, setIsStoreDropdownOpen] = useState(false)
   const [isSyncing, setIsSyncing] = useState(false)
   const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null)
   const [isHoveringSync, setIsHoveringSync] = useState(false)
   const [currentSyncPhrase, setCurrentSyncPhrase] = useState(0)
+  const [syncSource, setSyncSource] = useState<'header' | 'products' | null>(null)
   const [messagesCount, setMessagesCount] = useState(0)
+  const [isSearchModalOpen, setIsSearchModalOpen] = useState(false)
+  const [isMac, setIsMac] = useState(false) // Default to false to match server render
+  const [storeName, setStoreName] = useState<string | null>(null)
+  const [storeId, setStoreId] = useState<string | null>(null)
+  const [storeConnections, setStoreConnections] = useState<Array<{ id: string; platform: string; store_name: string | null }>>([])
+  const [isStoresExpanded, setIsStoresExpanded] = useState(false)
   
-  // Dummy updates data for testing with read/unread state
-  const [dummyUpdates, setDummyUpdates] = useState([
+  // Detect if user is on Mac (client-side only to avoid hydration mismatch)
+  useEffect(() => {
+    setIsMac(typeof window !== 'undefined' && navigator.platform.toUpperCase().indexOf('MAC') >= 0)
+  }, [])
+  
+  // Handle keyboard shortcut to open search modal
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Check for Cmd+K (Mac) or Ctrl+K (Windows/Linux)
+      if ((isMac ? e.metaKey : e.ctrlKey) && e.key === 'k') {
+        e.preventDefault()
+        setIsSearchModalOpen(true)
+      }
+    }
+    
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [isMac])
+  
+  // E-commerce platforms with translations
+  const ECOMMERCE_PLATFORMS = React.useMemo(() => [
+    {
+      id: 'salla',
+      name: 'Salla',
+      logo: `${ECOMMERCE_STORAGE_URL}/salla-logo.png`,
+      description: t('onboarding.modal.platforms.salla.description'),
+      features: [
+        t('onboarding.modal.platforms.salla.features.autoSync'),
+        t('onboarding.modal.platforms.salla.features.realTimeInventory'),
+        t('onboarding.modal.platforms.salla.features.orderManagement')
+      ],
+    },
+    {
+      id: 'zid',
+      name: 'Zid',
+      logo: `${ECOMMERCE_STORAGE_URL}/zid-logo.png`,
+      description: t('onboarding.modal.platforms.zid.description'),
+      features: [
+        t('onboarding.modal.platforms.zid.features.productImport'),
+        t('onboarding.modal.platforms.zid.features.inventorySync'),
+        t('onboarding.modal.platforms.zid.features.unifiedDashboard')
+      ],
+    },
+    {
+      id: 'shopify',
+      name: 'Shopify',
+      logo: `${ECOMMERCE_STORAGE_URL}/shopify-logo.png`,
+      description: t('onboarding.modal.platforms.shopify.description'),
+      features: [
+        t('onboarding.modal.platforms.shopify.features.fullCatalogSync'),
+        t('onboarding.modal.platforms.shopify.features.multiCurrency'),
+        t('onboarding.modal.platforms.shopify.features.orderTracking')
+      ],
+    },
+  ], [t])
+  
+  // Dummy updates data for testing with read/unread state - using translations
+  const dummyUpdates = React.useMemo(() => [
     {
       id: '1',
-      title: 'New Feature: Product Sync',
-      description: 'We\'ve added automatic product synchronization with your store. Your products will now stay in sync automatically.',
-      time: '2 hours ago',
+      title: t('notifications.updatesList.1.title'),
+      description: t('notifications.updatesList.1.description'),
+      time: t('notifications.time.2hoursAgo'),
       icon: Zap,
       iconColor: 'text-blue-600',
       iconBg: 'bg-blue-50',
@@ -111,9 +190,9 @@ function DashboardLayoutContentInner({
     },
     {
       id: '2',
-      title: 'System Maintenance Complete',
-      description: 'Scheduled maintenance has been completed successfully. All systems are now running smoothly.',
-      time: '1 day ago',
+      title: t('notifications.updatesList.2.title'),
+      description: t('notifications.updatesList.2.description'),
+      time: t('notifications.time.1dayAgo'),
       icon: CheckCircle2,
       iconColor: 'text-green-600',
       iconBg: 'bg-green-50',
@@ -121,9 +200,9 @@ function DashboardLayoutContentInner({
     },
     {
       id: '3',
-      title: 'Welcome to Haady Business',
-      description: 'Thank you for joining Haady Business! Get started by connecting your first store.',
-      time: '3 days ago',
+      title: t('notifications.updatesList.3.title'),
+      description: t('notifications.updatesList.3.description'),
+      time: t('notifications.time.3daysAgo'),
       icon: Gift,
       iconColor: 'text-purple-600',
       iconBg: 'bg-purple-50',
@@ -131,9 +210,9 @@ function DashboardLayoutContentInner({
     },
     {
       id: '4',
-      title: 'Inventory Update Available',
-      description: 'Your inventory levels have been updated. Check your dashboard to see the latest stock information.',
-      time: '5 hours ago',
+      title: t('notifications.updatesList.4.title'),
+      description: t('notifications.updatesList.4.description'),
+      time: t('notifications.time.5hoursAgo'),
       icon: Zap,
       iconColor: 'text-yellow-600',
       iconBg: 'bg-yellow-50',
@@ -141,9 +220,9 @@ function DashboardLayoutContentInner({
     },
     {
       id: '5',
-      title: 'New Order Received',
-      description: 'You have received a new order. Review and process it from your orders dashboard.',
-      time: '8 hours ago',
+      title: t('notifications.updatesList.5.title'),
+      description: t('notifications.updatesList.5.description'),
+      time: t('notifications.time.8hoursAgo'),
       icon: CheckCircle2,
       iconColor: 'text-emerald-600',
       iconBg: 'bg-emerald-50',
@@ -151,9 +230,9 @@ function DashboardLayoutContentInner({
     },
     {
       id: '6',
-      title: 'Payment Processed',
-      description: 'Your payment has been successfully processed. Your subscription is now active.',
-      time: '12 hours ago',
+      title: t('notifications.updatesList.6.title'),
+      description: t('notifications.updatesList.6.description'),
+      time: t('notifications.time.12hoursAgo'),
       icon: CheckCircle2,
       iconColor: 'text-indigo-600',
       iconBg: 'bg-indigo-50',
@@ -161,9 +240,9 @@ function DashboardLayoutContentInner({
     },
     {
       id: '7',
-      title: 'Store Connection Established',
-      description: 'Your store connection has been successfully established. You can now sync your products.',
-      time: '1 day ago',
+      title: t('notifications.updatesList.7.title'),
+      description: t('notifications.updatesList.7.description'),
+      time: t('notifications.time.1dayAgo'),
       icon: Zap,
       iconColor: 'text-cyan-600',
       iconBg: 'bg-cyan-50',
@@ -171,9 +250,9 @@ function DashboardLayoutContentInner({
     },
     {
       id: '8',
-      title: 'Weekly Report Ready',
-      description: 'Your weekly sales report is now available. View it in the reports section.',
-      time: '2 days ago',
+      title: t('notifications.updatesList.8.title'),
+      description: t('notifications.updatesList.8.description'),
+      time: t('notifications.time.2daysAgo'),
       icon: Gift,
       iconColor: 'text-pink-600',
       iconBg: 'bg-pink-50',
@@ -181,9 +260,9 @@ function DashboardLayoutContentInner({
     },
     {
       id: '9',
-      title: 'Product Sync Completed',
-      description: 'Your product synchronization has been completed. 45 products have been synced successfully.',
-      time: '2 days ago',
+      title: t('notifications.updatesList.9.title'),
+      description: t('notifications.updatesList.9.description'),
+      time: t('notifications.time.2daysAgo'),
       icon: CheckCircle2,
       iconColor: 'text-teal-600',
       iconBg: 'bg-teal-50',
@@ -191,9 +270,9 @@ function DashboardLayoutContentInner({
     },
     {
       id: '10',
-      title: 'New Integration Available',
-      description: 'We\'ve added support for a new e-commerce platform. Connect your store now to get started.',
-      time: '3 days ago',
+      title: t('notifications.updatesList.10.title'),
+      description: t('notifications.updatesList.10.description'),
+      time: t('notifications.time.3daysAgo'),
       icon: Zap,
       iconColor: 'text-orange-600',
       iconBg: 'bg-orange-50',
@@ -201,9 +280,9 @@ function DashboardLayoutContentInner({
     },
     {
       id: '11',
-      title: 'Account Settings Updated',
-      description: 'Your account settings have been successfully updated. Changes will take effect immediately.',
-      time: '4 days ago',
+      title: t('notifications.updatesList.11.title'),
+      description: t('notifications.updatesList.11.description'),
+      time: t('notifications.time.4daysAgo'),
       icon: CheckCircle2,
       iconColor: 'text-violet-600',
       iconBg: 'bg-violet-50',
@@ -211,9 +290,9 @@ function DashboardLayoutContentInner({
     },
     {
       id: '12',
-      title: 'Backup Completed',
-      description: 'Your data backup has been completed successfully. Your information is safe and secure.',
-      time: '5 days ago',
+      title: t('notifications.updatesList.12.title'),
+      description: t('notifications.updatesList.12.description'),
+      time: t('notifications.time.5daysAgo'),
       icon: Gift,
       iconColor: 'text-rose-600',
       iconBg: 'bg-rose-50',
@@ -221,9 +300,9 @@ function DashboardLayoutContentInner({
     },
     {
       id: '13',
-      title: 'Performance Optimization',
-      description: 'We\'ve optimized your dashboard performance. You should notice faster loading times.',
-      time: '1 week ago',
+      title: t('notifications.updatesList.13.title'),
+      description: t('notifications.updatesList.13.description'),
+      time: t('notifications.time.1weekAgo'),
       icon: Zap,
       iconColor: 'text-sky-600',
       iconBg: 'bg-sky-50',
@@ -231,9 +310,9 @@ function DashboardLayoutContentInner({
     },
     {
       id: '14',
-      title: 'Security Alert',
-      description: 'A new device has logged into your account. If this wasn\'t you, please change your password.',
-      time: '1 week ago',
+      title: t('notifications.updatesList.14.title'),
+      description: t('notifications.updatesList.14.description'),
+      time: t('notifications.time.1weekAgo'),
       icon: CheckCircle2,
       iconColor: 'text-red-600',
       iconBg: 'bg-red-50',
@@ -241,23 +320,23 @@ function DashboardLayoutContentInner({
     },
     {
       id: '15',
-      title: 'Feature Update',
-      description: 'New features have been added to your dashboard. Explore them to enhance your workflow.',
-      time: '1 week ago',
+      title: t('notifications.updatesList.15.title'),
+      description: t('notifications.updatesList.15.description'),
+      time: t('notifications.time.1weekAgo'),
       icon: Gift,
       iconColor: 'text-amber-600',
       iconBg: 'bg-amber-50',
       isRead: true,
     },
-  ])
+  ], [t])
   
-  // Dummy messages data for testing
-  const [dummyMessages, setDummyMessages] = useState([
+  // Dummy messages data for testing - using translations
+  const dummyMessages = React.useMemo(() => [
     {
       id: 'm1',
-      title: 'New Customer Inquiry',
-      description: 'You have received a new customer inquiry about your products. Please respond within 24 hours.',
-      time: '30 min ago',
+      title: t('notifications.messagesList.m1.title'),
+      description: t('notifications.messagesList.m1.description'),
+      time: t('notifications.time.30minAgo'),
       icon: MessageSquare,
       iconColor: 'text-blue-600',
       iconBg: 'bg-blue-50',
@@ -265,9 +344,9 @@ function DashboardLayoutContentInner({
     },
     {
       id: 'm2',
-      title: 'Order Question',
-      description: 'A customer has a question about their recent order. Check the order details and respond.',
-      time: '1 hour ago',
+      title: t('notifications.messagesList.m2.title'),
+      description: t('notifications.messagesList.m2.description'),
+      time: t('notifications.time.1hourAgo'),
       icon: Mail,
       iconColor: 'text-green-600',
       iconBg: 'bg-green-50',
@@ -275,9 +354,9 @@ function DashboardLayoutContentInner({
     },
     {
       id: 'm3',
-      title: 'Support Ticket Created',
-      description: 'A new support ticket has been created. Review and assign it to the appropriate team member.',
-      time: '2 hours ago',
+      title: t('notifications.messagesList.m3.title'),
+      description: t('notifications.messagesList.m3.description'),
+      time: t('notifications.time.2hoursAgo'),
       icon: Bell,
       iconColor: 'text-purple-600',
       iconBg: 'bg-purple-50',
@@ -285,9 +364,9 @@ function DashboardLayoutContentInner({
     },
     {
       id: 'm4',
-      title: 'Product Review Received',
-      description: 'You have received a new product review. Check it out and respond if needed.',
-      time: '3 hours ago',
+      title: t('notifications.messagesList.m4.title'),
+      description: t('notifications.messagesList.m4.description'),
+      time: t('notifications.time.3hoursAgo'),
       icon: Star,
       iconColor: 'text-yellow-600',
       iconBg: 'bg-yellow-50',
@@ -295,9 +374,9 @@ function DashboardLayoutContentInner({
     },
     {
       id: 'm5',
-      title: 'Refund Request',
-      description: 'A customer has requested a refund for their order. Review the request and process accordingly.',
-      time: '5 hours ago',
+      title: t('notifications.messagesList.m5.title'),
+      description: t('notifications.messagesList.m5.description'),
+      time: t('notifications.time.5hoursAgo'),
       icon: AlertCircle,
       iconColor: 'text-emerald-600',
       iconBg: 'bg-emerald-50',
@@ -305,9 +384,9 @@ function DashboardLayoutContentInner({
     },
     {
       id: 'm6',
-      title: 'Shipping Update',
-      description: 'Your shipping provider has sent an update about a package delivery. Check the tracking information.',
-      time: '6 hours ago',
+      title: t('notifications.messagesList.m6.title'),
+      description: t('notifications.messagesList.m6.description'),
+      time: t('notifications.time.6hoursAgo'),
       icon: Package,
       iconColor: 'text-indigo-600',
       iconBg: 'bg-indigo-50',
@@ -315,9 +394,9 @@ function DashboardLayoutContentInner({
     },
     {
       id: 'm7',
-      title: 'Customer Feedback',
-      description: 'A customer has left feedback about their shopping experience. Read their comments.',
-      time: '8 hours ago',
+      title: t('notifications.messagesList.m7.title'),
+      description: t('notifications.messagesList.m7.description'),
+      time: t('notifications.time.8hoursAgo'),
       icon: Info,
       iconColor: 'text-cyan-600',
       iconBg: 'bg-cyan-50',
@@ -325,9 +404,9 @@ function DashboardLayoutContentInner({
     },
     {
       id: 'm8',
-      title: 'Account Verification',
-      description: 'A new customer account needs verification. Review and approve the account.',
-      time: '10 hours ago',
+      title: t('notifications.messagesList.m8.title'),
+      description: t('notifications.messagesList.m8.description'),
+      time: t('notifications.time.10hoursAgo'),
       icon: User,
       iconColor: 'text-pink-600',
       iconBg: 'bg-pink-50',
@@ -335,9 +414,9 @@ function DashboardLayoutContentInner({
     },
     {
       id: 'm9',
-      title: 'Payment Issue',
-      description: 'There is a payment issue with one of your orders. Review and resolve the payment problem.',
-      time: '12 hours ago',
+      title: t('notifications.messagesList.m9.title'),
+      description: t('notifications.messagesList.m9.description'),
+      time: t('notifications.time.12hoursAgo'),
       icon: CreditCard,
       iconColor: 'text-teal-600',
       iconBg: 'bg-teal-50',
@@ -345,9 +424,9 @@ function DashboardLayoutContentInner({
     },
     {
       id: 'm10',
-      title: 'Inventory Alert',
-      description: 'One of your products is running low on stock. Consider restocking soon to avoid out-of-stock situations.',
-      time: '1 day ago',
+      title: t('notifications.messagesList.m10.title'),
+      description: t('notifications.messagesList.m10.description'),
+      time: t('notifications.time.1dayAgo'),
       icon: ShoppingCart,
       iconColor: 'text-orange-600',
       iconBg: 'bg-orange-50',
@@ -355,9 +434,9 @@ function DashboardLayoutContentInner({
     },
     {
       id: 'm11',
-      title: 'Help Request',
-      description: 'A customer needs help with using your platform. Provide assistance through the support channel.',
-      time: '1 day ago',
+      title: t('notifications.messagesList.m11.title'),
+      description: t('notifications.messagesList.m11.description'),
+      time: t('notifications.time.1dayAgo'),
       icon: HelpCircle,
       iconColor: 'text-violet-600',
       iconBg: 'bg-violet-50',
@@ -365,9 +444,9 @@ function DashboardLayoutContentInner({
     },
     {
       id: 'm12',
-      title: 'Security Notification',
-      description: 'Your account security settings have been updated. If this wasn\'t you, please review your account.',
-      time: '2 days ago',
+      title: t('notifications.messagesList.m12.title'),
+      description: t('notifications.messagesList.m12.description'),
+      time: t('notifications.time.2daysAgo'),
       icon: Shield,
       iconColor: 'text-rose-600',
       iconBg: 'bg-rose-50',
@@ -375,9 +454,9 @@ function DashboardLayoutContentInner({
     },
     {
       id: 'm13',
-      title: 'Sales Report',
-      description: 'Your monthly sales report is ready. Review your performance metrics and insights.',
-      time: '2 days ago',
+      title: t('notifications.messagesList.m13.title'),
+      description: t('notifications.messagesList.m13.description'),
+      time: t('notifications.time.2daysAgo'),
       icon: TrendingUp,
       iconColor: 'text-sky-600',
       iconBg: 'bg-sky-50',
@@ -385,43 +464,43 @@ function DashboardLayoutContentInner({
     },
     {
       id: 'm14',
-      title: 'Settings Changed',
-      description: 'Your account settings have been modified. Review the changes to ensure everything is correct.',
-      time: '3 days ago',
-      icon: Settings,
+      title: t('notifications.messagesList.m14.title'),
+      description: t('notifications.messagesList.m14.description'),
+      time: t('notifications.time.3daysAgo'),
+      icon: SettingsIcon,
       iconColor: 'text-red-600',
       iconBg: 'bg-red-50',
       isRead: true,
     },
     {
       id: 'm15',
-      title: 'Welcome Message',
-      description: 'Welcome to Haady Business! We\'re here to help you succeed. Feel free to reach out if you have any questions.',
-      time: '1 week ago',
+      title: t('notifications.messagesList.m15.title'),
+      description: t('notifications.messagesList.m15.description'),
+      time: t('notifications.time.1weekAgo'),
       icon: MessageSquare,
       iconColor: 'text-amber-600',
       iconBg: 'bg-amber-50',
       isRead: true,
     },
-  ])
+  ], [t])
   
   // Handle update read status (optional callback)
+  // Note: NotificationDrawer manages its own local state, so these are just callbacks
   const handleUpdateRead = (id: string) => {
-    setDummyUpdates(prev => prev.map(update => 
-      update.id === id ? { ...update, isRead: true } : update
-    ))
-    setDummyMessages(prev => prev.map(message => 
-      message.id === id ? { ...message, isRead: true } : message
-    ))
+    // NotificationDrawer handles its own state updates
   }
   
   // Handle mark all as read (optional callback)
+  // Note: NotificationDrawer manages its own local state, so these are just callbacks
   const handleMarkAllAsRead = () => {
-    setDummyUpdates(prev => prev.map(update => ({ ...update, isRead: true })))
-    setDummyMessages(prev => prev.map(message => ({ ...message, isRead: true })))
+    // NotificationDrawer handles its own state updates
   }
   
-  const syncPhrases = ['Fetching Products', 'Counting Inventory', 'Polishing Things']
+  const syncPhrases = React.useMemo(() => [
+    t('header.sync.phrases.fetchingProducts'),
+    t('header.sync.phrases.countingInventory'),
+    t('header.sync.phrases.polishingThings')
+  ], [t])
 
   // Format relative time (e.g., "3 min ago", "1 hour ago")
   const formatRelativeTime = (date: Date): string => {
@@ -429,36 +508,46 @@ function DashboardLayoutContentInner({
     const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000)
     
     if (diffInSeconds < 60) {
-      return 'just now'
+      return t('header.time.justNow')
     }
     
     const diffInMinutes = Math.floor(diffInSeconds / 60)
     if (diffInMinutes < 60) {
-      return `${diffInMinutes} min ago`
+      return t('header.time.minAgo', { count: diffInMinutes })
     }
     
     const diffInHours = Math.floor(diffInMinutes / 60)
     if (diffInHours < 24) {
-      return `${diffInHours} ${diffInHours === 1 ? 'hour' : 'hours'} ago`
+      return diffInHours === 1 
+        ? t('header.time.hourAgo', { count: diffInHours })
+        : t('header.time.hoursAgo', { count: diffInHours })
     }
     
     const diffInDays = Math.floor(diffInHours / 24)
     if (diffInDays < 7) {
-      return `${diffInDays} ${diffInDays === 1 ? 'day' : 'days'} ago`
+      return diffInDays === 1
+        ? t('header.time.dayAgo', { count: diffInDays })
+        : t('header.time.daysAgo', { count: diffInDays })
     }
     
     const diffInWeeks = Math.floor(diffInDays / 7)
     if (diffInWeeks < 4) {
-      return `${diffInWeeks} ${diffInWeeks === 1 ? 'week' : 'weeks'} ago`
+      return diffInWeeks === 1
+        ? t('header.time.weekAgo', { count: diffInWeeks })
+        : t('header.time.weeksAgo', { count: diffInWeeks })
     }
     
     const diffInMonths = Math.floor(diffInDays / 30)
     if (diffInMonths < 12) {
-      return `${diffInMonths} ${diffInMonths === 1 ? 'month' : 'months'} ago`
+      return diffInMonths === 1
+        ? t('header.time.monthAgo', { count: diffInMonths })
+        : t('header.time.monthsAgo', { count: diffInMonths })
     }
     
     const diffInYears = Math.floor(diffInDays / 365)
-    return `${diffInYears} ${diffInYears === 1 ? 'year' : 'years'} ago`
+    return diffInYears === 1
+      ? t('header.time.yearAgo', { count: diffInYears })
+      : t('header.time.yearsAgo', { count: diffInYears })
   }
 
   // Fetch last sync time from database
@@ -500,6 +589,39 @@ function DashboardLayoutContentInner({
     fetchLastSyncTime()
   }, [fetchLastSyncTime])
 
+  // Listen for sync events from products page
+  useEffect(() => {
+    const handleProductsSyncStarted = (event: CustomEvent) => {
+      const { connectionId, source } = event.detail
+      // Only update if it's for the currently selected connection
+      if (connectionId === selectedConnectionId) {
+        setIsSyncing(true)
+        setSyncSource(source || 'products')
+      }
+    }
+
+    const handleProductsSyncCompleted = (event: CustomEvent) => {
+      const { connectionId, success } = event.detail
+      // Only update if it's for the currently selected connection
+      if (connectionId === selectedConnectionId) {
+        if (success) {
+          // Fetch updated sync time
+          fetchLastSyncTime()
+        }
+        setIsSyncing(false)
+        setSyncSource(null)
+      }
+    }
+
+    window.addEventListener('productsSyncStarted', handleProductsSyncStarted as EventListener)
+    window.addEventListener('productsSyncCompleted', handleProductsSyncCompleted as EventListener)
+
+    return () => {
+      window.removeEventListener('productsSyncStarted', handleProductsSyncStarted as EventListener)
+      window.removeEventListener('productsSyncCompleted', handleProductsSyncCompleted as EventListener)
+    }
+  }, [selectedConnectionId, fetchLastSyncTime])
+
   // Rotate sync phrases while syncing
   useEffect(() => {
     if (!isSyncing) {
@@ -514,11 +636,80 @@ function DashboardLayoutContentInner({
     return () => clearInterval(interval)
   }, [isSyncing, syncPhrases.length])
 
+  // Fetch store name and ID when selectedConnectionId changes
+  useEffect(() => {
+    const fetchStoreInfo = async () => {
+      if (!selectedConnectionId) {
+        setStoreName(null)
+        setStoreId(null)
+        return
+      }
+
+      try {
+        // Fetch the first active store for this connection
+        const { data: stores, error } = await supabase
+          .from('stores')
+          .select('id, name')
+          .eq('store_connection_id', selectedConnectionId)
+          .eq('is_active', true)
+          .limit(1)
+          .single()
+
+        if (error) {
+          console.error('Error fetching store info:', error)
+          setStoreName(null)
+          setStoreId(null)
+          return
+        }
+
+        setStoreName(stores?.name || null)
+        setStoreId(stores?.id || null)
+      } catch (error) {
+        console.error('Exception fetching store info:', error)
+        setStoreName(null)
+        setStoreId(null)
+      }
+    }
+
+    fetchStoreInfo()
+  }, [selectedConnectionId])
+
+  // Fetch all store connections
+  useEffect(() => {
+    const fetchConnections = async () => {
+      if (!user?.id) {
+        setStoreConnections([])
+        return
+      }
+
+      try {
+        const { data: connections, error } = await supabase
+          .from('store_connections')
+          .select('id, platform, store_name')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false })
+
+        if (error) {
+          console.error('Error fetching store connections:', error)
+          setStoreConnections([])
+          return
+        }
+
+        setStoreConnections(connections || [])
+      } catch (error) {
+        console.error('Exception fetching store connections:', error)
+        setStoreConnections([])
+      }
+    }
+
+    fetchConnections()
+  }, [user?.id])
+
   // Handle sync button click
   const handleSync = async () => {
     if (!selectedConnectionId) {
-      toast.error('No store selected', {
-        description: 'Please select a store connection first.',
+      toast.error(t('toast.error.noStoreSelected'), {
+        description: t('toast.error.noStoreSelectedDesc'),
       })
       return
     }
@@ -528,6 +719,7 @@ function DashboardLayoutContentInner({
     }
 
     setIsSyncing(true)
+    setSyncSource('header')
 
     try {
       const response = await safeFetch(
@@ -556,34 +748,38 @@ function DashboardLayoutContentInner({
         
         if (data.details) {
           const { productsCreated, productsUpdated, productsSynced } = data.details
-          let description = 'Your products have been synchronized'
+          let description = t('toast.success.productsSynchronized')
           
           if (productsCreated > 0 && productsUpdated > 0) {
-            description = `${productsCreated} new products created, ${productsUpdated} products updated`
+            description = t('toast.success.productsCreatedAndUpdated', { 
+              created: productsCreated, 
+              updated: productsUpdated 
+            })
           } else if (productsCreated > 0) {
-            description = `${productsCreated} new products added to your store`
+            description = t('toast.success.productsCreated', { count: productsCreated })
           } else if (productsUpdated > 0) {
-            description = `${productsUpdated} products updated successfully`
+            description = t('toast.success.productsUpdated', { count: productsUpdated })
           } else if (productsSynced > 0) {
-            description = `${productsSynced} products synced successfully`
+            description = t('toast.success.productsSynced', { count: productsSynced })
           }
           
-          toast.success('Sync completed successfully!', { description })
+          toast.success(t('toast.success.syncCompleted'), { description })
         } else {
-          toast.success('Sync completed successfully!', { 
-            description: 'Your products have been synchronized' 
+          toast.success(t('toast.success.syncCompleted'), { 
+            description: t('toast.success.productsSynchronized')
           })
         }
       } else {
-        throw new Error(data.error || data.message || 'Sync failed')
+        throw new Error(data.error || data.message || t('toast.error.syncFailed'))
       }
     } catch (error: any) {
       handleError(error, {
         context: 'Sync store products',
         showToast: true,
-        fallbackMessage: 'Failed to start sync. Please try again.',
+        fallbackMessage: t('toast.error.failedToStartSync'),
       })
-      setIsSyncing(false) // Stop syncing on error too
+        setIsSyncing(false) // Stop syncing on error too
+        setSyncSource(null)
     }
   }
   const [hasCheckedConnections, setHasCheckedConnections] = useState(false)
@@ -705,8 +901,8 @@ function DashboardLayoutContentInner({
       }
       
       // Show toast
-      toast.error(`Failed to connect ${platformName} store`, {
-        description: message || 'Please try again or contact support',
+      toast.error(t('toast.error.failedToConnectStore', { platform: platformName }), {
+        description: message || t('toast.error.failedToConnectStoreDesc'),
       })
       
       // Clean up URL params after a delay
@@ -789,15 +985,15 @@ function DashboardLayoutContentInner({
     const redirectUri = process.env.NEXT_PUBLIC_ZID_REDIRECT_URI || "http://localhost:3002/callback";
     
     if (!clientId) {
-      toast.error('Zid Client ID not configured', {
-        description: 'Please set NEXT_PUBLIC_ZID_CLIENT_ID in your environment variables',
+      toast.error(t('toast.error.zidClientIdNotConfigured'), {
+        description: t('toast.error.zidClientIdNotConfiguredDesc'),
       });
       return;
     }
 
     if (!redirectUri || redirectUri.includes('localhost')) {
-      toast.error('Invalid Redirect URI', {
-        description: 'Zid requires HTTPS. Please set NEXT_PUBLIC_ZID_REDIRECT_URI with an HTTPS URL (use ngrok for local development)',
+      toast.error(t('toast.error.invalidRedirectUri'), {
+        description: t('toast.error.invalidRedirectUriDesc'),
       });
       return;
     }
@@ -865,8 +1061,8 @@ function DashboardLayoutContentInner({
     const shopDomain = shopDomainInput.trim()
     
     if (!shopDomain) {
-      toast.error('Shop domain required', {
-        description: 'Please enter your Shopify store domain',
+      toast.error(t('toast.error.shopDomainRequired'), {
+        description: t('toast.error.shopDomainRequiredDesc'),
       })
       return
     }
@@ -889,8 +1085,8 @@ function DashboardLayoutContentInner({
 
     // Validate shop domain (should be alphanumeric, hyphens, underscores only)
     if (!cleanShop || !/^[a-zA-Z0-9_-]+$/.test(cleanShop)) {
-      toast.error('Invalid shop domain', {
-        description: 'Shop domain should only contain letters, numbers, hyphens, and underscores. Example: mystore',
+      toast.error(t('toast.error.invalidShopDomain'), {
+        description: t('toast.error.invalidShopDomainDesc'),
       })
       return
     }
@@ -907,15 +1103,15 @@ function DashboardLayoutContentInner({
     const redirectUri = process.env.NEXT_PUBLIC_SHOPIFY_REDIRECT_URI || "http://localhost:3002/callback";
     
     if (!clientId) {
-      toast.error('Shopify Client ID not configured', {
-        description: 'Please set NEXT_PUBLIC_SHOPIFY_CLIENT_ID in your environment variables',
+      toast.error(t('toast.error.shopifyClientIdNotConfigured'), {
+        description: t('toast.error.shopifyClientIdNotConfiguredDesc'),
       });
       return;
     }
 
     if (!user?.id) {
-      toast.error('User not authenticated', {
-        description: 'Please sign in to connect a store',
+      toast.error(t('toast.error.userNotAuthenticated'), {
+        description: t('toast.error.userNotAuthenticatedDesc'),
       });
       return;
     }
@@ -971,8 +1167,8 @@ function DashboardLayoutContentInner({
     // We generate the standard format, but Shopify may redirect to admin.shopify.com format
     if (!authUrl.includes(`${cleanShop}.myshopify.com/admin/oauth/authorize`)) {
       console.error('❌ Invalid OAuth URL format!', authUrl);
-      toast.error('Invalid OAuth URL', {
-        description: 'The OAuth URL format is incorrect. Please check the console for details.',
+      toast.error(t('toast.error.invalidOAuthUrl'), {
+        description: t('toast.error.invalidOAuthUrlDesc'),
       });
       return;
     }
@@ -1006,13 +1202,13 @@ function DashboardLayoutContentInner({
   const getModalContent = () => {
     if (modalStep === 'connect-platform') {
       return {
-        title: 'Choose your platform',
-        subtitle: 'Select the e-commerce platform you want to connect',
+        title: t('onboarding.modal.title.choosePlatform'),
+        subtitle: t('onboarding.modal.subtitle.choosePlatform'),
       }
     }
     return {
-      title: "Let's get your business ready",
-      subtitle: 'Do you already sell online, or are you creating something new with Haady?',
+      title: t('onboarding.modal.title.welcome'),
+      subtitle: t('onboarding.modal.subtitle.welcome'),
     }
   }
 
@@ -1020,69 +1216,157 @@ function DashboardLayoutContentInner({
 
   return (
     <>
-      <AppSidebar />
+      <AppSidebar side={isRTL ? "right" : "left"} />
       <SidebarInset className="shadow-none md:shadow-none [&]:!shadow-none">
-        <header className="flex h-16 shrink-0 items-center justify-between gap-2 border-b border-gray-100 relative">
+        <header className="flex h-16 shrink-0 items-center justify-between gap-2 border-b border-gray-100 relative overflow-hidden">
+          <Wormmy isActive={isSyncing} />
           <div className="flex items-center gap-3 flex-1">
-            <SidebarTrigger className="-ml-1 absolute left-4 z-10" />
-          </div>
-          <div className="flex items-center gap-3 h-full absolute right-4 z-10">
-            <div className="flex items-center relative">
-              {/* Syncing text or timestamp */}
-              <div
-                className={cn(
-                  'flex items-center gap-2 transition-opacity',
-                  'duration-500 ease-out',
-                  (isSyncing || lastSyncTime)
-                    ? 'opacity-100 mr-2'
-                    : 'opacity-0 mr-0'
-                )}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <SidebarTrigger className={cn(
+                  "-ms-1 absolute z-10",
+                  isRTL ? "right-4" : "left-4"
+                )} />
+              </TooltipTrigger>
+              <TooltipContent 
+                side="bottom" 
+                sideOffset={16} 
+                className="text-xs px-2 py-1.5"
               >
-                {isSyncing ? (
-                  <>
-                    {/* Sparkles indicator */}
-                    <AnimateIcon animate={isSyncing} loop={isSyncing} animation="fill">
-                      <Sparkles size={12} className="text-gray-300 flex-shrink-0" />
-                    </AnimateIcon>
-                    <span
-                      className={cn(
-                        'text-xs font-medium text-gray-600 whitespace-nowrap shimmer-text'
-                      )}
-                      style={{
-                        animation: 'shimmer 6s linear infinite',
-                      }}
-                    >
-                      {syncPhrases[currentSyncPhrase]}
-                    </span>
-                  </>
-                ) : lastSyncTime ? (
-                  <span className="text-xs font-medium text-gray-400 whitespace-nowrap">
-                    Updated {formatRelativeTime(lastSyncTime)}
-                  </span>
-                ) : null}
+                Toggle Sidebar
+              </TooltipContent>
+            </Tooltip>
+            <div className={cn(
+              "absolute z-10",
+              isRTL 
+                ? "right-12 sm:right-16 md:right-12 lg:right-32 xl:right-32 2xl:right-48"
+                : "left-12 sm:left-16 md:left-12 lg:left-32 xl:left-32 2xl:left-48"
+            )}>
+              <div className="relative">
+                <Search className={cn(
+                  "absolute h-4 w-4 text-muted-foreground pointer-events-none",
+                  isRTL ? "right-3" : "left-3",
+                  "top-1/2 -translate-y-1/2"
+                )} />
+                <Input
+                  type="text"
+                  placeholder={t('header.search.placeholder')}
+                  className={cn(
+                    "h-11 pl-9",
+                    isRTL ? "pr-9" : "pr-20",
+                    "w-[200px] sm:w-[250px] md:w-[300px] lg:w-[350px] xl:w-[400px]",
+                    "cursor-pointer"
+                  )}
+                  onClick={() => setIsSearchModalOpen(true)}
+                  readOnly
+                />
+                <div className={cn(
+                  "absolute pointer-events-none",
+                  isRTL ? "left-3" : "right-3",
+                  "top-1/2 -translate-y-1/2"
+                )}>
+                  <Kbd className="bg-gray-100 text-gray-600 border border-gray-200 text-xs">
+                    {isMac ? '⌘' : 'Ctrl'} K
+                  </Kbd>
+                </div>
               </div>
-              {!isSyncing && (
+            </div>
+          </div>
+          <div className={cn(
+            "flex items-center gap-3 h-full absolute z-10",
+            isRTL ? "left-4" : "right-4"
+          )}>
+            <div className="flex items-center relative">
+              {/* Syncing indicator or timestamp */}
+              {isSyncing && syncSource === 'products' ? (
+                // When sync is from products page: show rotating icon only
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Button
                       variant="ghost"
                       size="icon"
-                      className={`${ICON_BUTTON_CLASSES} flex items-center justify-center`}
-                      aria-label="Sync Products"
-                      onClick={handleSync}
-                      disabled={!selectedConnectionId}
-                      onMouseEnter={() => setIsHoveringSync(true)}
-                      onMouseLeave={() => setIsHoveringSync(false)}
+                      className="size-7 [&_svg]:!h-5 [&_svg]:!w-5 text-gray-500 flex items-center justify-center"
+                      aria-label={t('header.sync.products')}
+                      disabled
                     >
-                      <AnimateIcon animateOnHover>
-                        <RefreshCcw size={DEFAULT_ICON_SIZE} />
-                      </AnimateIcon>
+                      <RefreshCcw 
+                        size={20} 
+                        className="animate-spin"
+                        style={{ animationDuration: '2s' }}
+                      />
                     </Button>
                   </TooltipTrigger>
-                  <TooltipContent side="left" sideOffset={10} className="text-xs px-2 py-1.5">
-                    Sync Products
+                  <TooltipContent 
+                    side="bottom" 
+                    sideOffset={10} 
+                    className="text-xs px-2 py-1.5"
+                  >
+                    Syncing products...
                   </TooltipContent>
                 </Tooltip>
+              ) : isSyncing && syncSource === 'header' ? (
+                // When sync is from header: show Sparkles and animated text
+                <div
+                  className={cn(
+                    'flex items-center gap-2 transition-opacity',
+                    'duration-500 ease-out opacity-100 me-2'
+                  )}
+                >
+                  <AnimateIcon animate={isSyncing} loop={isSyncing} animation="fill">
+                    <Sparkles size={12} className="text-gray-300 flex-shrink-0" />
+                  </AnimateIcon>
+                  <span
+                    className={cn(
+                      'text-xs font-medium text-gray-600 whitespace-nowrap shimmer-text'
+                    )}
+                    style={{
+                      animation: 'shimmer 6s linear infinite',
+                    }}
+                  >
+                    {syncPhrases[currentSyncPhrase]}
+                  </span>
+                </div>
+              ) : (
+                // When not syncing: show timestamp and sync button
+                <>
+                  {lastSyncTime && (
+                    <div
+                      className={cn(
+                        'flex items-center gap-2 transition-opacity',
+                        'duration-500 ease-out opacity-100 me-2'
+                      )}
+                    >
+                      <span className="text-xs font-medium text-gray-400 whitespace-nowrap">
+                        {t('header.sync.updated')} {formatRelativeTime(lastSyncTime)}
+                      </span>
+                    </div>
+                  )}
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="size-7 [&_svg]:!h-5 [&_svg]:!w-5 text-gray-500 hover:text-gray-700 flex items-center justify-center"
+                        aria-label={t('header.sync.products')}
+                        onClick={handleSync}
+                        disabled={!selectedConnectionId}
+                        onMouseEnter={() => setIsHoveringSync(true)}
+                        onMouseLeave={() => setIsHoveringSync(false)}
+                      >
+                        <AnimateIcon animateOnHover>
+                          <RefreshCcw size={20} />
+                        </AnimateIcon>
+                      </Button>
+                    </TooltipTrigger>
+                  <TooltipContent 
+                    side="bottom" 
+                    sideOffset={16} 
+                    className="text-xs px-2 py-1.5"
+                  >
+                    {t('header.sync.products')}
+                  </TooltipContent>
+                  </Tooltip>
+                </>
               )}
             </div>
             <NotificationDrawer
@@ -1091,9 +1375,218 @@ function DashboardLayoutContentInner({
               onUpdateRead={handleUpdateRead}
               onMarkAllAsRead={handleMarkAllAsRead}
             />
+            <HeaderLanguageSwitcher />
+            <div className="h-6 w-px bg-gray-200 mx-2" />
+            <Tooltip open={!isStoreDropdownOpen ? undefined : false}>
+              <TooltipTrigger asChild>
+                <div>
+                  <DropdownMenu open={isStoreDropdownOpen} onOpenChange={setIsStoreDropdownOpen}>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="size-10 ml-2 [&_svg]:!h-6 [&_svg]:!w-6 text-[#F4610B] hover:text-[#F4610B] bg-[#F4610B]/5 hover:bg-[#F4610B]/10 flex items-center justify-center transition-colors"
+                        aria-label={storeName || "Store Settings"}
+                      >
+                        <Store size={24} />
+                      </Button>
+                    </DropdownMenuTrigger>
+                  <DropdownMenuContent 
+                    align="end" 
+                    sideOffset={10}
+                    className="w-72 border-0 p-0 rounded-2xl"
+                    style={{
+                      ...(locale === 'ar' ? { 
+                        fontFamily: 'var(--font-ibm-plex-arabic), "IBM Plex Sans Arabic", sans-serif' 
+                      } : {}),
+                      boxShadow: '0 0 20px rgba(0, 0, 0, 0.1)'
+                    }}
+                  >
+                    <DropdownMenuLabel className="px-4 py-4 bg-gray-100/50 rounded-t-2xl">
+                      <div className="flex items-start gap-4">
+                        <div className="p-2.5 bg-[#F4610B]/10 rounded-lg flex-shrink-0">
+                          <Store className="h-5 w-5 text-[#F4610B]" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="text-sm font-semibold text-gray-900 mb-0.5">{storeName || 'N/A'}</div>
+                          <div className="flex items-center gap-2">
+                            <div className="text-xs text-gray-500 font-mono">
+                              {storeId ? storeId.slice(0, 8) : 'N/A'}
+                            </div>
+                            {storeId && (
+                              <button
+                                onClick={async (e) => {
+                                  e.stopPropagation()
+                                  try {
+                                    await navigator.clipboard.writeText(storeId)
+                                    toast.success('Store ID copied to clipboard')
+                                  } catch (error) {
+                                    console.error('Failed to copy:', error)
+                                  }
+                                }}
+                                className="p-0.5 hover:bg-gray-100 rounded transition-colors"
+                                aria-label="Copy Store ID"
+                              >
+                                <Copy className="h-3.5 w-3.5 text-gray-900" />
+                              </button>
+                            )}
+                          </div>
+                          <div className="text-xs text-gray-500 font-mono mt-0.5">{user?.email || 'N/A'}</div>
+                        </div>
+                      </div>
+                    </DropdownMenuLabel>
+                    <div className="p-2">
+                      {storeConnections.length > 0 && (
+                        <>
+                          <DropdownMenuItem 
+                            className="group px-3 py-2.5 rounded-xl hover:bg-gray-100 focus:bg-gray-100 hover:text-gray-900 focus:text-gray-900"
+                            onClick={(e) => {
+                              e.preventDefault()
+                              setIsStoresExpanded(!isStoresExpanded)
+                            }}
+                            onMouseEnter={() => setIsStoresExpandedHover(true)}
+                            onMouseLeave={() => setIsStoresExpandedHover(false)}
+                          >
+                            <div className="flex items-center gap-2 flex-1">
+                              {(() => {
+                                const currentStore = storeConnections.find(c => c.id === selectedConnectionId)
+                                const platform = currentStore?.platform || selectedConnection?.platform
+                                return platform ? (
+                                  <div className={`flex size-6 items-center justify-center rounded-md overflow-hidden relative flex-shrink-0 ${
+                                    PLATFORM_LOGOS[platform?.toLowerCase()] ? '' : 'bg-white'
+                                  }`}>
+                                    {PLATFORM_LOGOS[platform?.toLowerCase()] ? (
+                                      <img 
+                                        src={PLATFORM_LOGOS[platform?.toLowerCase()]} 
+                                        alt={platform}
+                                        className="absolute inset-0 size-full object-cover opacity-100"
+                                      />
+                                    ) : (
+                                      <Store className="size-4 relative z-10 text-gray-400 group-hover:text-gray-900 transition-colors" />
+                                    )}
+                                  </div>
+                                ) : null
+                              })()}
+                              <span className="flex-1">{storeName || 'Store'}</span>
+                              <AnimateIcon animate={isStoresExpandedHover}>
+                                <ChevronDown 
+                                  size={16} 
+                                  className={`flex-shrink-0 transition-transform duration-200 text-gray-400 group-hover:text-gray-900 ${isStoresExpanded ? 'rotate-180' : 'rotate-0'}`}
+                                />
+                              </AnimateIcon>
+                            </div>
+                          </DropdownMenuItem>
+                          <div
+                            className={`overflow-hidden transition-all duration-300 ease-in-out ${
+                              isStoresExpanded ? 'max-h-96 opacity-100 mb-2' : 'max-h-0 opacity-0'
+                            }`}
+                          >
+                            <div className="pl-4">
+                              {storeConnections
+                                .filter((connection) => connection.id !== selectedConnectionId)
+                                .map((connection) => (
+                                  <DropdownMenuItem
+                                    key={connection.id}
+                                    onClick={() => {
+                                      setSelectedConnectionId(connection.id)
+                                      setIsStoresExpanded(false)
+                                    }}
+                                    className="group px-3 py-2.5 rounded-xl hover:bg-gray-100 focus:bg-gray-100 hover:text-gray-900 focus:text-gray-900"
+                                  >
+                                    <div className="flex items-center gap-2">
+                                      <div className={`flex size-6 items-center justify-center rounded-md overflow-hidden relative ${
+                                        PLATFORM_LOGOS[connection.platform?.toLowerCase()] ? '' : 'bg-white'
+                                      }`}>
+                                        {PLATFORM_LOGOS[connection.platform?.toLowerCase()] ? (
+                                          <img 
+                                            src={PLATFORM_LOGOS[connection.platform?.toLowerCase()]} 
+                                            alt={connection.platform}
+                                            className="absolute inset-0 size-full object-cover opacity-60 group-hover:opacity-100 transition-opacity"
+                                          />
+                                        ) : (
+                                          <Store className="size-4 relative z-10 text-gray-400 group-hover:text-gray-900 transition-colors" />
+                                        )}
+                                      </div>
+                                      <span>{connection.store_name || connection.platform}</span>
+                                    </div>
+                                  </DropdownMenuItem>
+                                ))}
+                            </div>
+                          </div>
+                        </>
+                      )}
+                      <DropdownMenuItem
+                        onClick={() => {
+                          setIsStoresExpanded(false)
+                          openModal()
+                          setModalStep('connect-platform')
+                        }}
+                        onMouseEnter={() => setIsAddStoreHover(true)}
+                        onMouseLeave={() => setIsAddStoreHover(false)}
+                        className="group px-3 py-2.5 rounded-xl hover:bg-gray-100 focus:bg-gray-100 hover:text-gray-900 focus:text-gray-900 [&_svg]:group-hover:text-gray-900"
+                      >
+                        <AnimateIcon animate={isAddStoreHover}>
+                          <Plus size={16} className="mr-2 text-gray-400 group-hover:text-green-600 transition-colors" />
+                        </AnimateIcon>
+                        Add Store
+                      </DropdownMenuItem>
+                      <DropdownMenuItem 
+                        onClick={() => router.push('/dashboard/support')} 
+                        onMouseEnter={() => setIsSupportHover(true)}
+                        onMouseLeave={() => setIsSupportHover(false)}
+                        className="group px-3 py-2.5 rounded-xl hover:bg-gray-100 focus:bg-gray-100 hover:text-gray-900 focus:text-gray-900"
+                      >
+                        <AnimateIcon animate={isSupportHover}>
+                          <MessageCircleQuestion size={16} className="mr-2 text-gray-400 group-hover:text-gray-900 transition-colors" />
+                        </AnimateIcon>
+                        Support
+                      </DropdownMenuItem>
+                      <DropdownMenuItem 
+                        onClick={() => router.push('/dashboard/settings/account')} 
+                        onMouseEnter={() => setIsSettingsHover(true)}
+                        onMouseLeave={() => setIsSettingsHover(false)}
+                        className="group px-3 py-2.5 rounded-xl hover:bg-gray-100 focus:bg-gray-100 hover:text-gray-900 focus:text-gray-900"
+                      >
+                        <AnimateIcon animate={isSettingsHover}>
+                          <Settings size={16} className="mr-2 text-gray-400 group-hover:text-gray-900 transition-colors" />
+                        </AnimateIcon>
+                        Account Settings
+                      </DropdownMenuItem>
+                      <DropdownMenuItem 
+                        onClick={async () => {
+                          await signOut()
+                          router.push('/auth/login')
+                          router.refresh()
+                        }}
+                        onMouseEnter={() => setIsLogoutHover(true)}
+                        onMouseLeave={() => setIsLogoutHover(false)}
+                        className="group text-red-600 focus:text-red-600 focus:bg-red-50 hover:text-red-600 hover:bg-red-50 px-3 py-2.5 rounded-xl [&_svg]:text-red-600 [&_svg]:group-hover:text-red-600"
+                      >
+                        <AnimateIcon animate={isLogoutHover}>
+                          <LogOut size={16} className="mr-2 text-red-600" />
+                        </AnimateIcon>
+                        Logout
+                      </DropdownMenuItem>
+                    </div>
+                  </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+              </TooltipTrigger>
+              <TooltipContent 
+                side="bottom" 
+                sideOffset={16} 
+                className="text-xs px-2 py-1.5"
+              >
+                Store Settings
+              </TooltipContent>
+            </Tooltip>
           </div>
         </header>
-        <div className="flex flex-1 flex-col gap-4 p-4 pl-[100px] md:pl-4 lg:px-8 xl:px-32 2xl:px-48 relative">
+        <SearchModal 
+          open={isSearchModalOpen} 
+          onOpenChange={setIsSearchModalOpen} 
+        />
+        <div className="flex flex-1 flex-col gap-4 p-4 sm:px-0 sm:py-4 md:px-4 lg:px-8 relative h-full">
           {children}
           {/* Loading overlay when changing stores */}
           {isChangingStore && (
@@ -1111,7 +1604,7 @@ function DashboardLayoutContentInner({
                     animation: 'shimmer 8s linear infinite',
                   }}
                 >
-                  Switching store...
+                  {t('header.loading.switchingStore')}
                 </p>
               </div>
             </div>
@@ -1144,26 +1637,26 @@ function DashboardLayoutContentInner({
               </div>
               
               {/* Headline */}
-              <h3 className="font-semibold text-gray-900 group-hover:text-[#F4610B] transition-colors mb-3">Connect Existing Store</h3>
+              <h3 className="font-semibold text-gray-900 group-hover:text-[#F4610B] transition-colors mb-3">{t('onboarding.modal.connectStore.title')}</h3>
               
               {/* Subtext */}
               <p className="text-xs text-gray-500 transition-colors mb-4">
-                Already selling on Salla, Zid, or Shopify? Link your account to auto-sync your products, inventory, and prices instantly.
+                {t('onboarding.modal.connectStore.description')}
               </p>
               
               {/* Why List */}
               <div className="space-y-2 mb-4 flex-1">
                 <div className="flex items-start gap-2">
                   <Check className="h-4 w-4 text-gray-600 group-hover:text-[#F4610B] transition-colors mt-0.5 flex-shrink-0" />
-                  <span className="text-xs text-gray-600 group-hover:text-[#F4610B] transition-colors">No manual entry required</span>
+                  <span className="text-xs text-gray-600 group-hover:text-[#F4610B] transition-colors">{t('onboarding.modal.connectStore.features.noManualEntry')}</span>
                 </div>
                 <div className="flex items-start gap-2">
                   <Check className="h-4 w-4 text-gray-600 group-hover:text-[#F4610B] transition-colors mt-0.5 flex-shrink-0" />
-                  <span className="text-xs text-gray-600 group-hover:text-[#F4610B] transition-colors">Auto-syncs inventory 24/7</span>
+                  <span className="text-xs text-gray-600 group-hover:text-[#F4610B] transition-colors">{t('onboarding.modal.connectStore.features.autoSync')}</span>
                 </div>
                 <div className="flex items-start gap-2">
                   <Check className="h-4 w-4 text-gray-600 group-hover:text-[#F4610B] transition-colors mt-0.5 flex-shrink-0" />
-                  <span className="text-xs text-gray-600 group-hover:text-[#F4610B] transition-colors">Unified order management</span>
+                  <span className="text-xs text-gray-600 group-hover:text-[#F4610B] transition-colors">{t('onboarding.modal.connectStore.features.unifiedOrders')}</span>
                 </div>
               </div>
               
@@ -1200,8 +1693,8 @@ function DashboardLayoutContentInner({
                 variant="outline"
                 className="w-full justify-between mt-auto bg-[#F4610B] text-white border-[#F4610B] opacity-0 group-hover:opacity-100 transition-all h-12 rounded-xl shadow-none hover:bg-[#F4610B] hover:text-white"
               >
-                <span>Connect Store</span>
-                <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
+                <span>{t('onboarding.modal.connectStore.button')}</span>
+                <ArrowRight className={cn("h-4 w-4 group-hover:translate-x-1 transition-transform", isRTL && "group-hover:-translate-x-1")} />
               </Button>
             </div>
             <div 
@@ -1217,26 +1710,26 @@ function DashboardLayoutContentInner({
               </div>
               
               {/* Headline */}
-              <h3 className="font-semibold text-gray-900 group-hover:text-[#F4610B] transition-colors mb-3">Create New Store</h3>
+              <h3 className="font-semibold text-gray-900 group-hover:text-[#F4610B] transition-colors mb-3">{t('onboarding.modal.createStore.title')}</h3>
               
               {/* Subtext */}
               <p className="text-xs text-gray-500 transition-colors mb-4">
-                Starting from scratch? Use Haady's powerful builder to set up your menu, define your delivery zones, and start selling today.
+                {t('onboarding.modal.createStore.description')}
               </p>
               
               {/* Why List */}
               <div className="space-y-2 mb-4 flex-1">
                 <div className="flex items-start gap-2">
                   <Check className="h-4 w-4 text-gray-600 group-hover:text-[#F4610B] transition-colors mt-0.5 flex-shrink-0" />
-                  <span className="text-xs text-gray-600 group-hover:text-[#F4610B] transition-colors">Custom "Gift-First" store features</span>
+                  <span className="text-xs text-gray-600 group-hover:text-[#F4610B] transition-colors">{t('onboarding.modal.createStore.features.giftFirst')}</span>
                 </div>
                 <div className="flex items-start gap-2">
                   <Check className="h-4 w-4 text-gray-600 group-hover:text-[#F4610B] transition-colors mt-0.5 flex-shrink-0" />
-                  <span className="text-xs text-gray-600 group-hover:text-[#F4610B] transition-colors">Integrated Haady Delivery</span>
+                  <span className="text-xs text-gray-600 group-hover:text-[#F4610B] transition-colors">{t('onboarding.modal.createStore.features.integratedDelivery')}</span>
                 </div>
                 <div className="flex items-start gap-2">
                   <Check className="h-4 w-4 text-gray-600 group-hover:text-[#F4610B] transition-colors mt-0.5 flex-shrink-0" />
-                  <span className="text-xs text-gray-600 group-hover:text-[#F4610B] transition-colors">Built-in AI Marketing tools</span>
+                  <span className="text-xs text-gray-600 group-hover:text-[#F4610B] transition-colors">{t('onboarding.modal.createStore.features.aiMarketing')}</span>
                 </div>
               </div>
               
@@ -1248,8 +1741,8 @@ function DashboardLayoutContentInner({
                 variant="outline"
                 className="w-full justify-between mt-auto bg-[#F4610B] text-white border-[#F4610B] opacity-0 group-hover:opacity-100 transition-all h-12 rounded-xl shadow-none hover:bg-[#F4610B] hover:text-white"
               >
-                <span>Create new Store</span>
-                <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
+                <span>{t('onboarding.modal.createStore.button')}</span>
+                <ArrowRight className={cn("h-4 w-4 group-hover:translate-x-1 transition-transform", isRTL && "group-hover:-translate-x-1")} />
               </Button>
             </div>
           </div>
@@ -1259,10 +1752,13 @@ function DashboardLayoutContentInner({
             {/* Back button */}
             <button
               onClick={handleBackToChoose}
-              className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-700 transition-colors mb-2"
+              className={cn(
+                "flex items-center gap-2 text-sm text-gray-500 hover:text-gray-700 transition-colors mb-2",
+                isRTL && "flex-row-reverse"
+              )}
             >
-              <ArrowLeft className="h-4 w-4" />
-              Back
+              <ArrowLeft className={cn("h-4 w-4", isRTL && "rotate-180")} />
+              {t('onboarding.modal.back')}
             </button>
             
             {/* Platform Cards */}
@@ -1343,7 +1839,7 @@ function DashboardLayoutContentInner({
                         : 'bg-transparent text-gray-600 border-gray-200 opacity-0 group-hover:opacity-100 group-hover:bg-[#F4610B] group-hover:text-white group-hover:border-[#F4610B]'
                     }`}
                   >
-                    Connect
+                    {t('onboarding.modal.connect')}
                   </Button>
                 </div>
               ))}
@@ -1391,18 +1887,18 @@ function DashboardLayoutContentInner({
                 unoptimized
               />
             </div>
-            <DialogTitle>Enter Your Shopify Store Domain</DialogTitle>
+            <DialogTitle>{t('onboarding.modal.shopifyDialog.title')}</DialogTitle>
             <DialogDescription>
-              You can enter just the shop name (e.g., "mystore") or the full domain.
+              {t('onboarding.modal.shopifyDialog.description')}
             </DialogDescription>
           </DialogHeader>
           <div className="py-4 space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="shop-domain">Shop Domain</Label>
+              <Label htmlFor="shop-domain">{t('onboarding.modal.shopifyDialog.label')}</Label>
               <Input
                 id="shop-domain"
                 type="text"
-                placeholder="mystore or mystore.myshopify.com"
+                placeholder={t('onboarding.modal.shopifyDialog.placeholder')}
                 value={shopDomainInput}
                 onChange={(e) => setShopDomainInput(e.target.value)}
                 onKeyDown={(e) => {
@@ -1413,7 +1909,7 @@ function DashboardLayoutContentInner({
                 autoFocus
               />
               <p className="text-xs font-medium text-muted-foreground">
-                Examples: mystore, mystore.myshopify.com
+                {t('onboarding.modal.shopifyDialog.examples')}
               </p>
             </div>
           </div>
@@ -1422,13 +1918,13 @@ function DashboardLayoutContentInner({
               variant="outline"
               onClick={() => setShowShopifyDialog(false)}
             >
-              Cancel
+              {t('onboarding.modal.shopifyDialog.cancel')}
             </Button>
             <Button
               onClick={handleShopifyDialogSubmit}
               className="bg-[#F4610B] hover:bg-[#E55A0A] text-white"
             >
-              Continue
+              {t('onboarding.modal.shopifyDialog.continue')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1444,49 +1940,12 @@ function DashboardLayoutContent({
 }: {
   children: React.ReactNode
 }) {
-  const [showLoading, setShowLoading] = useState(true)
-
-  useEffect(() => {
-    // Ensure loading screen shows for exactly 800ms from mount
-    const timer = setTimeout(() => {
-      setShowLoading(false)
-    }, 800)
-
-    return () => clearTimeout(timer)
-  }, [])
-
-  const loadingFallback = (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-white">
-      <div className="flex flex-col items-center gap-6">
-        {/* Haady Logo with Heartbeat Animation */}
-        <div className="animate-heartbeat">
-          <Image
-            src={HAADY_LOGO_URL}
-            alt="Haady"
-            width={64}
-            height={64}
-            className="w-16 h-16"
-            priority
-          />
-        </div>
-        
-        {/* Loading text */}
-        <p className="text-sm font-medium text-gray-500 shimmer-text">
-          Preparing your dashboard
-        </p>
-      </div>
-    </div>
-  )
-
   return (
-    <>
-      {showLoading && loadingFallback}
-      <Suspense fallback={loadingFallback}>
-        <DashboardLayoutContentInner>
-          {children}
-        </DashboardLayoutContentInner>
-      </Suspense>
-    </>
+    <Suspense fallback={null}>
+      <DashboardLayoutContentInner>
+        {children}
+      </DashboardLayoutContentInner>
+    </Suspense>
   )
 }
 
