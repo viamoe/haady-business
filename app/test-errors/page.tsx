@@ -207,8 +207,8 @@ export default function TestErrorsPage() {
         throw { status: 500, error: 'Temporary server error' }
       } else {
         addResult('Retry succeeded!')
-        toast.success(t.toast.success.retrySuccessful, {
-          description: t.toast.success.operationCompleted
+        toast.success(t.toast.success.updated, {
+          description: 'Operation completed successfully'
         })
       }
     }

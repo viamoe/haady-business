@@ -178,7 +178,6 @@ export function NotificationDrawer({
               "transition-[width] duration-500 ease-in-out",
               isExpanded ? "w-[1024px]" : "w-[480px]"
             )}
-            direction={isRTL ? "left" : "right"}
             style={{
               width: isExpanded ? '1024px' : '480px',
             }}
