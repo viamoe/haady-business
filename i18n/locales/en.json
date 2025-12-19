@@ -8,7 +8,10 @@
     "back": "Back",
     "next": "Next",
     "cancel": "Cancel",
+    "confirm": "Confirm",
     "save": "Save",
+    "upload": "Upload",
+    "uploading": "Uploading...",
     "loading": "Loading...",
     "error": "Error",
     "success": "Success"
@@ -96,6 +99,7 @@
     "signInButton": "Sign in",
     "noAccountError": "You don't have an account. Please create one instead.",
     "noAccountWithEmail": "There is no account with this email. Please create an account instead.",
+    "signupsDisabled": "Unable to create account with email. Please use Google sign-in or contact support.",
     "errorOccurred": "An error occurred. Please try again.",
     "googleSignInError": "An error occurred while signing in with Google",
     "checkingEmail": "Checking...",
@@ -143,6 +147,38 @@
     },
     "pageName": {
       "dashboard": "Dashboard"
+    },
+    "dateRange": {
+      "selectRange": "Select date range",
+      "quickPresets": "Quick presets",
+      "today": "Today",
+      "thisWeek": "This week",
+      "thisMonth": "This month",
+      "thisQuarter": "This quarter",
+      "thisYear": "This year",
+      "lastWeek": "Last week",
+      "lastMonth": "Last month",
+      "lastQuarter": "Last quarter"
+    },
+    "cards": {
+      "sales": {
+        "title": "Sales",
+        "description": "Track total sales for the selected range"
+      },
+      "orders": {
+        "title": "Orders",
+        "description": "Orders received during this period"
+      },
+      "products": {
+        "title": "Products",
+        "description": "Total products in this store"
+      }
+    },
+    "periods": {
+      "today": "Today",
+      "week": "This Week",
+      "month": "This Month",
+      "year": "This Year"
     }
   },
   "sidebar": {
@@ -166,7 +202,11 @@
     "user": {
       "profile": "Profile",
       "accountSettings": "Account Settings",
-      "signOut": "Sign Out"
+      "signOut": "Sign Out",
+      "support": "Support",
+      "logout": "Logout",
+      "switchToArabic": "Switch to Arabic",
+      "switchToEnglish": "Switch to English"
     }
   },
   "commandMenu": {
@@ -222,9 +262,74 @@
       "monthsAgo": "{count} months ago",
       "yearAgo": "{count} year ago",
       "yearsAgo": "{count} years ago"
+    },
+    "storeLogo": {
+      "uploadTitle": "Upload Store Logo",
+      "uploadDescription": "Upload a custom logo for your store. This will be displayed in the store selector.",
+      "selectFile": "Select Logo File",
+      "clickToUpload": "Click to upload or drag and drop",
+      "dragAndDrop": "Drag and drop your logo here or",
+      "chooseLogo": "Choose logo",
+      "fileRequirements": "Supported formats: PNG, JPG, JPEG (max 2MB)",
+      "adjustImage": "Adjust the image until it fits inside the rounded box",
+      "selectDifferentImage": "Select a different image",
+      "uploadSuccess": "Store logo uploaded successfully",
+      "uploadError": "Failed to upload store logo. Please try again.",
+      "removeLogo": "Remove Logo",
+      "removeSuccess": "Store logo removed successfully",
+      "removeError": "Failed to remove store logo. Please try again."
     }
   },
   "onboarding": {
+    "createStoreModal": {
+      "title": "Create New Store",
+      "description": "Create a new Haady store. Required fields are marked with an asterisk.",
+      "fields": {
+        "name": "Store Name",
+        "slug": "Store Slug",
+        "storeType": "Store Type",
+        "country": "Country",
+        "city": "City",
+        "address": "Address",
+        "minimumOrderAmount": "Minimum Order Amount",
+        "description": "Description"
+      },
+      "placeholders": {
+        "name": "My Store",
+        "slug": "my-store",
+        "country": "United States",
+        "city": "New York",
+        "address": "123 Main Street",
+        "description": "Store description..."
+      },
+      "helpText": {
+        "name": "The display name of the store.",
+        "slug": "URL-friendly identifier. Auto-generated from name, but can be customized. Must be unique.",
+        "storeType": "The type of store operation.",
+        "minimumOrderAmount": "Optional. Minimum order amount in the store's currency.",
+        "description": "Optional. Brief description of the store."
+      },
+      "storeTypes": {
+        "online": "Online",
+        "retail": "Retail",
+        "hybrid": "Hybrid",
+        "popUp": "Pop-up"
+      },
+      "creating": "Creating...",
+      "createButton": "Create Store",
+      "success": {
+        "title": "Store created successfully",
+        "description": "The store \"{name}\" has been created."
+      },
+      "errors": {
+        "nameRequired": "Store name is required",
+        "pleaseEnterName": "Please enter a store name.",
+        "slugRequired": "Store slug is required",
+        "pleaseEnterSlug": "Please enter a store slug.",
+        "createFailed": "Failed to create store",
+        "tryAgain": "An error occurred while creating the store. Please try again."
+      }
+    },
     "modal": {
       "title": {
         "welcome": "Let's get your business ready",

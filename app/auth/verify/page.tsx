@@ -16,14 +16,14 @@ export default async function OtpVerificationPage({
   const { data: { user }, error } = await supabase.auth.getUser();
 
   if (!error && user) {
-    const { data: merchantUser } = await supabase
-      .from('merchant_users')
-      .select('merchant_id')
+    const { data: businessProfile } = await supabase
+      .from('business_profile')
+      .select('id, business_name')
       .eq('auth_user_id', user.id)
       .maybeSingle();
 
     const cookieStore = await cookies();
-    if (merchantUser?.merchant_id) {
+    if (businessProfile?.business_name) {
       const dashboardUrl = getLocalizedUrlFromRequest('/dashboard', {
         cookies: {
           get: (name: string) => {
@@ -34,7 +34,7 @@ export default async function OtpVerificationPage({
       });
       redirect(dashboardUrl);
     } else {
-      const setupUrl = getLocalizedUrlFromRequest('/setup', {
+      const onboardingUrl = getLocalizedUrlFromRequest('/onboarding/personal-details', {
         cookies: {
           get: (name: string) => {
             const cookie = cookieStore.get(name);
@@ -42,7 +42,7 @@ export default async function OtpVerificationPage({
           }
         }
       });
-      redirect(setupUrl);
+      redirect(onboardingUrl);
     }
   }
 

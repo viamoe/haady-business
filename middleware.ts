@@ -126,15 +126,15 @@ export default async function middleware(req: NextRequest) {
         return NextResponse.redirect(redirectUrl);
       }
 
-      // Check if user already has a merchant account with a merchant_id
-      const { data: merchantUser } = await supabase
-        .from('merchant_users')
-        .select('merchant_id')
+      // Check if user already has a business account with business_name set
+      const { data: businessProfile } = await supabase
+        .from('business_profile')
+        .select('id, business_name')
         .eq('auth_user_id', user.id)
         .maybeSingle();
 
-      // If user has merchant_id (completed setup), redirect to dashboard
-      if (merchantUser?.merchant_id) {
+      // If user has business_name (completed setup), redirect to dashboard
+      if (businessProfile?.business_name) {
         // Preserve locale-country prefix in redirect
         const redirectUrl = urlMatch 
           ? new URL(`/${currentLocale}-${currentCountryCode?.toLowerCase()}/dashboard`, req.url)
@@ -142,7 +142,7 @@ export default async function middleware(req: NextRequest) {
         return NextResponse.redirect(redirectUrl);
       }
 
-      // User is authenticated but no merchant - allow access to setup
+      // User is authenticated but no business - allow access to setup
     } catch (error) {
       console.error('Middleware error:', error);
       // Preserve locale-country prefix in redirect
@@ -153,7 +153,7 @@ export default async function middleware(req: NextRequest) {
     }
   }
 
-  // Protect dashboard route - require valid user and merchant account
+  // Protect dashboard route - require valid user and business account
   if (isDashboard) {
     try {
       const supabase = createServerClient(
@@ -185,19 +185,19 @@ export default async function middleware(req: NextRequest) {
         return NextResponse.redirect(redirectUrl);
       }
 
-      // Check if user has a business account with a merchant_id
-      const { data: merchantUser, error: dbError } = await supabase
-        .from('merchant_users')
-        .select('merchant_id')
+      // Check if user has a business account with business_name set
+      const { data: businessProfile, error: dbError } = await supabase
+        .from('business_profile')
+        .select('id, business_name')
         .eq('auth_user_id', user.id)
         .maybeSingle();
 
-      // If no business account or merchant_id is null, redirect to setup
-      if (dbError || !merchantUser || !merchantUser.merchant_id) {
+      // If no business account or business_name is null, redirect to onboarding
+      if (dbError || !businessProfile || !businessProfile.business_name) {
         // Preserve locale-country prefix in redirect
         const redirectUrl = urlMatch 
-          ? new URL(`/${currentLocale}-${currentCountryCode?.toLowerCase()}/setup`, req.url)
-          : new URL('/setup', req.url);
+          ? new URL(`/${currentLocale}-${currentCountryCode?.toLowerCase()}/onboarding/personal-details`, req.url)
+          : new URL('/onboarding/personal-details', req.url);
         return NextResponse.redirect(redirectUrl);
       }
     } catch (error) {
@@ -243,14 +243,14 @@ export default async function middleware(req: NextRequest) {
       const { data: { user }, error: authError } = await supabase.auth.getUser();
 
       if (!authError && user) {
-      // Check if user has a business account with a merchant_id
-      const { data: merchantUser } = await supabase
-        .from('merchant_users')
-        .select('merchant_id')
+      // Check if user has a business account with business_name set
+      const { data: businessProfile } = await supabase
+        .from('business_profile')
+        .select('id, business_name')
         .eq('auth_user_id', user.id)
         .maybeSingle();
 
-      if (merchantUser?.merchant_id) {
+      if (businessProfile?.business_name) {
           // Preserve locale-country prefix in redirect
           const redirectUrl = urlMatch 
             ? new URL(`/${currentLocale}-${currentCountryCode?.toLowerCase()}/dashboard`, req.url)
@@ -259,8 +259,8 @@ export default async function middleware(req: NextRequest) {
         } else {
           // Preserve locale-country prefix in redirect
           const redirectUrl = urlMatch 
-            ? new URL(`/${currentLocale}-${currentCountryCode?.toLowerCase()}/setup`, req.url)
-            : new URL('/setup', req.url);
+            ? new URL(`/${currentLocale}-${currentCountryCode?.toLowerCase()}/onboarding/personal-details`, req.url)
+            : new URL('/onboarding/personal-details', req.url);
           return NextResponse.redirect(redirectUrl);
         }
       }

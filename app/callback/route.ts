@@ -106,13 +106,13 @@ export async function GET(request: Request) {
   
   // Verify the user exists in the database
   const { data: userRecord, error: userError } = await adminClient
-    .from('merchant_users')
-    .select('id, auth_user_id, merchant_id')
+    .from('business_profile')
+    .select('id, auth_user_id, business_name')
     .eq('auth_user_id', userIdFromState)
     .maybeSingle();
   
   if (userError || !userRecord) {
-    console.error('❌ User not found in merchant_users:', {
+    console.error('❌ User not found in business_profile:', {
       userIdFromState,
       error: userError?.message,
       platform,
@@ -134,8 +134,8 @@ export async function GET(request: Request) {
   
   console.log('✅ User verified from state:', {
     userIdFromState,
-    merchantUserId: userRecord.id,
-    merchantId: userRecord.merchant_id,
+    businessProfileId: userRecord.id,
+    businessId: userRecord.id,
   });
   
   // Create a regular Supabase client for database operations (RLS will use service role)
@@ -382,50 +382,147 @@ export async function GET(request: Request) {
       console.warn('Continuing with connection without store name...');
     }
 
-    // Store the connection in the database
-    // Note: Shopify doesn't provide refresh_token, so we use empty string for Shopify
+    // Get business profile first
+    const { data: businessProfile } = await supabase
+      .from('business_profile')
+      .select('id, business_name')
+      .eq('auth_user_id', user.id)
+      .single()
+
+    if (!businessProfile?.business_name) {
+      console.error('❌ Business profile not found for user:', user.id);
+      const dashboardUrl = getDashboardUrl();
+      dashboardUrl.searchParams.set('error', `${platform}_connection_failed`);
+      dashboardUrl.searchParams.set('message', 'Business profile not found');
+      return NextResponse.redirect(dashboardUrl);
+    }
+
+    // Create or update store FIRST (stores is now the source of truth)
+    const storeNameToUse = storeName || `${platform.charAt(0).toUpperCase() + platform.slice(1)} Store`
+    const slug = storeNameToUse
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+
+    // Map platform string to enum value (normalize to lowercase)
+    const platformEnum = platform.toLowerCase() as 'salla' | 'zid' | 'shopify' | 'woocommerce' | 'haady'
+
+    // Check if store already exists for this external store ID
+    let existingStore = null;
+    if (storeExternalId) {
+      // Find store by checking if a connection with this external_id exists and has a store
+      const { data: existingConnection } = await supabase
+        .from('store_connections')
+        .select('store_id')
+        .eq('store_external_id', storeExternalId)
+        .maybeSingle()
+      
+      if (existingConnection?.store_id) {
+        const { data: store } = await supabase
+          .from('stores')
+          .select('id, platform')
+          .eq('id', existingConnection.store_id)
+          .eq('business_id', businessProfile.id)
+          .maybeSingle()
+        
+        existingStore = store;
+      }
+    }
+
+    // Use admin client to create/update store
+    const { createClient } = await import('@supabase/supabase-js')
+    const adminClient = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false,
+        },
+      }
+    )
+
+    let storeId: string;
+    if (existingStore) {
+      // Update existing store
+      console.log('🔄 Updating existing store:', existingStore.id);
+      const { error: updateError } = await adminClient
+        .from('stores')
+        .update({
+          name: storeNameToUse,
+          is_active: true,
+        })
+        .eq('id', existingStore.id)
+      
+      if (updateError) {
+        console.error('❌ Error updating store:', updateError);
+      } else {
+        console.log('✅ Store updated:', existingStore.id);
+      }
+      storeId = existingStore.id;
+    } else {
+      // Create new store
+      console.log('➕ Creating new store:', storeNameToUse);
+      const { data: newStore, error: storeError } = await adminClient
+        .from('stores')
+        .insert({
+          business_id: businessProfile.id,
+          name: storeNameToUse,
+          slug: `${slug}-${Date.now()}`,
+          store_type: 'online',
+          is_active: true,
+          platform: platformEnum,
+        })
+        .select('id')
+        .single()
+
+      if (storeError) {
+        console.error('❌ Error creating store:', storeError);
+        const dashboardUrl = getDashboardUrl();
+        dashboardUrl.searchParams.set('error', `${platform}_connection_failed`);
+        dashboardUrl.searchParams.set('message', 'Failed to create store');
+        return NextResponse.redirect(dashboardUrl);
+      }
+      
+      storeId = newStore.id;
+      console.log('✅ Store created:', storeId);
+    }
+
+    // Now create or update store_connection (only OAuth data, linked via store_id)
     const connectionData = {
-      user_id: user.id,
-      platform: platform,
+      store_id: storeId, // Link to the store we just created/updated
       store_external_id: storeExternalId,
-      store_name: storeName,
       store_domain: storeDomain,
       access_token: access_token,
       refresh_token: refresh_token || (platform === 'shopify' ? '' : null), // Shopify doesn't provide refresh tokens
+      connection_status: 'connected',
+      sync_status: 'idle',
     }
     
     console.log('💾 Saving connection data:', JSON.stringify(connectionData, null, 2));
     
-    // Check if connection already exists for this specific store
-    // We check by store_external_id to allow multiple stores from the same platform
-    let existingConnection = null;
-    
-    if (storeExternalId) {
-      const { data } = await supabase
-        .from('store_connections')
-        .select('id')
-        .eq('user_id', user.id)
-        .eq('platform', platform)
-        .eq('store_external_id', storeExternalId)
-        .maybeSingle()
-      
-      existingConnection = data;
-    }
+    // Check if connection already exists for this store
+    const { data: existingConnection } = await adminClient
+      .from('store_connections')
+      .select('id')
+      .eq('store_id', storeId)
+      .maybeSingle()
 
     let savedConnection;
     let dbError;
 
     if (existingConnection) {
-      // Update existing connection for this specific store
-      console.log('🔄 Updating existing connection for store:', storeExternalId, existingConnection.id);
-      const { data, error } = await supabase
+      // Update existing connection
+      console.log('🔄 Updating existing connection:', existingConnection.id);
+      const { data, error } = await adminClient
         .from('store_connections')
         .update({
           store_external_id: storeExternalId,
-          store_name: storeName,
           store_domain: storeDomain,
           access_token: access_token,
-          refresh_token: refresh_token,
+          refresh_token: refresh_token || (platform === 'shopify' ? '' : null),
+          connection_status: 'connected',
+          sync_status: 'idle',
           updated_at: new Date().toISOString(),
         })
         .eq('id', existingConnection.id)
@@ -434,9 +531,9 @@ export async function GET(request: Request) {
       savedConnection = data;
       dbError = error;
     } else {
-      // Insert new connection (allows multiple stores from same platform)
-      console.log('➕ Creating new connection for store:', storeExternalId || 'unknown');
-      const { data, error } = await supabase
+      // Insert new connection
+      console.log('➕ Creating new connection for store:', storeId);
+      const { data, error } = await adminClient
         .from('store_connections')
         .insert(connectionData)
         .select()
@@ -447,160 +544,10 @@ export async function GET(request: Request) {
 
     if (dbError) {
       console.error('❌ Error saving store connection:', dbError);
-      console.error('Error code:', dbError.code);
-      console.error('Error message:', dbError.message);
-      console.error('Error details:', dbError.details);
-      console.error('Error hint:', dbError.hint);
-      console.error('Full error:', JSON.stringify(dbError, null, 2));
-      console.error('Data we tried to save:', JSON.stringify(connectionData, null, 2));
-      
-      // Handle refresh_token constraint for Shopify (which doesn't provide refresh tokens)
-      if (dbError.message?.includes('refresh_token') && platform === 'shopify') {
-        console.warn('⚠️ Shopify doesn\'t provide refresh_token, trying with empty string...');
-        const shopifyData = {
-          ...connectionData,
-          refresh_token: '', // Use empty string for Shopify
-        };
-        
-        if (existingConnection) {
-          const { data: shopifyUpdateData, error: shopifyError } = await supabase
-            .from('store_connections')
-            .update(shopifyData)
-            .eq('id', existingConnection.id)
-            .select()
-          
-          if (shopifyError) {
-            console.error('❌ Shopify update with empty refresh_token also failed:', shopifyError);
-            dbError = shopifyError; // Keep the error
-          } else {
-            console.log('✅ Shopify connection saved with empty refresh_token');
-            savedConnection = shopifyUpdateData;
-            dbError = null; // Clear error so we continue
-          }
-        } else {
-          const { data: shopifyDataResult, error: shopifyError } = await supabase
-            .from('store_connections')
-            .insert(shopifyData)
-            .select()
-          
-          if (shopifyError) {
-            console.error('❌ Shopify insert with empty refresh_token also failed:', shopifyError);
-            dbError = shopifyError; // Keep the error
-          } else {
-            console.log('✅ Shopify connection saved with empty refresh_token');
-            savedConnection = shopifyDataResult;
-            dbError = null; // Clear error so we continue
-          }
-        }
-      }
-      
-      // If columns don't exist, try without them
-      if (dbError && (dbError.message?.includes('store_name') || dbError.message?.includes('store_domain'))) {
-        console.warn('⚠️ store_name or store_domain columns may not exist, trying without them...');
-        const fallbackData = {
-          user_id: user.id,
-          platform: platform,
-          store_external_id: storeExternalId,
-          access_token: access_token,
-          refresh_token: refresh_token || (platform === 'shopify' ? '' : null), // Shopify doesn't provide refresh tokens
-        }
-        
-        if (existingConnection) {
-          const { error: fallbackError } = await supabase
-            .from('store_connections')
-            .update(fallbackData)
-            .eq('id', existingConnection.id)
-          
-          if (fallbackError) {
-            console.error('❌ Fallback update also failed:', fallbackError);
-          } else {
-            console.log('✅ Connection saved without store_name/store_domain');
-          }
-        } else {
-          const { error: fallbackError } = await supabase
-            .from('store_connections')
-            .insert(fallbackData)
-          
-          if (fallbackError) {
-            console.error('❌ Fallback insert also failed:', fallbackError);
-          } else {
-            console.log('✅ Connection saved without store_name/store_domain');
-          }
-        }
-      }
+      // Store is already created, so we continue but log the error
+      console.warn('⚠️ Store created but connection failed. Store ID:', storeId);
     } else {
       console.log('✅ Store connection saved successfully!', savedConnection);
-      if (storeName) {
-        console.log('✅ Store name saved:', storeName);
-      } else {
-        console.warn('⚠️ Store name was not available in API response');
-      }
-
-      // Create a store for this connection if it doesn't exist
-      if (savedConnection && savedConnection[0]?.id) {
-        try {
-          // Get merchant_id from merchant_users
-          const { data: merchantUser } = await supabase
-            .from('merchant_users')
-            .select('merchant_id')
-            .eq('auth_user_id', user.id)
-            .single()
-
-          if (merchantUser?.merchant_id) {
-            // Check if store already exists for this connection
-            const { data: existingStore } = await supabase
-              .from('stores')
-              .select('id')
-              .eq('store_connection_id', savedConnection[0].id)
-              .maybeSingle()
-
-            if (!existingStore) {
-              // Create store using admin client to bypass RLS
-              const { createClient } = await import('@supabase/supabase-js')
-              const adminClient = createClient(
-                process.env.NEXT_PUBLIC_SUPABASE_URL!,
-                process.env.SUPABASE_SERVICE_ROLE_KEY!,
-                {
-                  auth: {
-                    autoRefreshToken: false,
-                    persistSession: false,
-                  },
-                }
-              )
-
-              const storeNameToUse = storeName || `${platform.charAt(0).toUpperCase() + platform.slice(1)} Store`
-              const slug = storeNameToUse
-                .toLowerCase()
-                .replace(/[^a-z0-9]+/g, '-')
-                .replace(/^-+|-+$/g, '')
-
-              const { data: newStore, error: storeError } = await adminClient
-                .from('stores')
-                .insert({
-                  merchant_id: merchantUser.merchant_id,
-                  store_connection_id: savedConnection[0].id,
-                  name: storeNameToUse,
-                  slug: `${slug}-${Date.now()}`,
-                  store_type: 'online',
-                  is_active: true,
-                })
-                .select('id')
-                .single()
-
-              if (storeError) {
-                console.error('❌ Error creating store:', storeError)
-              } else {
-                console.log('✅ Store created for connection:', newStore.id)
-              }
-            } else {
-              console.log('✅ Store already exists for this connection:', existingStore.id)
-            }
-          }
-        } catch (storeCreationError) {
-          console.error('❌ Error in store creation process:', storeCreationError)
-          // Don't fail the whole callback if store creation fails
-        }
-      }
     }
 
     // Redirect to dashboard with success message

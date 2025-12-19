@@ -8,7 +8,10 @@
     "back": "رجوع",
     "next": "التالي",
     "cancel": "إلغاء",
+    "confirm": "تأكيد",
     "save": "حفظ",
+    "upload": "رفع",
+    "uploading": "جاري الرفع...",
     "loading": "جاري التحميل...",
     "error": "خطأ",
     "success": "نجح"
@@ -96,6 +99,7 @@
     "signInButton": "تسجيل الدخول",
     "noAccountError": "ليس لديك حساب. يرجى إنشاء حساب بدلاً من ذلك.",
     "noAccountWithEmail": "لا يوجد حساب بهذا البريد الإلكتروني. يرجى إنشاء حساب بدلاً من ذلك.",
+    "signupsDisabled": "تعذر إنشاء حساب بالبريد الإلكتروني. يرجى استخدام تسجيل الدخول بجوجل أو التواصل مع الدعم.",
     "errorOccurred": "حدث خطأ. يرجى المحاولة مرة أخرى.",
     "googleSignInError": "حدث خطأ أثناء تسجيل الدخول مع جوجل",
     "checkingEmail": "جاري التحقق...",
@@ -143,6 +147,38 @@
     },
     "pageName": {
       "dashboard": "لوحة التحكم"
+    },
+    "dateRange": {
+      "selectRange": "اختر نطاق التاريخ",
+      "quickPresets": "فترات سريعة",
+      "today": "اليوم",
+      "thisWeek": "هذا الأسبوع",
+      "thisMonth": "هذا الشهر",
+      "thisQuarter": "هذا الربع",
+      "thisYear": "هذا العام",
+      "lastWeek": "الأسبوع الماضي",
+      "lastMonth": "الشهر الماضي",
+      "lastQuarter": "الربع الماضي"
+    },
+    "cards": {
+      "sales": {
+        "title": "المبيعات",
+        "description": "تتبع إجمالي المبيعات للفترة المحددة"
+      },
+      "orders": {
+        "title": "الطلبات",
+        "description": "الطلبات المستلمة خلال هذه الفترة"
+      },
+      "products": {
+        "title": "المنتجات",
+        "description": "إجمالي المنتجات في هذا المتجر"
+      }
+    },
+    "periods": {
+      "today": "اليوم",
+      "week": "هذا الأسبوع",
+      "month": "هذا الشهر",
+      "year": "هذا العام"
     }
   },
   "sidebar": {
@@ -166,7 +202,11 @@
     "user": {
       "profile": "الملف الشخصي",
       "accountSettings": "إعدادات الحساب",
-      "signOut": "تسجيل الخروج"
+      "signOut": "تسجيل الخروج",
+      "support": "الدعم",
+      "logout": "تسجيل الخروج",
+      "switchToArabic": "التبديل إلى العربية",
+      "switchToEnglish": "التبديل إلى الإنجليزية"
     }
   },
   "commandMenu": {
@@ -222,9 +262,74 @@
       "monthsAgo": "منذ {count} شهر",
       "yearAgo": "منذ {count} سنة",
       "yearsAgo": "منذ {count} سنة"
+    },
+    "storeLogo": {
+      "uploadTitle": "رفع شعار المتجر",
+      "uploadDescription": "قم برفع شعار مخصص لمتجرك. سيتم عرضه في محدد المتجر.",
+      "selectFile": "اختر ملف الشعار",
+      "clickToUpload": "انقر للرفع أو اسحب وأفلت",
+      "dragAndDrop": "اسحب وأفلت شعارك هنا أو",
+      "chooseLogo": "اختر الشعار",
+      "fileRequirements": "الصيغ المدعومة: PNG، JPG، JPEG (بحد أقصى 2 ميجابايت)",
+      "adjustImage": "اضبط الصورة حتى تتناسب داخل الصندوق المدور",
+      "selectDifferentImage": "اختر صورة مختلفة",
+      "uploadSuccess": "تم رفع شعار المتجر بنجاح",
+      "uploadError": "فشل رفع شعار المتجر. يرجى المحاولة مرة أخرى.",
+      "removeLogo": "إزالة الشعار",
+      "removeSuccess": "تم إزالة شعار المتجر بنجاح",
+      "removeError": "فشل إزالة شعار المتجر. يرجى المحاولة مرة أخرى."
     }
   },
   "onboarding": {
+    "createStoreModal": {
+      "title": "إنشاء متجر جديد",
+      "description": "إنشاء متجر Haady جديد. الحقول المطلوبة محددة بعلامة النجمة.",
+      "fields": {
+        "name": "اسم المتجر",
+        "slug": "المعرف",
+        "storeType": "نوع المتجر",
+        "country": "الدولة",
+        "city": "المدينة",
+        "address": "العنوان",
+        "minimumOrderAmount": "الحد الأدنى لمبلغ الطلب",
+        "description": "الوصف"
+      },
+      "placeholders": {
+        "name": "متجري",
+        "slug": "my-store",
+        "country": "الولايات المتحدة",
+        "city": "نيويورك",
+        "address": "123 الشارع الرئيسي",
+        "description": "وصف المتجر..."
+      },
+      "helpText": {
+        "name": "اسم العرض للمتجر.",
+        "slug": "معرف مناسب للرابط. يتم إنشاؤه تلقائياً من الاسم، ولكن يمكن تخصيصه. يجب أن يكون فريداً.",
+        "storeType": "نوع عملية المتجر.",
+        "minimumOrderAmount": "اختياري. الحد الأدنى لمبلغ الطلب بعملة المتجر.",
+        "description": "اختياري. وصف موجز للمتجر."
+      },
+      "storeTypes": {
+        "online": "عبر الإنترنت",
+        "retail": "بيع بالتجزئة",
+        "hybrid": "مختلط",
+        "popUp": "منبثق"
+      },
+      "creating": "جاري الإنشاء...",
+      "createButton": "إنشاء المتجر",
+      "success": {
+        "title": "تم إنشاء المتجر بنجاح",
+        "description": "تم إنشاء المتجر \"{name}\"."
+      },
+      "errors": {
+        "nameRequired": "اسم المتجر مطلوب",
+        "pleaseEnterName": "يرجى إدخال اسم المتجر.",
+        "slugRequired": "معرف المتجر مطلوب",
+        "pleaseEnterSlug": "يرجى إدخال معرف المتجر.",
+        "createFailed": "فشل إنشاء المتجر",
+        "tryAgain": "حدث خطأ أثناء إنشاء المتجر. يرجى المحاولة مرة أخرى."
+      }
+    },
     "modal": {
       "title": {
         "welcome": "لنعد عملك جاهزاً",

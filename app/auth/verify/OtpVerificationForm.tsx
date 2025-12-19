@@ -173,45 +173,44 @@ export default function OtpVerificationForm({ email }: OtpVerificationFormProps)
           // Continue anyway - user can still proceed
         }
 
-        // Check if merchant_user exists
-        let { data: merchantUser, error: merchantError } = await supabase
-          .from('merchant_users')
-          .select('merchant_id')
+        // Check if business_profile exists
+        let { data: businessProfile, error: businessError } = await supabase
+          .from('business_profile')
+          .select('id, business_name')
           .eq('auth_user_id', data.user.id)
           .maybeSingle();
 
-        // If merchant_user doesn't exist, create it
-        if (!merchantUser && !merchantError) {
-          const { data: newMerchantUser, error: createError } = await supabase
-            .from('merchant_users')
+        // If business_profile doesn't exist, create it
+        if (!businessProfile && !businessError) {
+          const { data: newBusinessProfile, error: createError } = await supabase
+            .from('business_profile')
             .insert({
               auth_user_id: data.user.id,
-              merchant_id: null,
               role: 'manager',
               preferred_country: preferredCountry,
               preferred_language: preferredLanguage,
               is_primary_contact: true,
             })
-            .select('merchant_id')
+            .select('id, business_name')
             .single();
 
           if (createError) {
-            console.error('Error creating merchant_user:', createError);
+            console.error('Error creating business_profile:', createError);
             // Continue anyway - user can still proceed to setup
           } else {
-            merchantUser = newMerchantUser;
+            businessProfile = newBusinessProfile;
           }
         }
 
-        if (merchantUser?.merchant_id) {
+        if (businessProfile?.business_name) {
           setLoading(true, 'Redirecting to dashboard...');
           const dashboardUrl = getLocalizedUrl('/dashboard', pathname);
           router.push(dashboardUrl);
           router.refresh();
         } else {
-          setLoading(true, 'Redirecting to setup...');
-          const setupUrl = getLocalizedUrl('/setup', pathname);
-          router.push(setupUrl);
+          setLoading(true, 'Redirecting to onboarding...');
+          const onboardingUrl = getLocalizedUrl('/onboarding/personal-details', pathname);
+          router.push(onboardingUrl);
           router.refresh();
         }
       }

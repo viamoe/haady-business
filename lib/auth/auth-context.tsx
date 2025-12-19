@@ -78,8 +78,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       // If getUser() succeeds, user exists in auth system
-      // We don't need to check merchant_users table because:
-      // 1. New users might not be in merchant_users yet (they're still setting up)
+      // We don't need to check business_profile table because:
+      // 1. New users might not be in business_profile yet (they're still setting up)
       // 2. The auth.users table is the source of truth for user existence
       return true;
     } catch (error) {

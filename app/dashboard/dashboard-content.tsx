@@ -1,8 +1,13 @@
 'use client'
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import { cn } from '@/lib/utils'
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -17,6 +22,7 @@ import {
   ArrowRight, 
   ArrowUpRight,
   CheckCircle2,
+  Check,
   Circle,
   Plus,
   Sparkles,
@@ -25,6 +31,7 @@ import {
   CreditCard,
   Truck,
   ExternalLink,
+  ChevronDown,
 } from 'lucide-react'
 import Image from 'next/image'
 import Link from 'next/link'
@@ -36,6 +43,10 @@ import { useTranslations } from 'next-intl'
 import { toast } from '@/lib/toast'
 import { useStoreConnection } from '@/lib/store-connection-context'
 import { supabase } from '@/lib/supabase/client'
+import { useLocale } from '@/i18n/context'
+import { DateRangePicker } from '@/components/date-range-picker'
+import type { DateRange } from 'react-day-picker'
+import { AreaChart, Area, ResponsiveContainer, Tooltip } from 'recharts'
 
 interface StoreConnection {
   id: string
@@ -53,7 +64,7 @@ interface StoreConnection {
 
 interface DashboardContentProps {
   userName: string
-  merchantName: string
+  businessName: string
   storeCount: number
   productCount: number
   hasStore: boolean
@@ -62,7 +73,16 @@ interface DashboardContentProps {
   hasShippingConfigured: boolean
   isSetupComplete: boolean
   storeConnections?: StoreConnection[]
+  countryCurrency?: string
 }
+
+// Get period options with translations
+const getInsightPeriodOptions = (t: any) => [
+  { value: 'today', label: t('dashboard.periods.today') },
+  { value: 'week', label: t('dashboard.periods.week') },
+  { value: 'month', label: t('dashboard.periods.month') },
+  { value: 'year', label: t('dashboard.periods.year') },
+] as const
 
 // Get greeting based on time of day - memoized to avoid recalculation
 const getGreeting = (t: any) => {
@@ -72,49 +92,243 @@ const getGreeting = (t: any) => {
   return t('dashboard.greeting.evening')
 }
 
+// Generate chart data based on period with fake data for testing
+function generateChartData(period: string, baseValue: number = 0) {
+  const data = []
+  let dataPoints = 7
+  
+  // Use fake data for testing - generate realistic trends
+  if (period === 'today') {
+    dataPoints = 24 // Hourly data for today
+    const base = baseValue || 1000 // Default to 1000 if baseValue is 0
+    for (let i = 0; i < dataPoints; i++) {
+      // Simulate daily pattern: lower in morning, peak in afternoon/evening
+      const hourMultiplier = i < 6 ? 0.3 : i < 12 ? 0.6 : i < 18 ? 1.0 : i < 22 ? 0.9 : 0.5
+      const randomVariation = 0.8 + Math.random() * 0.4 // 0.8 to 1.2
+      data.push({
+        name: `${String(i).padStart(2, '0')}:00`,
+        value: Math.max(0, base * hourMultiplier * randomVariation),
+      })
+    }
+  } else if (period === 'week') {
+    dataPoints = 7 // Daily data for week
+    const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+    const base = baseValue || 500 // Default to 500 if baseValue is 0
+    for (let i = 0; i < dataPoints; i++) {
+      // Simulate weekly pattern: lower on weekends
+      const dayMultiplier = i < 5 ? 1.0 : 0.7 // Weekdays vs weekends
+      const randomVariation = 0.85 + Math.random() * 0.3 // 0.85 to 1.15
+      data.push({
+        name: days[i],
+        value: Math.max(0, base * dayMultiplier * randomVariation),
+      })
+    }
+  } else if (period === 'month') {
+    dataPoints = 30 // Daily data for month
+    const base = baseValue || 200 // Default to 200 if baseValue is 0
+    for (let i = 1; i <= dataPoints; i++) {
+      // Simulate monthly trend with some growth
+      const trendMultiplier = 1 + (i / dataPoints) * 0.3 // Gradual increase
+      const randomVariation = 0.8 + Math.random() * 0.4 // 0.8 to 1.2
+      data.push({
+        name: i.toString(),
+        value: Math.max(0, base * trendMultiplier * randomVariation),
+      })
+    }
+  }
+  
+  return data
+}
+
 // Stats card component
 function StatsCard({ 
   title, 
   value, 
   description, 
-  icon: Icon, 
-  trend,
-  gradient,
+  icon: Icon,
+  selectedPeriod,
+  onPeriodChange,
+  currencyIconUrl,
+  chartColor = '#F4610B',
+  countryCurrency,
+  t,
 }: { 
   title: string
   value: string | number
   description: string
   icon: React.ElementType
-  trend?: { value: string; positive: boolean }
-  gradient: string
+  selectedPeriod: 'today' | 'week' | 'month' | 'year'
+  onPeriodChange: (period: 'today' | 'week' | 'month' | 'year') => void
+  currencyIconUrl?: string
+  chartColor?: string
+  countryCurrency?: string
+  t: any
 }) {
+  const { isRTL } = useLocale()
+  const periodOptions = getInsightPeriodOptions(t)
+  const selectedLabel =
+    periodOptions.find((option) => option.value === selectedPeriod)?.label || t('dashboard.periods.month')
+
+  // Check if value contains a URL (for currency icon)
+  const valueStr = String(value)
+  const isCurrencyUrl = currencyIconUrl && (currencyIconUrl.startsWith('http://') || currencyIconUrl.startsWith('https://'))
+  
+  // Extract numeric value if currency is a URL
+  const numericValue = isCurrencyUrl ? valueStr.replace(currencyIconUrl, '').trim() : valueStr
+  
+  // Extract numeric value for chart
+  const numericValueForChart = parseFloat(numericValue.replace(/[^\d.]/g, '')) || 0
+  
+  // Generate chart data
+  const chartData = useMemo(() => generateChartData(selectedPeriod, numericValueForChart), [selectedPeriod, numericValueForChart])
+  
+  // Calculate summary value from chart data (total for sales/orders, average for products)
+  const chartSummaryValue = useMemo(() => {
+    if (chartData.length === 0) return 0
+    
+    if (title === 'Products') {
+      // For products, show average
+      const sum = chartData.reduce((acc, item) => acc + item.value, 0)
+      return Math.round(sum / chartData.length)
+    } else {
+      // For sales and orders, show total
+      return Math.round(chartData.reduce((acc, item) => acc + item.value, 0))
+    }
+  }, [chartData, title])
+  
+  // Format the display value based on card type
+  const displayValue = useMemo(() => {
+    if (title === 'Sales') {
+      // For sales, format with currency
+      if (isCurrencyUrl && currencyIconUrl) {
+        return chartSummaryValue.toLocaleString()
+      } else {
+        return `${chartSummaryValue.toLocaleString()} ${countryCurrency || 'SAR'}`
+      }
+    } else {
+      // For orders and products, just show the number
+      return chartSummaryValue.toLocaleString()
+    }
+  }, [chartSummaryValue, title, isCurrencyUrl, currencyIconUrl, countryCurrency])
+
   return (
-    <Card className="relative overflow-hidden border-0 shadow-sm hover:shadow-md transition-shadow">
-      <div className={`absolute inset-0 ${gradient} opacity-5`} />
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-sm font-medium text-muted-foreground">{title}</CardTitle>
-        <div className={`flex h-9 w-9 items-center justify-center rounded-lg ${gradient}`}>
-          <Icon className="h-4 w-4 text-white" />
+    <Card className="group relative min-h-[200px] overflow-hidden rounded-3xl shadow-[0_18px_35px_rgba(15,23,42,0.04)] hover:shadow-[0_0_80px_rgba(15,23,42,0.12)] border-0 flex flex-col transition-all duration-200 hover:-translate-y-1">
+      <CardHeader className="pb-0 space-y-4">
+        <div className="flex items-start justify-between">
+          <div>
+            <CardTitle className="text-sm font-medium text-gray-500">{title}</CardTitle>
+            <div className="text-3xl font-bold mt-1 flex items-center gap-2">
+              {displayValue}
+              {isCurrencyUrl && currencyIconUrl && (
+                <Image
+                  src={currencyIconUrl}
+                  alt="Currency"
+                  width={32}
+                  height={32}
+                  className="inline-block"
+                  unoptimized
+                />
+              )}
+            </div>
+          </div>
+          <Icon className="h-7 w-7 text-gray-300 group-hover:text-gray-500 transition-colors duration-200" />
         </div>
       </CardHeader>
-      <CardContent>
-        <div className="flex items-baseline gap-2">
-          <div className="text-3xl font-bold">{value}</div>
-          {trend && (
-            <Badge 
-              variant="secondary" 
-              className={`text-[10px] font-medium ${
-                trend.positive 
-                  ? 'bg-emerald-50 text-emerald-600 border-emerald-200' 
-                  : 'bg-red-50 text-red-600 border-red-200'
-              }`}
-            >
-              <ArrowUpRight className={`h-3 w-3 me-0.5 ${!trend.positive && 'rotate-90'}`} />
-              {trend.value}
-            </Badge>
-          )}
+      <CardContent className="pt-2 flex flex-col gap-2">
+        {/* Chart - Centered in a div */}
+        <div className="flex items-center justify-center w-full py-2">
+          <div className="h-[80px] w-full max-w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={chartData} margin={{ top: 5, right: 5, left: 5, bottom: 5 }}>
+                <defs>
+                  <linearGradient id={`gradient-${title}`} x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor={chartColor} stopOpacity={0.3} />
+                    <stop offset="100%" stopColor={chartColor} stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <Tooltip
+                  content={({ active, payload }) => {
+                    if (active && payload && payload.length) {
+                      const data = payload[0]
+                      const value = data.value as number
+                      const isCurrencyUrlForTooltip = currencyIconUrl && (currencyIconUrl.startsWith('http://') || currencyIconUrl.startsWith('https://'))
+                      
+                      return (
+                        <div className="bg-white rounded-lg shadow-lg border border-gray-200 px-3 py-2">
+                          <p className="text-xs font-medium text-gray-500 mb-1">{data.payload.name}</p>
+                          <p className="text-sm font-bold flex items-center gap-1" style={{ color: chartColor }}>
+                            {title === 'Sales' && isCurrencyUrlForTooltip && currencyIconUrl ? (
+                              <>
+                                {value.toLocaleString()}
+                                <Image
+                                  src={currencyIconUrl}
+                                  alt="Currency"
+                                  width={20}
+                                  height={20}
+                                  className="inline-block"
+                                  unoptimized
+                                />
+                              </>
+                            ) : title === 'Sales' ? (
+                              `${value.toLocaleString()} ${countryCurrency || 'SAR'}`
+                            ) : (
+                              value.toLocaleString()
+                            )}
+                          </p>
+                        </div>
+                      )
+                    }
+                    return null
+                  }}
+                  cursor={{ stroke: chartColor, strokeWidth: 1, strokeDasharray: '3 3' }}
+                />
+                <Area
+                  type="monotone"
+                  dataKey="value"
+                  stroke={chartColor}
+                  strokeWidth={2}
+                  fill={`url(#gradient-${title})`}
+                  dot={false}
+                  activeDot={{ r: 4, fill: chartColor }}
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
         </div>
-        <p className="text-xs text-muted-foreground mt-1">{description}</p>
+        <p className="text-xs text-gray-400">{description}</p>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button className="flex items-center gap-1 text-xs font-medium text-gray-500 hover:text-gray-900 transition-colors">
+              {selectedLabel}
+              <ChevronDown className="h-3 w-3 text-gray-400" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent 
+            align={isRTL ? "end" : "start"} 
+            sideOffset={12} 
+            alignOffset={isRTL ? -16 : -12} 
+            className={cn("w-40 rounded-2xl p-1", isRTL && "text-right")}
+          >
+            {periodOptions.map((option) => (
+              <DropdownMenuItem
+                key={option.value}
+                onClick={() => onPeriodChange(option.value)}
+                className={cn(
+                  "flex items-center rounded-xl px-3 py-2 text-sm",
+                  isRTL ? "flex-row-reverse justify-between" : "justify-between",
+                  selectedPeriod === option.value
+                    ? "bg-[#F4610B] text-white"
+                    : "text-gray-600"
+                )}
+              >
+                <span className={isRTL ? "text-right" : "text-left"}>{option.label}</span>
+                {selectedPeriod === option.value && (
+                  <Check className="h-4 w-4 text-white flex-shrink-0" />
+                )}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
       </CardContent>
     </Card>
   )
@@ -157,7 +371,7 @@ const ECOMMERCE_STORAGE_URL = 'https://rovphhvuuxwbhgnsifto.supabase.co/storage/
 
 export function DashboardContent({ 
   userName, 
-  merchantName, 
+  businessName, 
   storeCount: initialStoreCount,
   productCount: initialProductCount,
   hasStore: initialHasStore,
@@ -166,6 +380,7 @@ export function DashboardContent({
   hasShippingConfigured,
   isSetupComplete: initialIsSetupComplete,
   storeConnections = [],
+  countryCurrency = 'SAR',
 }: DashboardContentProps) {
   const pathname = usePathname()
   const t = useTranslations()
@@ -176,6 +391,22 @@ export function DashboardContent({
   const [hasStore, setHasStore] = useState(initialHasStore)
   const [hasProducts, setHasProducts] = useState(initialHasProducts)
   const [isSetupComplete, setIsSetupComplete] = useState(initialIsSetupComplete)
+  const [dateRange, setDateRange] = useState<DateRange | undefined>({
+    from: new Date(new Date().setDate(new Date().getDate() - 30)), // Default to last 30 days
+    to: new Date(),
+  })
+  const [insightPeriods, setInsightPeriods] = useState<Record<string, 'today' | 'week' | 'month' | 'year'>>({
+    sales: 'today',
+    orders: 'today',
+    products: 'today',
+  })
+
+  const handleInsightPeriodChange = useCallback(
+    (cardId: string, period: 'today' | 'week' | 'month' | 'year') => {
+      setInsightPeriods((prev) => ({ ...prev, [cardId]: period }))
+    },
+    []
+  )
   const hasLoadedRef = useRef(false)
   
   // Get page name from pathname
@@ -198,12 +429,42 @@ export function DashboardContent({
       }
 
       try {
-        // Fetch stores for this connection
-        const { data: storeRecords, error: storesError, count: storeCount } = await supabase
-          .from('stores')
-          .select('id', { count: 'exact' })
-          .eq('store_connection_id', selectedConnectionId)
-          .eq('is_active', true)
+        // Check if selectedConnectionId is a store_connection_id or a Haady store ID
+        // First, check if it's a store_connection (new structure: store_connections.store_id -> stores.id)
+        const { data: connection } = await supabase
+          .from('store_connections')
+          .select('store_id')
+          .eq('id', selectedConnectionId)
+          .maybeSingle()
+
+        let storeRecords: any[] | null = null
+        let storeCount = 0
+        let storesError: any = null
+
+        if (connection?.store_id) {
+          // It's a store_connection_id, fetch the store via store_id
+          const result = await supabase
+            .from('stores')
+            .select('id', { count: 'exact' })
+            .eq('id', connection.store_id)
+            .eq('is_active', true)
+          
+          storeRecords = result.data
+          storeCount = result.count || 0
+          storesError = result.error
+        } else {
+          // It might be a Haady store ID directly, check if it exists
+          const result = await supabase
+            .from('stores')
+            .select('id', { count: 'exact' })
+            .eq('id', selectedConnectionId)
+            .eq('platform', 'haady')
+            .eq('is_active', true)
+          
+          storeRecords = result.data
+          storeCount = result.count || 0
+          storesError = result.error
+        }
 
         if (storesError) {
           console.error('Error fetching stores:', storesError)
@@ -230,10 +491,24 @@ export function DashboardContent({
         }
 
         // Fetch products for stores from this connection
-        const { count: productCount, error: productsError } = await supabase
+        let { count: productCount, error: productsError } = await supabase
           .from('products')
           .select('id', { count: 'exact', head: true })
           .in('store_id', storeIds)
+          .eq('is_active', true)
+
+        // If error is related to deleted_at column not existing, retry without it
+        if (productsError && (productsError.message?.includes('deleted_at') || productsError.code === '42703' || productsError.code === 'PGRST116')) {
+          console.log('Retrying product count query without deleted_at filter')
+          const retryResult = await supabase
+            .from('products')
+            .select('id', { count: 'exact', head: true })
+            .in('store_id', storeIds)
+            .eq('is_active', true)
+          
+          productCount = retryResult.count
+          productsError = retryResult.error
+        }
 
         if (productsError) {
           console.error('Error fetching products:', productsError)
@@ -266,6 +541,99 @@ export function DashboardContent({
 
     fetchStoreData()
   }, [selectedConnectionId, initialStoreCount, initialProductCount, initialHasStore, initialHasProducts, initialIsSetupComplete, hasPaymentConfigured, hasShippingConfigured])
+
+  // Listen for sync completion events to refresh product count
+  useEffect(() => {
+    const handleSyncCompleted = (event: CustomEvent) => {
+      const { connectionId, success } = event.detail || {}
+      console.log('Sync completed event received:', { connectionId, success, selectedConnectionId })
+      
+      // Refresh if sync was successful and matches selected connection, or if no connection is selected (show all)
+      if (success && (connectionId === selectedConnectionId || !selectedConnectionId)) {
+        // Refetch store data to update product count
+        const fetchStoreData = async () => {
+          if (!selectedConnectionId) return
+
+          try {
+            console.log('Refreshing product count for connection:', selectedConnectionId)
+            const { data: connection } = await supabase
+              .from('store_connections')
+              .select('id')
+              .eq('id', selectedConnectionId)
+              .maybeSingle()
+
+            if (!connection) {
+              console.log('No connection found')
+              return
+            }
+
+            const { data: storeRecords, count: storeCount, error: storesError } = await supabase
+              .from('stores')
+              .select('id', { count: 'exact' })
+              .eq('store_connection_id', selectedConnectionId)
+              .eq('is_active', true)
+
+            if (storesError) {
+              console.error('Error fetching stores:', storesError)
+              return
+            }
+
+            if (!storeRecords || storeRecords.length === 0) {
+              console.log('No stores found for connection')
+              return
+            }
+
+            const storeIds = storeRecords.map(s => s.id)
+            console.log('Store IDs:', storeIds)
+
+            // Fetch updated product count
+            let { count: productCount, error: productsError } = await supabase
+              .from('products')
+              .select('id', { count: 'exact', head: true })
+              .in('store_id', storeIds)
+              .eq('is_active', true)
+
+            // If error is related to deleted_at column not existing, retry without it
+            if (productsError && (productsError.message?.includes('deleted_at') || productsError.code === '42703' || productsError.code === 'PGRST116')) {
+              console.log('Retrying product count query without deleted_at filter')
+              const retryResult = await supabase
+                .from('products')
+                .select('id', { count: 'exact', head: true })
+                .in('store_id', storeIds)
+                .eq('is_active', true)
+              
+              productCount = retryResult.count
+              productsError = retryResult.error
+            }
+
+            if (productsError) {
+              console.error('Error fetching product count:', productsError)
+              return
+            }
+
+            console.log('Updated product count:', productCount)
+            if (productCount !== null) {
+              setProductCount(productCount)
+              setHasProducts(productCount > 0)
+              setIsSetupComplete(productCount > 0 && hasPaymentConfigured && hasShippingConfigured)
+            }
+          } catch (error) {
+            console.error('Error refreshing product count after sync:', error)
+          }
+        }
+
+        // Wait a bit for the sync to fully complete in the database
+        setTimeout(() => {
+          fetchStoreData()
+        }, 2000) // Increased delay to 2 seconds
+      }
+    }
+
+    window.addEventListener('productsSyncCompleted', handleSyncCompleted as EventListener)
+    return () => {
+      window.removeEventListener('productsSyncCompleted', handleSyncCompleted as EventListener)
+    }
+  }, [selectedConnectionId, hasPaymentConfigured, hasShippingConfigured])
 
   useEffect(() => {
     // Only show skeleton on initial mount, not on subsequent renders
@@ -319,7 +687,44 @@ export function DashboardContent({
     },
   ], [hasStore, hasProducts, hasPaymentConfigured, hasShippingConfigured])
 
-  const completedSteps = useMemo(() => onboardingSteps.filter(s => s.completed).length, [onboardingSteps])
+const completedSteps = useMemo(() => onboardingSteps.filter(s => s.completed).length, [onboardingSteps])
+
+const insightCards = useMemo(() => {
+  // Check if countryCurrency is a URL (currency icon)
+  const isCurrencyIconUrl = countryCurrency && (countryCurrency.startsWith('http://') || countryCurrency.startsWith('https://'))
+  const salesValue = isCurrencyIconUrl ? '0' : `0 ${countryCurrency}`
+
+  return [
+    {
+      id: 'sales',
+      title: t('dashboard.cards.sales.title'),
+      value: salesValue,
+      description: t('dashboard.cards.sales.description'),
+      icon: CreditCard,
+      currencyIconUrl: isCurrencyIconUrl ? countryCurrency : undefined,
+      chartColor: '#F4610B',
+    },
+    {
+      id: 'orders',
+      title: t('dashboard.cards.orders.title'),
+      value: '0',
+      description: t('dashboard.cards.orders.description'),
+      icon: ShoppingBag,
+      chartColor: '#F4610B',
+    },
+    {
+      id: 'products',
+      title: t('dashboard.cards.products.title'),
+      value: productCount.toString(),
+      description: t('dashboard.cards.products.description'),
+      icon: Package,
+      chartColor: '#F4610B',
+    },
+  ]
+}, [productCount, countryCurrency, t])
+
+  const recentOrders = []
+  const recentProducts = []
   
   return (
     <div className="h-full">
@@ -338,6 +743,19 @@ export function DashboardContent({
               <Skeleton className="h-5 w-96" />
             </div>
           </div>
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            {[1, 2, 3].map((item) => (
+              <Card key={`insight-skeleton-${item}`} className="border-0 shadow-sm rounded-3xl">
+                <CardHeader className="space-y-2">
+                  <Skeleton className="h-4 w-24" />
+                  <Skeleton className="h-6 w-20" />
+                </CardHeader>
+                <CardContent>
+                  <Skeleton className="h-3 w-32" />
+                </CardContent>
+              </Card>
+            ))}
+          </div>
         </div>
       ) : (
         // Content with fade-in animation
@@ -351,7 +769,7 @@ export function DashboardContent({
             </BreadcrumbList>
           </Breadcrumb>
           
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mt-2">
             <div>
               <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">
                 {getGreeting(t)}, {userName}! 👋
@@ -367,15 +785,37 @@ export function DashboardContent({
                   </>
                 ) : (
                   <>
-                    {t('dashboard.viewing.happeningWith')} <span className="font-medium text-foreground">{merchantName}</span> {t('dashboard.viewing.today')}.
+                    {t('dashboard.viewing.happeningWith')} <span className="font-medium text-foreground">{businessName}</span> {t('dashboard.viewing.today')}.
                   </>
                 )}
               </p>
             </div>
+            <div className="flex-shrink-0">
+              <DateRangePicker
+                dateRange={dateRange}
+                onDateRangeChange={setDateRange}
+              />
+            </div>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            {insightCards.map((card) => (
+              <StatsCard
+                key={card.id}
+                title={card.title}
+                value={card.value}
+                description={card.description}
+                icon={card.icon}
+                selectedPeriod={insightPeriods[card.id] ?? 'month'}
+                onPeriodChange={(period) => handleInsightPeriodChange(card.id, period)}
+                currencyIconUrl={card.currencyIconUrl}
+                chartColor={card.chartColor}
+                countryCurrency={countryCurrency}
+                t={t}
+              />
+            ))}
           </div>
         </div>
       )}
     </div>
   )
 }
-

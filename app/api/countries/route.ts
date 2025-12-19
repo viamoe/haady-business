@@ -21,83 +21,43 @@ export async function GET() {
       }
     );
     
-    // Try 'countries_master' table first (as per schema), fallback to 'countries'
-    // Fetch only active countries (is_active=true) including flag_url
+    // Fetch countries from 'countries' table
+    // Fetch only active countries (is_active=true) including flag_url and name_ar
     let { data: countries, error } = await supabase
-      .from('countries_master')
-      .select('id, name, iso2, iso3, phone_code, flag_url')
+      .from('countries')
+      .select('id, name, name_ar, iso2, iso3, phone_code, flag_url')
       .eq('is_active', true)
       .order('name', { ascending: true });
 
     // If is_active column doesn't exist, try without the filter
     if (error && error.message?.includes('is_active')) {
-      console.log('is_active column not found in countries_master, fetching all countries');
+      console.log('is_active column not found in countries table, fetching all countries');
       const { data: allCountries, error: allError } = await supabase
-        .from('countries_master')
-        .select('id, name, iso2, iso3, phone_code, flag_url')
+        .from('countries')
+        .select('id, name, name_ar, iso2, iso3, phone_code, flag_url')
         .order('name', { ascending: true });
       
       if (allError) {
-        console.log('Error with countries_master table, trying countries:', allError.message);
-        error = allError; // Continue to fallback
-      } else {
-        countries = allCountries;
-        error = null;
-      }
-    }
-
-    if (error) {
-      console.log('Error with countries_master table, trying countries:', error.message);
-      // If 'countries_master' table doesn't exist, try 'countries'
-      // Also try without is_active filter in case column doesn't exist
-      let { data: countriesTable, error: countriesError } = await supabase
-        .from('countries')
-        .select('id, name, iso2, iso3, phone_code, flag_url')
-        .eq('is_active', true)
-        .order('name', { ascending: true });
-      
-      // If is_active column doesn't exist, fetch all countries
-      if (countriesError && countriesError.message?.includes('is_active')) {
-        console.log('is_active column not found, fetching all countries');
-        const { data: allCountries, error: allError } = await supabase
-          .from('countries')
-          .select('id, name, iso2, iso3, phone_code, flag_url')
-          .order('name', { ascending: true });
-        
-        if (allError) {
-          console.error('Error fetching countries from countries table:', allError);
-          return NextResponse.json(
-            { error: 'Failed to fetch countries', details: allError.message },
-            { status: 500 }
-          );
-        }
-        
-        countriesTable = allCountries;
-        countriesError = null;
-      }
-
-      if (countriesError) {
-        console.error('Error fetching countries from both tables:', countriesError);
+        console.error('Error fetching countries from countries table:', allError);
         return NextResponse.json(
-          { error: 'Failed to fetch countries', details: countriesError.message },
+          { error: 'Failed to fetch countries', details: allError.message },
           { status: 500 }
         );
       }
+      
+      countries = allCountries;
+      error = null;
+    }
 
-      console.log('Countries fetched from countries table:', countriesTable?.length || 0);
+    if (error) {
+      console.error('Error fetching countries from countries table:', error);
       return NextResponse.json(
-        { countries: countriesTable || [] },
-        {
-          headers: {
-            'Access-Control-Allow-Origin': '*',
-            'Access-Control-Allow-Methods': 'GET, OPTIONS',
-            'Access-Control-Allow-Headers': 'Content-Type',
-          },
-        }
+        { error: 'Failed to fetch countries', details: error.message },
+        { status: 500 }
       );
     }
 
-    console.log('Countries fetched from countries_master table:', countries?.length || 0);
+    console.log('Countries fetched from countries table:', countries?.length || 0);
     return NextResponse.json(
       { countries: countries || [] },
       {

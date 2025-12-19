@@ -122,7 +122,7 @@
   }
   body {
     @apply bg-background text-foreground;
-  }
+}
   
   /* Apply IBM Plex Sans Arabic font to all Arabic text by default */
   html[lang="ar"] *,
@@ -220,6 +220,130 @@ html[lang="ar"] [data-slot="dropdown-menu-content"] *,
 .animate-heartbeat {
   animation: heartbeat 4s ease-in-out infinite;
 }
+
+.hover\:animate-heartbeat:hover {
+  animation: heartbeat 2s ease-in-out infinite;
+}
+
+/* Heart spreading animation */
+@keyframes heartSpread1 {
+  0% {
+    opacity: 1;
+    transform: translate(0, 0) scale(0.8);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-30px, -30px) scale(1.2);
+  }
+}
+
+@keyframes heartSpread2 {
+  0% {
+    opacity: 1;
+    transform: translate(0, 0) scale(0.8);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(30px, -30px) scale(1.2);
+  }
+}
+
+@keyframes heartSpread3 {
+  0% {
+    opacity: 1;
+    transform: translate(0, 0) scale(0.8);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-30px, 30px) scale(1.2);
+  }
+}
+
+@keyframes heartSpread4 {
+  0% {
+    opacity: 1;
+    transform: translate(0, 0) scale(0.8);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(30px, 30px) scale(1.2);
+  }
+}
+
+@keyframes heartSpread5 {
+  0% {
+    opacity: 1;
+    transform: translate(0, 0) scale(0.8);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(0, -40px) scale(1.2);
+  }
+}
+
+@keyframes heartSpread6 {
+  0% {
+    opacity: 1;
+    transform: translate(0, 0) scale(0.8);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(0, 40px) scale(1.2);
+  }
+}
+
+.heart-spread-container {
+  position: relative;
+  display: inline-block;
+}
+
+.heart-spread-container:hover .heart-particle {
+  animation-duration: 1.5s;
+  animation-timing-function: ease-out;
+  animation-iteration-count: infinite;
+}
+
+.heart-particle {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  margin-left: -6px;
+  margin-top: -6px;
+  opacity: 0;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.heart-spread-container:hover .heart-particle:nth-child(1) {
+  animation: heartSpread1 1.5s ease-out infinite;
+  animation-delay: 0s;
+}
+
+.heart-spread-container:hover .heart-particle:nth-child(2) {
+  animation: heartSpread2 1.5s ease-out infinite;
+  animation-delay: 0.1s;
+}
+
+.heart-spread-container:hover .heart-particle:nth-child(3) {
+  animation: heartSpread3 1.5s ease-out infinite;
+  animation-delay: 0.2s;
+}
+
+.heart-spread-container:hover .heart-particle:nth-child(4) {
+  animation: heartSpread4 1.5s ease-out infinite;
+  animation-delay: 0.3s;
+}
+
+.heart-spread-container:hover .heart-particle:nth-child(5) {
+  animation: heartSpread5 1.5s ease-out infinite;
+  animation-delay: 0.4s;
+}
+
+.heart-spread-container:hover .heart-particle:nth-child(6) {
+  animation: heartSpread6 1.5s ease-out infinite;
+  animation-delay: 0.5s;
+}
+
 
 /* Shimmer Effect for Text */
 @keyframes shimmer {
@@ -347,6 +471,70 @@ html[lang="ar"] [data-slot="dropdown-menu-content"] *,
 }
 
 /* Blink animation for sync indicator */
+@keyframes bounce-slow {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-20px);
+  }
+}
+
+@keyframes rotate-slow {
+  0% {
+    transform: rotate(12deg);
+  }
+  100% {
+    transform: rotate(372deg);
+  }
+}
+
+@keyframes float-1 {
+  0%, 100% {
+    transform: translate(0, 0) rotate(45deg);
+  }
+  50% {
+    transform: translate(10px, -10px) rotate(50deg);
+  }
+}
+
+@keyframes float-2 {
+  0%, 100% {
+    transform: translate(0, 0) rotate(-12deg);
+  }
+  50% {
+    transform: translate(-10px, 10px) rotate(-17deg);
+  }
+}
+
+.animate-bounce-slow {
+  animation: bounce-slow 3s ease-in-out infinite;
+}
+
+.animate-rotate-slow {
+  animation: rotate-slow 20s linear infinite;
+}
+
+.animate-float-1 {
+  animation: float-1 4s ease-in-out infinite;
+}
+
+.animate-float-2 {
+  animation: float-2 5s ease-in-out infinite;
+}
+
+@keyframes gradient {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
 @keyframes blink {
   0%, 100% {
     opacity: 1;
@@ -1004,5 +1192,35 @@ html[lang="ar"] [data-sonner-toast] button,
 [data-slot="sidebar-inner"]::-webkit-scrollbar-thumb:hover,
 [data-sidebar="content"]::-webkit-scrollbar-thumb:hover {
   background: #6B7280 !important;
+}
+
+/* Skeleton animated color */
+.skeleton-animated {
+  color: var(--background);
+}
+
+/* Minimal scrollbar - Light gray, no background */
+.scrollbar-minimal {
+  scrollbar-width: thin !important;
+  scrollbar-color: #d1d5db transparent !important; /* gray-300 transparent */
+}
+
+.scrollbar-minimal::-webkit-scrollbar {
+  width: 6px !important;
+  height: 6px !important;
+}
+
+.scrollbar-minimal::-webkit-scrollbar-track {
+  background: transparent !important;
+}
+
+.scrollbar-minimal::-webkit-scrollbar-thumb {
+  background: #d1d5db !important; /* gray-300 */
+  border-radius: 3px !important;
+  border: none !important;
+}
+
+.scrollbar-minimal::-webkit-scrollbar-thumb:hover {
+  background: #9ca3af !important; /* gray-400 on hover */
 }
 

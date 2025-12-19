@@ -191,7 +191,7 @@ export function AdvancedLanguageSelector() {
 
       try {
         const { data, error } = await supabase
-          .from('merchant_users')
+          .from('business_profile')
           .select('preferred_country, preferred_language')
           .eq('auth_user_id', user.id)
           .maybeSingle();
@@ -231,15 +231,22 @@ export function AdvancedLanguageSelector() {
   const currentCountryLanguage = getCurrentCountryLanguage();
   const currentLanguage = userPreferences?.language || locale;
 
-  // Initialize temp values when dialog opens
+  // Initialize temp values when drawer opens
   useEffect(() => {
     if (isDialogOpen && countryLanguages.length > 0) {
-      // Compute current country code
-      const currentCountryCode = selectedCountryCode || userPreferences?.countryCode || countryLanguages[0]?.countryCode || 'SA';
-      setTempCountryCode(currentCountryCode);
-      setTempLanguage(currentLanguage);
+      // Get the actual current country from URL
+      const urlMatch = pathname.match(/^\/([a-z]{2})-([a-z]{2})(\/.*)?$/i);
+      const urlCountryCode = urlMatch ? urlMatch[2].toUpperCase() : null;
+      const urlLang = urlMatch ? urlMatch[1].toLowerCase() as Locale : null;
+      
+      // Use URL values first, then fall back to other sources
+      const countryToSet = urlCountryCode || selectedCountryCode || userPreferences?.countryCode || countryLanguages[0]?.countryCode || 'SA';
+      const langToSet = urlLang || userPreferences?.language || locale;
+      
+      setTempCountryCode(countryToSet);
+      setTempLanguage(langToSet);
     }
-  }, [isDialogOpen, selectedCountryCode, userPreferences?.countryCode, currentLanguage, countryLanguages]);
+  }, [isDialogOpen, countryLanguages.length, selectedCountryCode, userPreferences?.countryCode, userPreferences?.language, locale, pathname]);
   const currentCountry = selectedCountryCode 
     ? countryLanguages.find(c => c.countryCode === selectedCountryCode)
     : currentCountryLanguage;
@@ -253,7 +260,7 @@ export function AdvancedLanguageSelector() {
 
     try {
       const { error } = await supabase
-        .from('merchant_users')
+        .from('business_profile')
         .update({
           preferred_country: countryCode,
           preferred_language: language,
@@ -481,74 +488,33 @@ export function AdvancedLanguageSelector() {
       return;
     }
 
-    // Check if country is changing
-    const currentCountryCode = selectedCountryCode || userPreferences?.countryCode || currentCountryLanguage?.countryCode || 'AE';
-    const isCountryChanging = tempCountryCode !== currentCountryCode;
-    const isLanguageChanging = tempLanguage !== currentLanguage;
-
-    if (isCountryChanging) {
-      // Show announcement for country change
-      const newCountry = countryLanguages.find(c => c.countryCode === tempCountryCode);
-      if (newCountry) {
-        setPendingCountryChange({
-          newCountryCode: tempCountryCode,
-          previousCountryCode: currentCountryCode,
-          newCountryName: isRTL ? newCountry.countryNameAr : newCountry.countryName,
-        });
-        
-        setIsDialogOpen(false);
-        
-        const announcementId = `country-change-${Date.now()}`;
-        showStickyAnnouncement({
-          id: announcementId,
-          type: 'update',
-          description: isRTL
-            ? `أنت تقوم بتغيير سوق Haady إلى ${newCountry.countryNameAr}. إذا قمت بإلغاء هذا الإعلان، سيتم الاحتفاظ بالبلد الحالي.`
-            : `Switching to ${newCountry.countryName} market. Dismiss to keep your current selection.`,
-          ctaText: isRTL ? `تغيير إلى سوق ${newCountry.countryNameAr}` : `Change to ${newCountry.countryName} market`,
-          ctaIcon: (
-            <Image
-              src={newCountry.flagUrl}
-              alt={newCountry.countryName}
-              width={20}
-              height={20}
-              className="h-5 w-5 object-contain rounded"
-              unoptimized
-            />
-          ),
-          ctaAction: () => {
-            confirmCountryChange(tempCountryCode, tempLanguage);
-            removeStickyAnnouncement(announcementId);
-            setPendingCountryChange(null);
-          },
-          dismissable: true,
-          persistent: true,
-          position: 'top',
-          onDismiss: () => {
-            revertCountryChange();
-            removeStickyAnnouncement(announcementId);
-            setPendingCountryChange(null);
-          },
-        });
-      }
-    } else if (isLanguageChanging) {
-      // Only language is changing, apply immediately
-      const loadingMessage = locale === 'ar' 
-        ? 'جاري تبديل اللغة...' 
-        : 'Switching language...';
-      setLoading(true, loadingMessage);
-      
-      await saveUserPreferences(tempCountryCode, tempLanguage);
-      updateURL(tempCountryCode, tempLanguage);
-      
-      setTimeout(() => {
-        setLocale(tempLanguage);
-        setIsDialogOpen(false);
-      }, 2000);
-    } else {
-      // No changes, just close
-      setIsDialogOpen(false);
+    // Apply changes immediately
+    const loadingMessage = locale === 'ar' 
+      ? 'جاري التبديل...' 
+      : 'Switching...';
+    setLoading(true, loadingMessage);
+    
+    // Save preferences to cookies immediately
+    UserPreferencesCookies.setCountry(tempCountryCode);
+    UserPreferencesCookies.setLocale(tempLanguage);
+    
+    // Save preferences to database (don't await - let it happen in background)
+    if (user?.id) {
+      saveUserPreferences(tempCountryCode, tempLanguage);
     }
+    
+    // Close drawer
+    setIsDialogOpen(false);
+    
+    // Build new URL and navigate directly
+    let basePath = pathname;
+    basePath = basePath.replace(/^\/[a-z]{2}-[a-z]{2}/i, '') || '/';
+    const newPath = `/${tempLanguage}-${tempCountryCode.toLowerCase()}${basePath === '/' ? '' : basePath}`;
+    
+    // Use window.location.href for a full page reload with the new URL
+    setTimeout(() => {
+      window.location.href = newPath;
+    }, 500);
   };
 
   const tempCountry = tempCountryCode 

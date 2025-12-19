@@ -87,27 +87,36 @@ async function fetchSallaProducts(
 }
 
 /**
- * Get or create a store for the merchant and connection
+ * Get or create a store for the business and connection
  * Uses admin client to bypass RLS for store creation
  * Each store_connection should have its own store
  */
 async function getOrCreateStore(
   supabase: any,
-  merchantId: string,
+  businessId: string,
   storeName: string,
   storeConnectionId: string,
   storeDomain?: string
 ): Promise<string> {
   // First, try to find an existing store for this connection (using regular client)
-  const { data: existingStore } = await supabase
-    .from('stores')
-    .select('id')
-    .eq('store_connection_id', storeConnectionId)
-    .eq('is_active', true)
+  // Find store via store_connections relationship
+  const { data: storeConnection } = await supabase
+    .from('store_connections')
+    .select('store_id, platform')
+    .eq('id', storeConnectionId)
     .maybeSingle()
-
-  if (existingStore) {
-    return existingStore.id
+  
+  if (storeConnection?.store_id) {
+    const { data: existingStore } = await supabase
+      .from('stores')
+      .select('id')
+      .eq('id', storeConnection.store_id)
+      .eq('is_active', true)
+      .maybeSingle()
+    
+    if (existingStore) {
+      return existingStore.id
+    }
   }
 
   // Create a new store for this connection - use admin client to bypass RLS
@@ -130,15 +139,27 @@ async function getOrCreateStore(
   const { data: newStore, error } = await adminClient
     .from('stores')
     .insert({
-      merchant_id: merchantId,
-      store_connection_id: storeConnectionId,
+      business_id: businessId,
       name: storeName,
       slug: `${slug}-${Date.now()}`,
       store_type: 'online',
       is_active: true,
+      platform: storeConnection?.platform || null,
     })
     .select('id')
     .single()
+  
+  // Create store_connection linking to the new store
+  if (newStore?.id) {
+    await adminClient
+      .from('store_connections')
+      .insert({
+        store_id: newStore.id,
+        store_external_id: newStore.id,
+        access_token: '', // Will be updated by the sync process
+        refresh_token: '',
+      })
+  }
 
   if (error) {
     throw new Error(`Failed to create store: ${error.message}`)
@@ -256,23 +277,23 @@ export async function syncSallaProducts(
   }
 
   try {
-    // Get merchant_id from merchant_users
-    const { data: merchantUser, error: merchantError } = await supabase
-      .from('merchant_users')
-      .select('merchant_id')
+    // Get business profile
+    const { data: businessProfile, error: businessError } = await supabase
+      .from('business_profile')
+      .select('id, business_name')
       .eq('auth_user_id', userId)
       .single()
 
-    if (merchantError || !merchantUser) {
+    if (businessError || !businessProfile) {
       throw new Error('Merchant not found. Please complete your business setup first.')
     }
 
-    const merchantId = merchantUser.merchant_id
+    const businessId = businessProfile.id
 
     // Get or create store for this connection
     const storeId = await getOrCreateStore(
       supabase,
-      merchantId,
+      businessId,
       storeName || 'Salla Store',
       storeConnectionId,
       storeDomain
@@ -320,7 +341,7 @@ export async function syncSallaProducts(
           sku: sallaProduct.sku || sallaProduct.id.toString(),
           // stock: sallaProduct.quantity || 0, // Column doesn't exist - stored in platform_data instead
           is_available: (sallaProduct.quantity || 0) > 0,
-          is_active: sallaProduct.status === 'active' || sallaProduct.status === 'published',
+          is_active: true, // Always set to true for synced products so they appear in the dashboard
         }
 
         // Set name based on detected language
@@ -601,6 +622,67 @@ export async function syncSallaProducts(
       } catch (error: any) {
         result.errors.push(`Error processing product ${sallaProduct.name}: ${error.message}`)
         console.error('Error processing product:', error)
+      }
+    }
+
+    // If selectedProductIds is provided, remove products that were excluded
+    if (selectedProductIds && selectedProductIds.length > 0) {
+      try {
+        // Get all platform_product_ids that were selected
+        const selectedPlatformIds = new Set(selectedProductIds.map(id => parseInt(id)))
+        
+        // Get all products for this store
+        const { data: storeProducts, error: productsError } = await adminClient
+          .from('products')
+          .select('id')
+          .eq('store_id', storeId)
+          .is('deleted_at', null)
+
+        if (!productsError && storeProducts && storeProducts.length > 0) {
+          const storeProductIds = storeProducts.map(p => p.id)
+          
+          // Find all product_sources for these products that are from Salla
+          // Use a separate query since Supabase doesn't support subqueries in .in()
+          const { data: allProductSources, error: sourcesError } = await adminClient
+            .from('product_sources')
+            .select('product_id, platform_product_id')
+            .eq('platform', 'salla')
+            .in('product_id', storeProductIds)
+
+          if (!sourcesError && allProductSources) {
+            // Filter to find excluded products (products with platform_product_id NOT in selected list)
+            const excludedSources = allProductSources.filter(source => {
+              const platformId = parseInt(source.platform_product_id)
+              return !selectedPlatformIds.has(platformId)
+            })
+
+            if (excludedSources.length > 0) {
+              const excludedProductIds = excludedSources.map(s => s.product_id)
+              console.log(`🗑️ Removing ${excludedProductIds.length} excluded products from store`)
+
+              // Soft delete excluded products by setting deleted_at
+              const { error: deleteError } = await adminClient
+                .from('products')
+                .update({
+                  deleted_at: new Date().toISOString(),
+                  is_active: false,
+                  updated_at: new Date().toISOString(),
+                })
+                .in('id', excludedProductIds)
+                .eq('store_id', storeId)
+
+              if (deleteError) {
+                console.error('Error removing excluded products:', deleteError)
+                result.errors.push(`Error removing excluded products: ${deleteError.message}`)
+              } else {
+                console.log(`✅ Removed ${excludedProductIds.length} excluded products`)
+              }
+            }
+          }
+        }
+      } catch (error: any) {
+        console.error('Error removing excluded products:', error)
+        result.errors.push(`Error removing excluded products: ${error.message}`)
       }
     }
 

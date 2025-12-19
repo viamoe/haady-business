@@ -264,7 +264,7 @@ export default function SetupForm() {
       if (userId) {
         try {
           const { data, error } = await supabase
-            .from('merchant_users')
+            .from('business_profile')
             .select('preferred_country')
             .eq('auth_user_id', userId)
             .maybeSingle();
@@ -300,7 +300,7 @@ export default function SetupForm() {
         console.log('Countries data structure:', countriesData);
         
         if (!countriesData || countriesData.length === 0) {
-          console.warn('No countries found in database. Please ensure countries_master table has data.');
+          console.warn('No countries found in database. Please ensure countries table has data.');
           toast.error('Error', {
             description: 'No countries found. Please contact support.',
             duration: 5000,
@@ -517,7 +517,7 @@ export default function SetupForm() {
       // Get country and language from browser (pathname or cookies)
       // 1. Try to get from URL pathname (e.g., /ar-ae/setup)
       const urlCountry = parseLocaleCountry(pathname);
-      let preferredCountry = urlCountry?.country || selectedCountryData.iso2;
+      let preferredCountry = urlCountry?.country || selectedCountryData?.iso2;
       let preferredLanguage = urlCountry?.locale || locale;
 
       // 2. If not in URL, try to get from cookies
@@ -530,7 +530,7 @@ export default function SetupForm() {
       }
 
       // Ensure we have valid values (fallback to defaults)
-      preferredCountry = preferredCountry || selectedCountryData.iso2 || 'SA';
+      preferredCountry = preferredCountry || selectedCountryData?.iso2 || 'SA';
       preferredLanguage = preferredLanguage || locale || 'en';
 
       // RPC function parameters (matches the actual function signature)
@@ -550,9 +550,10 @@ export default function SetupForm() {
         user_ip_address: userIpAddress || null, // User IP address or null
         preferred_country: preferredCountry, // Country code from browser (ISO2)
         preferred_language: preferredLanguage, // Language code from browser (en/ar)
+        business_country: values.country || null, // Selected country ID (UUID) from form
       };
 
-      console.log('Creating merchant account with:', rpcParams);
+      console.log('Creating business account with:', rpcParams);
       console.log('RPC params validation:', {
         user_full_name: typeof rpcParams.user_full_name,
         user_phone: typeof rpcParams.user_phone,
@@ -564,8 +565,8 @@ export default function SetupForm() {
         user_ip_address: rpcParams.user_ip_address,
       });
 
-      // Call the RPC function to create merchant and store atomically
-      const { data, error } = await supabase.rpc('create_merchant_onboarding', rpcParams);
+      // Call the RPC function to create business and store atomically
+      const { data, error } = await supabase.rpc('create_business_onboarding', rpcParams);
 
       if (error) {
         // Log comprehensive error information
@@ -582,7 +583,7 @@ export default function SetupForm() {
           error?.hint || 
           (typeof error === 'string' ? error : null) ||
           JSON.stringify(error) ||
-          'Failed to create merchant account';
+          'Failed to create business account';
         
         console.error('Final error message:', errorMessage);
         throw new Error(errorMessage);

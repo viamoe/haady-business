@@ -79,7 +79,7 @@ export function StoreConnectionProvider({ children }: { children: ReactNode }) {
         }
       }
 
-      // No valid selection exists, get latest store
+      // No valid selection exists, get latest store connection
       try {
         const { data: connections } = await supabase
           .from('store_connections')

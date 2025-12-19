@@ -27,15 +27,15 @@ export default async function DashboardPage() {
   }
 
   // Check if user has completed setup and get user details
-  const { data: merchantUser } = await supabase
-    .from('merchant_users')
-    .select('merchant_id, full_name')
+  const { data: businessProfile } = await supabase
+    .from('business_profile')
+    .select('id, full_name, business_name, status, business_country')
     .eq('auth_user_id', user.id)
     .maybeSingle()
 
-  if (!merchantUser?.merchant_id) {
+  if (!businessProfile?.business_name) {
     const cookieStore = await cookies();
-    const setupUrl = getLocalizedUrlFromRequest('/setup', {
+    const onboardingUrl = getLocalizedUrlFromRequest('/onboarding/personal-details', {
       cookies: {
         get: (name: string) => {
           const cookie = cookieStore.get(name);
@@ -43,7 +43,7 @@ export default async function DashboardPage() {
         }
       }
     });
-    redirect(setupUrl);
+    redirect(onboardingUrl);
   }
 
   // Extract first name from full_name
@@ -53,39 +53,101 @@ export default async function DashboardPage() {
     return nameParts[0] || user.email?.split('@')[0] || 'there'
   }
 
-  const firstName = getFirstName(merchantUser.full_name)
+  const firstName = getFirstName(businessProfile.full_name)
+
+  // First, get all store IDs for this business
+  const { data: storesData } = await supabase
+    .from('stores')
+    .select('id')
+    .eq('business_id', businessProfile.id)
+
+  const storeIds = storesData?.map(store => store.id) || []
 
   // Parallelize all database queries for better performance
-  const [merchantResult, storeCountResult, productCountResult, connectionsResult] = await Promise.all([
-    // Get merchant details
-    supabase
-      .from('merchants')
-      .select('name, status')
-      .eq('id', merchantUser.merchant_id)
-      .single(),
-    
+  const [storeCountResult, productCountResult, connectionsResult] = await Promise.all([
     // Get store count
     supabase
       .from('stores')
       .select('id', { count: 'exact', head: true })
-      .eq('merchant_id', merchantUser.merchant_id),
+      .eq('business_id', businessProfile.id),
     
-    // Get product count
-    supabase
-      .from('products')
-      .select('id', { count: 'exact', head: true })
-      .eq('merchant_id', merchantUser.merchant_id),
+    // Get product count (only if we have stores)
+    storeIds.length > 0
+      ? supabase
+          .from('products')
+          .select('id', { count: 'exact', head: true })
+          .in('store_id', storeIds)
+          .eq('is_active', true)
+          .is('deleted_at', null)
+      : Promise.resolve({ data: null, count: 0, error: null }),
     
-    // Get store connections
+    // Get store connections via stores (new structure)
     supabase
-      .from('store_connections')
-      .select('id, platform, store_external_id, store_name, store_domain')
-      .eq('user_id', user.id),
+      .from('stores')
+      .select(`
+        id,
+        name,
+        platform,
+        store_connections (
+          id,
+          store_external_id,
+          store_domain
+        )
+      `)
+      .eq('business_id', businessProfile.id)
+      .eq('is_active', true),
   ])
 
-  const merchant = merchantResult.data
+  // Business data is now directly in businessProfile
+  const business = {
+    name: businessProfile.business_name,
+    status: businessProfile.status,
+    country: businessProfile.business_country
+  }
   const storeCount = storeCountResult.count || 0
-  const productCount = productCountResult.count || 0
+  
+  // Handle product count with fallback for deleted_at column
+  let productCount = 0
+  if (productCountResult.error) {
+    // If error is due to deleted_at column not existing, try without it
+    if (productCountResult.error.message?.includes('deleted_at') || productCountResult.error.code === '42703') {
+      if (storeIds.length > 0) {
+        const { count: retryCount } = await supabase
+          .from('products')
+          .select('id', { count: 'exact', head: true })
+          .in('store_id', storeIds)
+          .eq('is_active', true)
+        productCount = retryCount || 0
+      }
+    } else {
+      console.error('Error fetching product count:', productCountResult.error)
+    }
+  } else {
+    productCount = productCountResult.count || 0
+  }
+
+  // Fetch country and currency information from database
+  let countryCurrency = 'ر.س' // Default to Saudi Riyal symbol
+  if (business?.country) {
+    const { data: countryData, error: countryError } = await supabase
+      .from('countries')
+      .select('currency_icon')
+      .eq('id', business.country)
+      .single()
+    
+    if (countryError) {
+      console.error('Error fetching country currency:', countryError)
+    }
+    
+    // Use currency_icon if available (check for null, undefined, and empty string)
+    if (countryData?.currency_icon && countryData.currency_icon.trim() !== '') {
+      countryCurrency = countryData.currency_icon.trim()
+    } else {
+      console.log('Currency icon not found or empty for country:', business.country, 'Country data:', countryData)
+    }
+  } else {
+    console.log('Merchant country not set:', business)
+  }
 
   // Check setup completion status
   const hasStore = storeCount > 0
@@ -96,7 +158,7 @@ export default async function DashboardPage() {
 
   const isSetupComplete = hasStore && hasProducts && hasPaymentConfigured && hasShippingConfigured
 
-  // Process store connections
+  // Process store connections (transform from stores with connections)
   let storeConnections: any[] = []
   
   if (connectionsResult.error) {
@@ -112,28 +174,38 @@ export default async function DashboardPage() {
       
       // Common RLS error codes
       if (connectionsResult.error.code === '42501' || connectionsResult.error.message?.includes('permission denied')) {
-        console.error('🔒 RLS Policy Error: User does not have permission to read store_connections')
+        console.error('🔒 RLS Policy Error: User does not have permission to read stores')
       }
     }
   } else {
-    // Map connections with default values for management fields that may not exist yet
-    storeConnections = (connectionsResult.data || []).map((conn: any) => ({
-      ...conn,
-      store_name: conn.store_name || null,
-      store_domain: conn.store_domain || null,
-      connection_status: 'connected',
-      sync_status: 'idle',
-      last_sync_at: null,
-      last_error: null,
-      expires_at: null,
-      created_at: null,
-    }))
+    // Transform stores with connections to match expected format
+    const storesWithConnections = connectionsResult.data || []
+    storeConnections = storesWithConnections
+      .filter((store: any) => store.store_connections && store.store_connections.length > 0)
+      .map((store: any) => {
+        const connection = Array.isArray(store.store_connections) 
+          ? store.store_connections[0] 
+          : store.store_connections
+        return {
+          id: connection.id,
+          platform: store.platform,
+          store_external_id: connection.store_external_id,
+          store_name: store.name, // From stores table
+          store_domain: connection.store_domain,
+          connection_status: 'connected',
+          sync_status: 'idle',
+          last_sync_at: null,
+          last_error: null,
+          expires_at: null,
+          created_at: null,
+        }
+      })
   }
 
   return (
     <DashboardContent 
       userName={firstName}
-      merchantName={merchant?.name || 'Your Business'}
+      businessName={business?.name || 'Your Business'}
       storeCount={storeCount || 0}
       productCount={productCount || 0}
       hasStore={hasStore}
@@ -142,6 +214,7 @@ export default async function DashboardPage() {
       hasShippingConfigured={hasShippingConfigured}
       isSetupComplete={isSetupComplete}
       storeConnections={storeConnections}
+      countryCurrency={countryCurrency}
     />
   )
 }

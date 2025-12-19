@@ -359,21 +359,21 @@ export default function AuthForm({ mode, reason }: AuthFormProps) {
         
         setLoading(true, 'Checking your account...');
         
-        const { data: merchantUser } = await supabase
-          .from('merchant_users')
-          .select('merchant_id')
+        const { data: businessProfile } = await supabase
+          .from('business_profile')
+          .select('id, business_name')
           .eq('auth_user_id', data.user?.id || data.session?.user.id)
           .single();
 
-        if (merchantUser?.merchant_id) {
+        if (businessProfile?.business_name) {
           setLoading(true, 'Redirecting to dashboard...');
           const dashboardUrl = getLocalizedUrl('/dashboard', pathname);
           router.push(dashboardUrl);
           router.refresh();
         } else {
           setLoading(true, 'Setting up your account...');
-          const setupUrl = getLocalizedUrl('/setup', pathname);
-          router.push(setupUrl);
+          const onboardingUrl = getLocalizedUrl('/onboarding/personal-details', pathname);
+          router.push(onboardingUrl);
           router.refresh();
         }
       }
@@ -398,7 +398,7 @@ export default function AuthForm({ mode, reason }: AuthFormProps) {
       : `${window.location.origin}/auth/callback`;
     
     const redirectUrl = new URL(baseRedirectUrl);
-    redirectUrl.searchParams.set('app_type', 'merchant');
+    redirectUrl.searchParams.set('app_type', 'business');
     redirectUrl.searchParams.set('preferred_country', preferredCountry);
     redirectUrl.searchParams.set('preferred_language', preferredLanguage);
     
@@ -478,7 +478,7 @@ export default function AuthForm({ mode, reason }: AuthFormProps) {
       if (isHaadyDomain || isLocalhost) {
         // On haady.app domain or localhost - can set cookie directly and start OAuth
         const cookieData = JSON.stringify({
-          app_type: 'merchant',
+          app_type: 'business',
           preferred_country: preferredCountry,
           preferred_language: preferredLanguage,
           origin: window.location.origin,
@@ -504,7 +504,7 @@ export default function AuthForm({ mode, reason }: AuthFormProps) {
         
         const oauthStartUrl = new URL('https://haady.app/api/oauth-start');
         oauthStartUrl.searchParams.set('origin', window.location.origin);
-        oauthStartUrl.searchParams.set('app_type', 'merchant');
+        oauthStartUrl.searchParams.set('app_type', 'business');
         oauthStartUrl.searchParams.set('preferred_country', preferredCountry);
         oauthStartUrl.searchParams.set('preferred_language', preferredLanguage);
         oauthStartUrl.searchParams.set('return_url', returnUrl.toString());
@@ -565,7 +565,7 @@ export default function AuthForm({ mode, reason }: AuthFormProps) {
         options: {
           shouldCreateUser: isSignupMode,
           data: isSignupMode ? {
-            app_type: 'merchant',
+            app_type: 'business',
             preferred_country: preferredCountry,
             preferred_language: preferredLanguage,
           } : undefined,
@@ -575,20 +575,10 @@ export default function AuthForm({ mode, reason }: AuthFormProps) {
       if (error) {
         const errorMessage = error.message?.toLowerCase() || '';
         
-        // Handle "signups not allowed" error - this shouldn't happen if signups are enabled
-        // But if it does, provide a helpful message
-        if (errorMessage.includes('signups not allowed') || errorMessage.includes('signup not allowed')) {
-          setEmailError('Unable to create account with email. Please use Google sign-in or contact support.');
-          toast.error('Signup Error', {
-            description: 'Email signups may be temporarily unavailable. Please try Google sign-in instead.',
-            duration: 8000,
-          });
-          setIsLoading(false);
-          return;
-        }
-        
         if (!isSignupMode) {
-          // Check for any error indicating user doesn't exist
+          // LOGIN MODE: Check for any error indicating user doesn't exist
+          // This includes "signups not allowed" which Supabase returns when shouldCreateUser: false
+          // and the user doesn't exist
           if (
             errorMessage.includes('user not found') ||
             errorMessage.includes('email not found') ||
@@ -596,10 +586,25 @@ export default function AuthForm({ mode, reason }: AuthFormProps) {
             errorMessage.includes('user does not exist') ||
             errorMessage.includes('email does not exist') ||
             errorMessage.includes('invalid login credentials') ||
+            errorMessage.includes('signups not allowed') ||
+            errorMessage.includes('signup not allowed') ||
             error.code === 'user_not_found'
           ) {
             setEmailError(t('auth.noAccountWithEmail'));
             setAccountNotFound(true);
+            setIsLoading(false);
+            return;
+          }
+        } else {
+          // SIGNUP MODE: Handle "signups not allowed" error - this means email signups are disabled
+          if (errorMessage.includes('signups not allowed') || errorMessage.includes('signup not allowed')) {
+            setEmailError(t('auth.signupsDisabled') || 'Unable to create account with email. Please use Google sign-in or contact support.');
+            toast.error(isRTL ? 'خطأ في التسجيل' : 'Signup Error', {
+              description: isRTL 
+                ? 'التسجيل بالبريد الإلكتروني غير متاح حالياً. يرجى استخدام تسجيل الدخول بجوجل.'
+                : 'Email signups may be temporarily unavailable. Please try Google sign-in instead.',
+              duration: 8000,
+            });
             setIsLoading(false);
             return;
           }
@@ -659,7 +664,7 @@ export default function AuthForm({ mode, reason }: AuthFormProps) {
         options: {
           shouldCreateUser: isSignupMode,
           data: {
-            app_type: 'merchant',
+            app_type: 'business',
           },
         },
       });

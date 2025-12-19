@@ -206,7 +206,7 @@ export function ProductsContent({
             }
           }
         } else {
-          // No connection selected - show all products for the merchant (fallback)
+          // No connection selected - show all products for the business (fallback)
           const { data: allStores, error: storesError } = await supabase
             .from('stores')
             .select('id, name')
@@ -243,8 +243,29 @@ export function ProductsContent({
 
         if (productsError) {
           console.error('Error fetching products:', productsError)
-          setProducts([])
-          setTotalCount(0)
+          // If error is related to deleted_at or column doesn't exist, try without it
+          if (productsError.message?.includes('deleted_at') || productsError.code === '42703' || productsError.code === 'PGRST116') {
+            console.log('Retrying query without deleted_at filter')
+            const { data: retryData, error: retryError, count: retryCount } = await supabase
+              .from('products')
+              .select('id, name_en, name_ar, description_en, description_ar, price, sku, image_url, is_available, is_active, created_at, store_id', { count: 'exact' })
+              .in('store_id', storeIds)
+              .eq('is_active', true)
+              .order('created_at', { ascending: false })
+              .limit(100)
+            
+            if (retryError) {
+              console.error('Error fetching products (retry):', retryError)
+              setProducts([])
+              setTotalCount(0)
+            } else {
+              setProducts(retryData || [])
+              setTotalCount(retryCount || 0)
+            }
+          } else {
+            setProducts([])
+            setTotalCount(0)
+          }
         } else {
           console.log('Fetched products:', {
             count: productsData?.length || 0,
@@ -320,7 +341,9 @@ export function ProductsContent({
         .order('created_at', { ascending: false })
         .limit(100)
 
-      if (!productsError && productsData) {
+      if (productsError) {
+        console.error('Error refetching products:', productsError)
+      } else if (productsData) {
         setProducts(productsData)
         setTotalCount(count || 0)
       }
@@ -328,6 +351,28 @@ export function ProductsContent({
       console.error('Error refetching products:', error)
     }
   }, [selectedConnectionId])
+
+  // Listen for sync completion events to refresh products
+  React.useEffect(() => {
+    const handleSyncCompleted = (event: CustomEvent) => {
+      const { connectionId, success } = event.detail || {}
+      console.log('Products page: Sync completed event received:', { connectionId, success, selectedConnectionId })
+      
+      // Refresh if sync was successful and matches selected connection, or if no connection is selected
+      if (success && (connectionId === selectedConnectionId || !selectedConnectionId)) {
+        console.log('Products page: Refreshing products after sync')
+        // Wait a bit for the sync to fully complete in the database, then refetch
+        setTimeout(() => {
+          refetchProducts()
+        }, 2000)
+      }
+    }
+
+    window.addEventListener('productsSyncCompleted', handleSyncCompleted as EventListener)
+    return () => {
+      window.removeEventListener('productsSyncCompleted', handleSyncCompleted as EventListener)
+    }
+  }, [selectedConnectionId, refetchProducts])
 
   // Add log message helper (remove emojis)
   const addLog = React.useCallback((message: string) => {

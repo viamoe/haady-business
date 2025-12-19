@@ -32,7 +32,9 @@ import {
   Loader2,
   CheckCircle2,
   Link2,
+  ArrowRight,
 } from 'lucide-react'
+import Link from 'next/link'
 
 interface StoreConnection {
   id: string
@@ -40,6 +42,8 @@ interface StoreConnection {
   store_external_id: string | null
   store_name?: string | null
   store_domain?: string | null
+  store_logo_url?: string | null
+  logo_zoom?: number | null
   connection_status?: string
   sync_status?: string
   last_sync_at?: string
@@ -112,6 +116,12 @@ export function StoreSettingsContent({ storeConnections = [] }: SettingsContentP
                   : 'Manage your store connections and settings'}
               </p>
             </div>
+            <Link href="/dashboard/stores">
+              <Button variant="outline" className="gap-2">
+                {locale === 'ar' ? 'إدارة المتاجر' : 'Manage Stores'}
+                <ArrowRight className={`h-4 w-4 ${isRTL ? 'rotate-180' : ''}`} />
+              </Button>
+            </Link>
           </div>
 
           {/* Store Connections Section */}
@@ -304,13 +314,25 @@ const StoreConnectionCard = memo(function StoreConnectionCard({
     }
   }, [connection.id, connection.store_name, connection.store_external_id, handleRefreshStoreInfo])
 
-  const platformLogo = useMemo(() => {
+  // Platform logos mapping (matching other components)
+  const PLATFORM_LOGOS: Record<string, string> = {
+    salla: `${ECOMMERCE_STORAGE_URL}/salla-icon.png`,
+    zid: `${ECOMMERCE_STORAGE_URL}/zid.svg`,
+    shopify: `${ECOMMERCE_STORAGE_URL}/shopify-icon.png`,
+  }
+
+  // Unified logo logic: prioritize uploaded logo, then platform logo, then Store icon
+  const storeLogo = useMemo(() => {
+    const uploadedLogoUrl = localConnection.store_logo_url
     const platform = localConnection.platform?.toLowerCase()
-    if (platform === 'salla') return `${ECOMMERCE_STORAGE_URL}/salla-logo.png`
-    if (platform === 'zid') return `${ECOMMERCE_STORAGE_URL}/zid-logo.png`
-    if (platform === 'shopify') return `${ECOMMERCE_STORAGE_URL}/shopify-logo.png`
-    return null
-  }, [localConnection.platform])
+    const platformLogoUrl = platform ? PLATFORM_LOGOS[platform] : null
+    
+    return {
+      uploadedLogoUrl,
+      platformLogoUrl,
+      hasLogo: !!(uploadedLogoUrl || platformLogoUrl)
+    }
+  }, [localConnection.store_logo_url, localConnection.platform])
 
   const { isExpired, healthStatus, syncStatus } = useMemo(() => {
     const isExpired = localConnection.expires_at 
@@ -728,17 +750,26 @@ const StoreConnectionCard = memo(function StoreConnectionCard({
         lang={locale}
         dir={isRTL ? 'rtl' : 'ltr'}
       >
-        {platformLogo && (
-          <div className="flex-shrink-0">
+        {storeLogo.uploadedLogoUrl ? (
+          <div className="flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden bg-white border border-gray-200 flex items-center justify-center">
             <Image
-              src={platformLogo}
-              alt={localConnection.platform}
-              width={60}
-              height={24}
-              className="h-6 w-auto object-contain"
+              key={storeLogo.uploadedLogoUrl}
+              src={storeLogo.uploadedLogoUrl}
+              alt="Store logo"
+              width={64}
+              height={64}
+              className="w-full h-full object-cover"
+              style={{
+                transform: `scale(${(connection.logo_zoom || 100) / 100})`,
+                transition: 'transform 0.2s ease-out'
+              }}
               priority={false}
               loading="lazy"
             />
+          </div>
+        ) : (
+          <div className="flex-shrink-0 w-16 h-16 rounded-lg bg-[#F4610B]/10 border border-gray-200 flex items-center justify-center">
+            <Store className="h-6 w-6 text-[#F4610B]" />
           </div>
         )}
         <div className="flex-1 min-w-0">

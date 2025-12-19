@@ -401,7 +401,7 @@ export function SearchModal({ open, onOpenChange }: SearchModalProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className={cn(
-        "max-w-4xl w-[90vw] p-0 rounded-4xl overflow-hidden bg-white flex flex-col !left-[50%] !top-2 !translate-x-[-50%] !translate-y-0",
+        "max-w-4xl w-[90vw] p-0 rounded-4xl overflow-hidden bg-white flex flex-col !left-[50%] !top-16 !translate-x-[-50%] !translate-y-0",
         "transition-[min-height] duration-300 ease-in-out",
         "h-auto max-h-[80vh]",
         searchResults.length > 0 
@@ -496,7 +496,7 @@ export function SearchModal({ open, onOpenChange }: SearchModalProps) {
 
           {/* Filter Buttons */}
           <div className={cn(
-            "flex items-center gap-2 transition-opacity duration-200 flex-shrink-0 mb-4",
+            "flex items-center gap-2 transition-opacity duration-200 flex-shrink-0 mb-1",
             isRTL ? "flex-row-reverse mr-4" : "ml-4",
             selectedCategory ? "opacity-0 pointer-events-none mb-0" : "opacity-100"
           )}>
@@ -520,7 +520,7 @@ export function SearchModal({ open, onOpenChange }: SearchModalProps) {
           </div>
 
           {/* Search Results Area */}
-          <div className="overflow-hidden flex flex-col">
+          <div className="overflow-hidden flex flex-col mt-1">
             {(() => {
               // Show loading state when searching
               if (isSearching) {

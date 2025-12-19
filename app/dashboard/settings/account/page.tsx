@@ -27,15 +27,15 @@ export default async function AccountSettingsPage() {
   }
 
   // Check if user has completed setup
-  const { data: merchantUser } = await supabase
-    .from('merchant_users')
-    .select('merchant_id, full_name')
+  const { data: businessProfile } = await supabase
+    .from('business_profile')
+    .select('id, full_name, business_name, status, created_at')
     .eq('auth_user_id', user.id)
     .maybeSingle()
 
-  if (!merchantUser?.merchant_id) {
+  if (!businessProfile?.business_name) {
     const cookieStore = await cookies();
-    const setupUrl = getLocalizedUrlFromRequest('/setup', {
+    const onboardingUrl = getLocalizedUrlFromRequest('/onboarding/personal-details', {
       cookies: {
         get: (name: string) => {
           const cookie = cookieStore.get(name);
@@ -43,26 +43,27 @@ export default async function AccountSettingsPage() {
         }
       }
     });
-    redirect(setupUrl);
+    redirect(onboardingUrl);
   }
 
-  // Get merchant details
-  const { data: merchant, error: merchantError } = await supabase
-    .from('merchants')
-    .select('id, name, status, created_at')
-    .eq('id', merchantUser.merchant_id)
-    .single()
-
-  // Get all stores count for this merchant
+  // Get all stores count for this business
   const { count: storeCount } = await supabase
     .from('stores')
     .select('id', { count: 'exact', head: true })
-    .eq('merchant_id', merchantUser.merchant_id)
+    .eq('business_id', businessProfile.id)
+
+  // Create business object from business_profile (data is now merged)
+  const business = {
+    id: businessProfile.id,
+    name: businessProfile.business_name,
+    status: businessProfile.status,
+    created_at: businessProfile.created_at
+  }
 
   return (
     <AccountSettingsContent 
-      merchant={merchant}
-      merchantUser={merchantUser}
+      business={business}
+      businessUser={businessProfile}
       storeCount={storeCount || 0}
     />
   )

@@ -13,6 +13,7 @@ import { CookieConsent } from '@/components/cookie-consent';
 import { NextIntlClientProvider } from 'next-intl';
 import { getLocale, getMessages } from 'next-intl/server';
 import { LocaleProvider } from '@/i18n/context';
+import { OnboardingProvider } from '@/lib/onboarding-context';
 import { Toaster } from '@/components/ui/sonner';
 import type { Metadata } from 'next';
 import type { Locale } from '@/i18n/request';
@@ -55,9 +56,10 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                   <StickyAnnouncementProvider>
                     <LoadingProvider>
                       <AuthProvider>
-                        <OfflineGuard>
-                          <Header />
-                          {children}
+                        <OnboardingProvider>
+                          <OfflineGuard>
+                            <Header />
+                            {children}
                           <Toaster />
                           <NetworkStatusOverlay />
                           <SlowConnectionBanner />
@@ -65,6 +67,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                           <StickyAnnouncementBanner />
                           <CookieConsent />
                         </OfflineGuard>
+                        </OnboardingProvider>
                       </AuthProvider>
                     </LoadingProvider>
                   </StickyAnnouncementProvider>

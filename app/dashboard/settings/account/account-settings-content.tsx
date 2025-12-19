@@ -9,22 +9,23 @@ import { useLocale } from '@/i18n/context'
 import { User, Building2, Store, Calendar, Mail } from 'lucide-react'
 
 interface AccountSettingsContentProps {
-  merchant: {
+  business: {
     id: string
     name: string
     status: string
     created_at: string
   } | null
-  merchantUser: {
-    merchant_id: string
+  businessUser: {
+    id: string
+    business_name: string | null
     full_name: string | null
   } | null
   storeCount: number
 }
 
 export function AccountSettingsContent({ 
-  merchant, 
-  merchantUser,
+  business, 
+  businessUser,
   storeCount 
 }: AccountSettingsContentProps) {
   const { locale, isRTL } = useLocale()
@@ -72,7 +73,7 @@ export function AccountSettingsContent({
           <p className="text-muted-foreground mt-1">
             {locale === 'ar' 
               ? 'إدارة إعدادات حساب التاجر الخاص بك'
-              : 'Manage your merchant account settings'}
+              : 'Manage your business account settings'}
           </p>
         </div>
       </div>
@@ -88,7 +89,7 @@ export function AccountSettingsContent({
           <CardDescription>
             {locale === 'ar' 
               ? 'معلومات حساب التاجر الخاص بك'
-              : 'Your merchant account information'}
+              : 'Your business account information'}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -98,15 +99,15 @@ export function AccountSettingsContent({
                 {locale === 'ar' ? 'الاسم الكامل' : 'Full Name'}
               </label>
               <p className="text-sm font-medium mt-1">
-                {merchantUser?.full_name || locale === 'ar' ? 'غير متوفر' : 'Not available'}
+                {businessUser?.full_name || locale === 'ar' ? 'غير متوفر' : 'Not available'}
               </p>
             </div>
             <div>
               <label className="text-sm font-medium text-muted-foreground">
-                {locale === 'ar' ? 'معرف التاجر' : 'Merchant ID'}
+                {locale === 'ar' ? 'معرف النشاط' : 'Business ID'}
               </label>
               <p className="text-sm font-medium mt-1 font-mono">
-                {merchantUser?.merchant_id || '-'}
+                {businessUser?.id || '-'}
               </p>
             </div>
           </div>
@@ -136,9 +137,9 @@ export function AccountSettingsContent({
               </label>
               <p 
                 className="text-sm font-medium mt-1"
-                lang={containsArabic(merchant?.name) ? 'ar' : locale}
+                lang={containsArabic(business?.name) ? 'ar' : locale}
               >
-                {merchant?.name || locale === 'ar' ? 'غير متوفر' : 'Not available'}
+                {business?.name || locale === 'ar' ? 'غير متوفر' : 'Not available'}
               </p>
             </div>
             <div>
@@ -147,10 +148,10 @@ export function AccountSettingsContent({
               </label>
               <div className="mt-1">
                 <Badge 
-                  variant={merchant?.status === 'active' ? 'default' : 'secondary'}
+                  variant={business?.status === 'active' ? 'default' : 'secondary'}
                   className="mt-1"
                 >
-                  {merchant?.status || 'unknown'}
+                  {business?.status || 'unknown'}
                 </Badge>
               </div>
             </div>
@@ -167,8 +168,8 @@ export function AccountSettingsContent({
                 {locale === 'ar' ? 'تاريخ الإنشاء' : 'Created At'}
               </label>
               <p className="text-sm font-medium mt-1">
-                {merchant?.created_at 
-                  ? new Date(merchant.created_at).toLocaleDateString(locale === 'ar' ? 'ar-SA' : 'en-US', {
+                {business?.created_at 
+                  ? new Date(business.created_at).toLocaleDateString(locale === 'ar' ? 'ar-SA' : 'en-US', {
                       year: 'numeric',
                       month: 'long',
                       day: 'numeric',

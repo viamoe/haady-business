@@ -18,13 +18,13 @@ export default async function LoginPage({ searchParams }: PageProps) {
   const { data: { user }, error } = await supabase.auth.getUser();
 
   if (!error && user) {
-    const { data: merchantUser } = await supabase
-      .from('merchant_users')
-      .select('merchant_id')
+    const { data: businessProfile } = await supabase
+      .from('business_profile')
+      .select('id, business_name')
       .eq('auth_user_id', user.id)
       .maybeSingle();
 
-    if (merchantUser?.merchant_id) {
+    if (businessProfile?.business_name) {
       const cookieStore = await cookies();
       const dashboardUrl = getLocalizedUrlFromRequest('/dashboard', {
         cookies: {
@@ -37,7 +37,7 @@ export default async function LoginPage({ searchParams }: PageProps) {
       redirect(dashboardUrl);
     } else {
       const cookieStore = await cookies();
-      const setupUrl = getLocalizedUrlFromRequest('/setup', {
+      const onboardingUrl = getLocalizedUrlFromRequest('/onboarding/personal-details', {
         cookies: {
           get: (name: string) => {
             const cookie = cookieStore.get(name);
@@ -45,7 +45,7 @@ export default async function LoginPage({ searchParams }: PageProps) {
           }
         }
       });
-      redirect(setupUrl);
+      redirect(onboardingUrl);
     }
   }
 

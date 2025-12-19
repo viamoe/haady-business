@@ -19,7 +19,7 @@ export interface Announcement {
   priority?: number; // Higher priority shows first
   startDate?: Date;
   endDate?: Date;
-  targetAudience?: 'all' | 'merchants' | 'admins';
+  targetAudience?: 'all' | 'businesses' | 'admins';
 }
 
 interface AnnouncementContextType {

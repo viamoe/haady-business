@@ -28,7 +28,7 @@ import { useLocale } from '@/i18n/context'
 import { toast } from '@/lib/toast'
 import { safeFetch, handleError } from '@/lib/error-handler'
 import Image from 'next/image'
-import { Check, ArrowRight, ArrowLeft, Zap, CheckCircle2, Gift, MessageSquare, Mail, Bell, AlertCircle, Info, HelpCircle, User, ShoppingCart, Package, CreditCard, Settings as SettingsIcon, Shield, TrendingUp, Star, Loader2, Store, Copy } from 'lucide-react'
+import { Check, ArrowRight, ArrowLeft, Zap, CheckCircle2, Gift, MessageSquare, Mail, Bell, AlertCircle, Info, HelpCircle, User, ShoppingCart, Package, CreditCard, Settings as SettingsIcon, Shield, TrendingUp, Star, Loader2, Store, Copy, Pencil, Trash2, Upload, Image as ImageIcon, Minus, Languages } from 'lucide-react'
 import { ChevronDown } from '@/components/animate-ui/icons/chevron-down'
 import { Plus } from '@/components/animate-ui/icons/plus'
 import { MessageCircleQuestion } from '@/components/animate-ui/icons/message-circle-question'
@@ -50,10 +50,12 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip'
+import { Slider } from '@/components/ui/slider'
 import { cn } from '@/lib/utils'
 import { NotificationDrawer } from '@/components/notification-drawer'
-import { HeaderLanguageSwitcher } from '@/components/header-language-switcher'
 import { SearchModal } from '@/components/search-modal'
+import { CreateStoreModal } from '@/components/create-store-modal'
+import { ProductApprovalModal, ProductPreview } from '@/components/product-approval-modal'
 import { Search } from 'lucide-react'
 import { Kbd } from '@/components/ui/kbd'
 import {
@@ -105,6 +107,7 @@ function DashboardLayoutContentInner({
   const [isAddStoreHover, setIsAddStoreHover] = useState(false)
   const [isSupportHover, setIsSupportHover] = useState(false)
   const [isSettingsHover, setIsSettingsHover] = useState(false)
+  const [isLanguageHover, setIsLanguageHover] = useState(false)
   const [isLogoutHover, setIsLogoutHover] = useState(false)
   const [isStoreDropdownOpen, setIsStoreDropdownOpen] = useState(false)
   const [isSyncing, setIsSyncing] = useState(false)
@@ -113,11 +116,21 @@ function DashboardLayoutContentInner({
   const [currentSyncPhrase, setCurrentSyncPhrase] = useState(0)
   const [syncSource, setSyncSource] = useState<'header' | 'products' | null>(null)
   const [messagesCount, setMessagesCount] = useState(0)
+  const [showProductApprovalModal, setShowProductApprovalModal] = useState(false)
+  const [previewProducts, setPreviewProducts] = useState<ProductPreview[]>([])
+  const [isLoadingPreview, setIsLoadingPreview] = useState(false)
   const [isSearchModalOpen, setIsSearchModalOpen] = useState(false)
+  const [isCreateStoreModalOpen, setIsCreateStoreModalOpen] = useState(false)
+  const [isLogoUploadModalOpen, setIsLogoUploadModalOpen] = useState(false)
+  const [logoFile, setLogoFile] = useState<File | null>(null)
+  const [logoPreview, setLogoPreview] = useState<string | null>(null)
+  const [isUploadingLogo, setIsUploadingLogo] = useState(false)
+  const [logoZoom, setLogoZoom] = useState(100) // Zoom level in percentage (100 = 1x scale)
   const [isMac, setIsMac] = useState(false) // Default to false to match server render
   const [storeName, setStoreName] = useState<string | null>(null)
   const [storeId, setStoreId] = useState<string | null>(null)
-  const [storeConnections, setStoreConnections] = useState<Array<{ id: string; platform: string; store_name: string | null }>>([])
+  const [storeLogoUrl, setStoreLogoUrl] = useState<string | null>(null)
+  const [storeConnections, setStoreConnections] = useState<Array<{ id: string; platform: string; store_name: string | null; store_logo_url: string | null; logo_zoom: number | null }>>([])
   const [isStoresExpanded, setIsStoresExpanded] = useState(false)
   
   // Detect if user is on Mac (client-side only to avoid hydration mismatch)
@@ -558,11 +571,11 @@ function DashboardLayoutContentInner({
     }
 
     try {
+      // RLS will automatically filter by user via stores -> business_profile
       const { data, error } = await supabase
         .from('store_connections')
         .select('last_sync_at')
         .eq('id', selectedConnectionId)
-        .eq('user_id', user.id)
         .maybeSingle()
 
       if (error) {
@@ -636,38 +649,57 @@ function DashboardLayoutContentInner({
     return () => clearInterval(interval)
   }, [isSyncing, syncPhrases.length])
 
-  // Fetch store name and ID when selectedConnectionId changes
+  // Fetch store name, ID, and logo when selectedConnectionId changes
   useEffect(() => {
     const fetchStoreInfo = async () => {
       if (!selectedConnectionId) {
         setStoreName(null)
         setStoreId(null)
+        setStoreLogoUrl(null)
         return
       }
 
       try {
-        // Fetch the first active store for this connection
-        const { data: stores, error } = await supabase
+        // Fetch store via connection (new structure: store_connections.store_id -> stores.id)
+        // Logo and name are now in stores table
+        const { data: store, error: storeError } = await supabase
           .from('stores')
-          .select('id, name')
-          .eq('store_connection_id', selectedConnectionId)
+          .select(`
+            id,
+            name,
+            logo_url,
+            store_connections!inner(id)
+          `)
+          .eq('store_connections.id', selectedConnectionId)
           .eq('is_active', true)
           .limit(1)
-          .single()
+          .maybeSingle()
 
-        if (error) {
-          console.error('Error fetching store info:', error)
+        if (storeError) {
+          console.error('Error fetching store info:', storeError)
           setStoreName(null)
           setStoreId(null)
+          setStoreLogoUrl(null)
+          setLogoZoom(100)
           return
         }
 
-        setStoreName(stores?.name || null)
-        setStoreId(stores?.id || null)
+        if (store) {
+          setStoreName(store.name)
+          setStoreId(store.id)
+          setStoreLogoUrl(store.logo_url || null)
+          setLogoZoom(100) // logo_zoom can be added to stores table if needed
+        } else {
+          setStoreName(null)
+          setStoreId(null)
+          setStoreLogoUrl(null)
+          setLogoZoom(100)
+        }
       } catch (error) {
         console.error('Exception fetching store info:', error)
         setStoreName(null)
         setStoreId(null)
+        setStoreLogoUrl(null)
       }
     }
 
@@ -683,19 +715,56 @@ function DashboardLayoutContentInner({
       }
 
       try {
-        const { data: connections, error } = await supabase
-          .from('store_connections')
-          .select('id, platform, store_name')
-          .eq('user_id', user.id)
-          .order('created_at', { ascending: false })
+        // Get business profile first
+        const { data: businessProfile } = await supabase
+          .from('business_profile')
+          .select('id')
+          .eq('auth_user_id', user.id)
+          .single()
 
-        if (error) {
-          console.error('Error fetching store connections:', error)
+        if (!businessProfile) {
           setStoreConnections([])
           return
         }
 
-        setStoreConnections(connections || [])
+        // Fetch stores with their connections (stores is now the source of truth)
+        const { data: storesData, error } = await supabase
+          .from('stores')
+          .select(`
+            id,
+            name,
+            logo_url,
+            platform,
+            is_active,
+            store_connections!inner (
+              id
+            )
+          `)
+          .eq('business_id', businessProfile.id)
+          .eq('is_active', true)
+          .order('created_at', { ascending: false })
+
+        if (error) {
+          console.error('Error fetching stores:', error)
+          setStoreConnections([])
+          return
+        }
+
+        // Transform to match expected format
+        const connections = (storesData || []).map(store => {
+          const connection = Array.isArray(store.store_connections) 
+            ? store.store_connections[0] 
+            : store.store_connections
+          return {
+            id: connection.id,
+            platform: store.platform,
+            store_name: store.name,
+            store_logo_url: store.logo_url,
+            logo_zoom: null,
+          }
+        })
+
+        setStoreConnections(connections)
       } catch (error) {
         console.error('Exception fetching store connections:', error)
         setStoreConnections([])
@@ -705,7 +774,7 @@ function DashboardLayoutContentInner({
     fetchConnections()
   }, [user?.id])
 
-  // Handle sync button click
+  // Handle sync button click - show product approval modal
   const handleSync = async () => {
     if (!selectedConnectionId) {
       toast.error(t('toast.error.noStoreSelected'), {
@@ -714,9 +783,54 @@ function DashboardLayoutContentInner({
       return
     }
 
-    if (isSyncing) {
+    if (isSyncing || isLoadingPreview) {
       return // Prevent multiple simultaneous syncs
     }
+
+    setIsLoadingPreview(true)
+    try {
+      const previewResponse = await safeFetch(
+        `/api/store-connections/${selectedConnectionId}/sync/preview`,
+        { method: 'GET' },
+        { context: 'Preview products', showToast: false }
+      )
+
+      if (!previewResponse.ok) {
+        const errorData = await previewResponse.json().catch(() => ({ error: 'Failed to fetch preview' }))
+        throw new Error(errorData.error || 'Failed to preview products')
+      }
+
+      const previewData = await previewResponse.json()
+      
+      if (!previewData.success || !previewData.products) {
+        throw new Error(previewData.error || 'Failed to preview products')
+      }
+
+      setPreviewProducts(previewData.products)
+      setShowProductApprovalModal(true)
+    } catch (error: any) {
+      const errorMessage = error?.message || String(error)
+      if (errorMessage.includes('not yet implemented') || errorMessage.includes('404') || errorMessage.includes('Not Found')) {
+        // Fallback to direct sync if preview is not implemented
+        await performDirectSync()
+      } else {
+        handleError(error, {
+          context: 'Preview products',
+          showToast: true,
+        })
+        setIsLoadingPreview(false)
+      }
+    } finally {
+      // Only set loading to false if we're not doing direct sync
+      if (!isSyncing) {
+        setIsLoadingPreview(false)
+      }
+    }
+  }
+
+  // Perform direct sync (fallback when preview is not available)
+  const performDirectSync = async () => {
+    if (!selectedConnectionId) return
 
     setIsSyncing(true)
     setSyncSource('header')
@@ -730,6 +844,90 @@ function DashboardLayoutContentInner({
           body: JSON.stringify({ type: 'all' }),
         },
         { context: 'Sync store products', showToast: true }
+      )
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }))
+        throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`)
+      }
+
+      const data = await response.json()
+
+      if (data.success) {
+        // Fetch the updated last_sync_at from database to ensure persistence
+        await fetchLastSyncTime()
+        
+        // Dispatch sync completed event to refresh dashboard
+        window.dispatchEvent(new CustomEvent('productsSyncCompleted', { 
+          detail: { connectionId: selectedConnectionId, success: true } 
+        }))
+        
+        // Show timestamp immediately by setting syncing to false
+        setIsSyncing(false)
+        
+        if (data.details) {
+          const { productsCreated, productsUpdated, productsSynced } = data.details
+          let description = t('toast.success.productsSynchronized')
+          
+          if (productsCreated > 0 && productsUpdated > 0) {
+            description = t('toast.success.productsCreatedAndUpdated', { 
+              created: productsCreated, 
+              updated: productsUpdated 
+            })
+          } else if (productsCreated > 0) {
+            description = t('toast.success.productsCreated', { count: productsCreated })
+          } else if (productsUpdated > 0) {
+            description = t('toast.success.productsUpdated', { count: productsUpdated })
+          } else if (productsSynced > 0) {
+            description = t('toast.success.productsSynced', { count: productsSynced })
+          }
+          
+          toast.success(t('toast.success.syncCompleted'), { description })
+        } else {
+          toast.success(t('toast.success.syncCompleted'), { 
+            description: t('toast.success.productsSynchronized')
+          })
+        }
+      } else {
+        throw new Error(data.error || data.message || t('toast.error.syncFailed'))
+      }
+    } catch (error: any) {
+      // Dispatch sync failed event
+      window.dispatchEvent(new CustomEvent('productsSyncCompleted', { 
+        detail: { connectionId: selectedConnectionId, success: false } 
+      }))
+      handleError(error, {
+        context: 'Sync store products',
+        showToast: true,
+        fallbackMessage: t('toast.error.failedToStartSync'),
+      })
+        setIsSyncing(false) // Stop syncing on error too
+        setSyncSource(null)
+    }
+  }
+
+  // Handle product approval - sync selected products
+  const handleApproveProducts = async (selectedProductIds: string[]) => {
+    if (!selectedConnectionId || selectedProductIds.length === 0) {
+      return
+    }
+
+    setIsSyncing(true)
+    setSyncSource('header')
+    setShowProductApprovalModal(false)
+
+    try {
+      const response = await safeFetch(
+        `/api/store-connections/${selectedConnectionId}/sync`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            type: 'selected',
+            selectedProductIds 
+          }),
+        },
+        { context: 'Sync selected products', showToast: true }
       )
 
       if (!response.ok) {
@@ -773,16 +971,21 @@ function DashboardLayoutContentInner({
         throw new Error(data.error || data.message || t('toast.error.syncFailed'))
       }
     } catch (error: any) {
+      // Dispatch sync failed event
+      window.dispatchEvent(new CustomEvent('productsSyncCompleted', { 
+        detail: { connectionId: selectedConnectionId, success: false } 
+      }))
       handleError(error, {
-        context: 'Sync store products',
+        context: 'Sync selected products',
         showToast: true,
         fallbackMessage: t('toast.error.failedToStartSync'),
       })
-        setIsSyncing(false) // Stop syncing on error too
-        setSyncSource(null)
+      setIsSyncing(false)
+      setSyncSource(null)
     }
   }
   const [hasCheckedConnections, setHasCheckedConnections] = useState(false)
+  const [hasManuallyOpened, setHasManuallyOpened] = useState(false)
   const [showShopifyDialog, setShowShopifyDialog] = useState(false)
   const [shopDomainInput, setShopDomainInput] = useState('')
   const [showCelebration, setShowCelebration] = useState(false)
@@ -794,25 +997,35 @@ function DashboardLayoutContentInner({
   // Listen for open modal event from sidebar
   useEffect(() => {
     const handleOpenModal = () => {
+      // Mark as manually opening to prevent URL sync from overriding
+      setHasManuallyOpened(true)
+      // Reset to 'choose' step and clear any URL params
       setModalStep('choose')
+      // Remove step from URL if present
+      const url = new URL(window.location.href)
+      url.searchParams.delete('step')
+      router.replace(url.pathname + (url.search || ''), { scroll: false })
+      // Open the modal
       openModal()
     }
     window.addEventListener('openOnboardingModal', handleOpenModal)
     return () => {
       window.removeEventListener('openOnboardingModal', handleOpenModal)
     }
-  }, [openModal, setModalStep])
+  }, [openModal, setModalStep, router])
 
-  // Sync modal step with URL
+  // Sync modal step with URL (only if not manually opening via event)
   useEffect(() => {
-    if (urlStep === 'connect-platform') {
-      setModalStep('connect-platform')
-      openModal()
-    } else if (urlStep === 'choose') {
-      setModalStep('choose')
-      openModal()
+    if (!hasManuallyOpened) {
+      if (urlStep === 'connect-platform') {
+        setModalStep('connect-platform')
+        openModal()
+      } else if (urlStep === 'choose') {
+        setModalStep('choose')
+        openModal()
+      }
     }
-  }, [urlStep, setModalStep, openModal])
+  }, [urlStep, setModalStep, openModal, hasManuallyOpened])
 
   // Check if user has any store connections on mount
   useEffect(() => {
@@ -820,10 +1033,14 @@ function DashboardLayoutContentInner({
       if (!user?.id || hasCheckedConnections) return
 
       try {
-        const { data: connections, error } = await supabase
-          .from('store_connections')
-          .select('platform')
-          .eq('user_id', user.id)
+        // Query stores with connections (RLS will filter by user via business_profile)
+        const { data: stores, error } = await supabase
+          .from('stores')
+          .select(`
+            id,
+            store_connections!inner(id)
+          `)
+          .eq('is_active', true)
           .limit(1)
 
         if (error) {
@@ -833,8 +1050,8 @@ function DashboardLayoutContentInner({
           return
         }
 
-        // Only show modal if no connections exist
-        if (!connections || connections.length === 0) {
+        // Only show modal if no stores with connections exist
+        if (!stores || stores.length === 0) {
           openModal()
         }
 
@@ -1195,6 +1412,8 @@ function DashboardLayoutContentInner({
       closeModal()
       // Reset to first step when modal closes and remove step from URL
       updateStep('choose')
+      // Reset manual open flag when modal closes
+      setHasManuallyOpened(false)
     }
   }
 
@@ -1237,10 +1456,7 @@ function DashboardLayoutContentInner({
               </TooltipContent>
             </Tooltip>
             <div className={cn(
-              "absolute z-10",
-              isRTL 
-                ? "right-12 sm:right-16 md:right-12 lg:right-32 xl:right-32 2xl:right-48"
-                : "left-12 sm:left-16 md:left-12 lg:left-32 xl:left-32 2xl:left-48"
+              "absolute z-10 left-1/2 -translate-x-1/2"
             )}>
               <div className="relative">
                 <Search className={cn(
@@ -1349,13 +1565,17 @@ function DashboardLayoutContentInner({
                         className="size-7 [&_svg]:!h-5 [&_svg]:!w-5 text-gray-500 hover:text-gray-700 flex items-center justify-center"
                         aria-label={t('header.sync.products')}
                         onClick={handleSync}
-                        disabled={!selectedConnectionId}
+                        disabled={!selectedConnectionId || isSyncing || isLoadingPreview}
                         onMouseEnter={() => setIsHoveringSync(true)}
                         onMouseLeave={() => setIsHoveringSync(false)}
                       >
-                        <AnimateIcon animateOnHover>
-                          <RefreshCcw size={20} />
-                        </AnimateIcon>
+                        {(isSyncing || isLoadingPreview) ? (
+                          <Loader2 className="h-5 w-5 animate-spin" />
+                        ) : (
+                          <AnimateIcon animateOnHover>
+                            <RefreshCcw size={20} />
+                          </AnimateIcon>
+                        )}
                       </Button>
                     </TooltipTrigger>
                   <TooltipContent 
@@ -1375,8 +1595,6 @@ function DashboardLayoutContentInner({
               onUpdateRead={handleUpdateRead}
               onMarkAllAsRead={handleMarkAllAsRead}
             />
-            <HeaderLanguageSwitcher />
-            <div className="h-6 w-px bg-gray-200 mx-2" />
             <Tooltip open={!isStoreDropdownOpen ? undefined : false}>
               <TooltipTrigger asChild>
                 <div>
@@ -1385,32 +1603,123 @@ function DashboardLayoutContentInner({
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="size-10 ml-2 [&_svg]:!h-6 [&_svg]:!w-6 text-[#F4610B] hover:text-[#F4610B] bg-[#F4610B]/5 hover:bg-[#F4610B]/10 flex items-center justify-center transition-colors"
+                        className="size-10 ml-2 [&_svg]:!h-6 [&_svg]:!w-6 text-[#F4610B] hover:text-[#F4610B] bg-[#F4610B]/5 hover:bg-[#F4610B]/10 flex items-center justify-center transition-colors relative"
                         aria-label={storeName || "Store Settings"}
                       >
-                        <Store size={24} />
+                        {(() => {
+                          const currentStore = storeConnections.find(c => c.id === selectedConnectionId)
+                          const platform = currentStore?.platform || selectedConnection?.platform
+                          const uploadedLogoUrl = currentStore?.store_logo_url || storeLogoUrl
+                          const logoZoomLevel = currentStore?.logo_zoom || logoZoom || 100
+                          const platformLogoUrl = platform ? PLATFORM_LOGOS[platform?.toLowerCase()] : null
+                          
+                          // Show uploaded logo if available
+                          if (uploadedLogoUrl) {
+                            return (
+                              <>
+                                <div className="absolute inset-0 overflow-hidden rounded-lg">
+                                  <Image
+                                    key={uploadedLogoUrl}
+                                    src={uploadedLogoUrl}
+                                    alt="Store logo"
+                                    width={40}
+                                    height={40}
+                                    className="object-cover w-full h-full"
+                                    style={{
+                                      transform: `scale(${logoZoomLevel / 100})`,
+                                      transition: 'transform 0.2s ease-out'
+                                    }}
+                                    unoptimized
+                                  />
+                                </div>
+                                {/* Platform logo badge overlay */}
+                                {platformLogoUrl && (
+                                  <div className="absolute -bottom-1 -right-3 w-6 h-6 rounded-md bg-white shadow-md overflow-hidden flex items-center justify-center z-50">
+                                    <Image
+                                      src={platformLogoUrl || ''}
+                                      alt={platform || 'Platform'}
+                                      width={18}
+                                      height={18}
+                                      className="object-contain w-full h-full"
+                                      unoptimized
+                                    />
+                                  </div>
+                                )}
+                              </>
+                            )
+                          }
+                          
+                          // Default: Store icon with light orange background and platform logo overlay
+                          return (
+                            <>
+                              <div className="w-full h-full flex items-center justify-center bg-[#F4610B]/10 rounded-lg">
+                                <Store size={24} className="text-[#F4610B]" />
+                              </div>
+                              {/* Platform logo badge overlay */}
+                              {platformLogoUrl && (
+                                <div className="absolute -bottom-1 -right-3 w-6 h-6 rounded-md bg-white shadow-md overflow-hidden flex items-center justify-center z-50">
+                                  <Image
+                                    src={platformLogoUrl || ''}
+                                    alt={platform || 'Platform'}
+                                    width={18}
+                                    height={18}
+                                    className="object-contain w-full h-full"
+                                    unoptimized
+                                  />
+                                </div>
+                              )}
+                            </>
+                          )
+                        })()}
                       </Button>
                     </DropdownMenuTrigger>
                   <DropdownMenuContent 
-                    align="end" 
+                    align={isRTL ? "start" : "start"} 
                     sideOffset={10}
-                    className="w-72 border-0 p-0 rounded-2xl"
+                    alignOffset={isRTL ? 0 : 0}
+                    className={cn("w-72 border-0 p-0 rounded-2xl", isRTL && "text-right")}
                     style={{
                       ...(locale === 'ar' ? { 
-                        fontFamily: 'var(--font-ibm-plex-arabic), "IBM Plex Sans Arabic", sans-serif' 
-                      } : {}),
+                        fontFamily: 'var(--font-ibm-plex-arabic), "IBM Plex Sans Arabic", sans-serif',
+                        direction: 'rtl'
+                      } : {
+                        direction: 'ltr'
+                      }),
                       boxShadow: '0 0 20px rgba(0, 0, 0, 0.1)'
                     }}
                   >
                     <DropdownMenuLabel className="px-4 py-4 bg-gray-100/50 rounded-t-2xl">
-                      <div className="flex items-start gap-4">
-                        <div className="p-2.5 bg-[#F4610B]/10 rounded-lg flex-shrink-0">
-                          <Store className="h-5 w-5 text-[#F4610B]" />
+                      <div className={cn("flex items-start gap-4", isRTL && "flex-row-reverse justify-end")}>
+                        <div 
+                          className="relative w-10 h-10 bg-[#F4610B]/10 rounded-lg flex-shrink-0 group cursor-pointer overflow-hidden flex items-center justify-center"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setIsLogoUploadModalOpen(true)
+                          }}
+                        >
+                          {storeLogoUrl ? (
+                            <div className="relative w-full h-full rounded overflow-hidden">
+                              <Image
+                                key={storeLogoUrl}
+                                src={storeLogoUrl}
+                                alt="Store logo"
+                                fill
+                                className="object-cover"
+                                unoptimized
+                              />
+                            </div>
+                          ) : (
+                            <Store className="h-5 w-5 text-[#F4610B] transition-colors" />
+                          )}
+                          {/* Hover overlay with edit icon */}
+                          <div className="absolute inset-0 bg-[#F4610B]/80 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center">
+                            <Pencil className="h-5 w-5 text-white" />
+                          </div>
                         </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="text-sm font-semibold text-gray-900 mb-0.5">{storeName || 'N/A'}</div>
-                          <div className="flex items-center gap-2">
-                            <div className="text-xs text-gray-500 font-mono">
+                        <div className={cn("flex-1 min-w-0", isRTL && "text-right")}>
+                          <div className={cn("text-sm font-semibold text-gray-900 mb-0.5", isRTL && "text-right")}>{storeName || 'N/A'}</div>
+                          <div className={cn("flex items-center gap-2", isRTL && "flex-row-reverse justify-end")}>
+                            <div className={cn("text-xs text-gray-500 font-mono", isRTL && "text-right")}>
                               {storeId ? storeId.slice(0, 8) : 'N/A'}
                             </div>
                             {storeId && (
@@ -1431,7 +1740,7 @@ function DashboardLayoutContentInner({
                               </button>
                             )}
                           </div>
-                          <div className="text-xs text-gray-500 font-mono mt-0.5">{user?.email || 'N/A'}</div>
+                          <div className={cn("text-xs text-gray-500 font-mono mt-0.5", isRTL && "text-right")}>{user?.email || 'N/A'}</div>
                         </div>
                       </div>
                     </DropdownMenuLabel>
@@ -1447,27 +1756,36 @@ function DashboardLayoutContentInner({
                             onMouseEnter={() => setIsStoresExpandedHover(true)}
                             onMouseLeave={() => setIsStoresExpandedHover(false)}
                           >
-                            <div className="flex items-center gap-2 flex-1">
+                            <div className={cn("flex items-center gap-2 flex-1", isRTL && "flex-row-reverse")}>
                               {(() => {
                                 const currentStore = storeConnections.find(c => c.id === selectedConnectionId)
                                 const platform = currentStore?.platform || selectedConnection?.platform
-                                return platform ? (
+                                const logoUrl = currentStore?.store_logo_url || storeLogoUrl
+                                const logoZoomLevel = currentStore?.logo_zoom || logoZoom || 100
+                                const platformLogo = platform ? PLATFORM_LOGOS[platform?.toLowerCase()] : null
+                                
+                                return (
                                   <div className={`flex size-6 items-center justify-center rounded-md overflow-hidden relative flex-shrink-0 ${
-                                    PLATFORM_LOGOS[platform?.toLowerCase()] ? '' : 'bg-white'
+                                    logoUrl ? '' : 'bg-[#F4610B]/10'
                                   }`}>
-                                    {PLATFORM_LOGOS[platform?.toLowerCase()] ? (
+                                    {logoUrl ? (
                                       <img 
-                                        src={PLATFORM_LOGOS[platform?.toLowerCase()]} 
-                                        alt={platform}
+                                        key={logoUrl}
+                                        src={logoUrl} 
+                                        alt="Store logo"
                                         className="absolute inset-0 size-full object-cover opacity-100"
+                                        style={{
+                                          transform: `scale(${logoZoomLevel / 100})`,
+                                          transition: 'transform 0.2s ease-out'
+                                        }}
                                       />
                                     ) : (
-                                      <Store className="size-4 relative z-10 text-gray-400 group-hover:text-gray-900 transition-colors" />
+                                      <Store className="size-4 relative z-10 text-[#F4610B] transition-colors" />
                                     )}
                                   </div>
-                                ) : null
+                                )
                               })()}
-                              <span className="flex-1">{storeName || 'Store'}</span>
+                              <span className={cn("flex-1", isRTL && "text-right")}>{storeName || 'Store'}</span>
                               <AnimateIcon animate={isStoresExpandedHover}>
                                 <ChevronDown 
                                   size={16} 
@@ -1481,7 +1799,7 @@ function DashboardLayoutContentInner({
                               isStoresExpanded ? 'max-h-96 opacity-100 mb-2' : 'max-h-0 opacity-0'
                             }`}
                           >
-                            <div className="pl-4">
+                            <div className={cn("pl-4", isRTL && "pr-4 pl-0")}>
                               {storeConnections
                                 .filter((connection) => connection.id !== selectedConnectionId)
                                 .map((connection) => (
@@ -1493,21 +1811,26 @@ function DashboardLayoutContentInner({
                                     }}
                                     className="group px-3 py-2.5 rounded-xl hover:bg-gray-100 focus:bg-gray-100 hover:text-gray-900 focus:text-gray-900"
                                   >
-                                    <div className="flex items-center gap-2">
+                                    <div className={cn("flex items-center gap-2", isRTL && "flex-row-reverse")}>
                                       <div className={`flex size-6 items-center justify-center rounded-md overflow-hidden relative ${
-                                        PLATFORM_LOGOS[connection.platform?.toLowerCase()] ? '' : 'bg-white'
+                                        connection.store_logo_url ? '' : 'bg-[#F4610B]/10'
                                       }`}>
-                                        {PLATFORM_LOGOS[connection.platform?.toLowerCase()] ? (
+                                        {connection.store_logo_url ? (
                                           <img 
-                                            src={PLATFORM_LOGOS[connection.platform?.toLowerCase()]} 
-                                            alt={connection.platform}
+                                            key={connection.store_logo_url}
+                                            src={connection.store_logo_url} 
+                                            alt="Store logo"
                                             className="absolute inset-0 size-full object-cover opacity-60 group-hover:opacity-100 transition-opacity"
+                                            style={{
+                                              transform: `scale(${(connection.logo_zoom || 100) / 100})`,
+                                              transition: 'transform 0.2s ease-out, opacity 0.2s ease-out'
+                                            }}
                                           />
                                         ) : (
-                                          <Store className="size-4 relative z-10 text-gray-400 group-hover:text-gray-900 transition-colors" />
+                                          <Store className="size-4 relative z-10 text-[#F4610B] transition-colors" />
                                         )}
                                       </div>
-                                      <span>{connection.store_name || connection.platform}</span>
+                                      <span className={isRTL ? "text-right" : "text-left"}>{connection.store_name || connection.platform}</span>
                                     </div>
                                   </DropdownMenuItem>
                                 ))}
@@ -1523,34 +1846,55 @@ function DashboardLayoutContentInner({
                         }}
                         onMouseEnter={() => setIsAddStoreHover(true)}
                         onMouseLeave={() => setIsAddStoreHover(false)}
-                        className="group px-3 py-2.5 rounded-xl hover:bg-gray-100 focus:bg-gray-100 hover:text-gray-900 focus:text-gray-900 [&_svg]:group-hover:text-gray-900"
+                        className={cn("group px-3 py-2.5 rounded-xl hover:bg-gray-100 focus:bg-gray-100 hover:text-gray-900 focus:text-gray-900 [&_svg]:group-hover:text-gray-900 flex items-center", isRTL && "flex-row-reverse")}
                       >
                         <AnimateIcon animate={isAddStoreHover}>
-                          <Plus size={16} className="mr-2 text-gray-400 group-hover:text-green-600 transition-colors" />
+                          <Plus size={16} className={cn("text-gray-400 group-hover:text-green-600 transition-colors", isRTL ? "ml-2" : "mr-2")} />
                         </AnimateIcon>
-                        Add Store
+                        <span className={isRTL ? "text-right" : "text-left"}>{t("sidebar.store.addStore")}</span>
                       </DropdownMenuItem>
                       <DropdownMenuItem 
                         onClick={() => router.push('/dashboard/support')} 
                         onMouseEnter={() => setIsSupportHover(true)}
                         onMouseLeave={() => setIsSupportHover(false)}
-                        className="group px-3 py-2.5 rounded-xl hover:bg-gray-100 focus:bg-gray-100 hover:text-gray-900 focus:text-gray-900"
+                        className={cn("group px-3 py-2.5 rounded-xl hover:bg-gray-100 focus:bg-gray-100 hover:text-gray-900 focus:text-gray-900 flex items-center", isRTL && "flex-row-reverse")}
                       >
                         <AnimateIcon animate={isSupportHover}>
-                          <MessageCircleQuestion size={16} className="mr-2 text-gray-400 group-hover:text-gray-900 transition-colors" />
+                          <MessageCircleQuestion size={16} className={cn("text-gray-400 group-hover:text-gray-900 transition-colors", isRTL ? "ml-2" : "mr-2")} />
                         </AnimateIcon>
-                        Support
+                        <span className={isRTL ? "text-right" : "text-left"}>{t("sidebar.user.support")}</span>
                       </DropdownMenuItem>
                       <DropdownMenuItem 
                         onClick={() => router.push('/dashboard/settings/account')} 
                         onMouseEnter={() => setIsSettingsHover(true)}
                         onMouseLeave={() => setIsSettingsHover(false)}
-                        className="group px-3 py-2.5 rounded-xl hover:bg-gray-100 focus:bg-gray-100 hover:text-gray-900 focus:text-gray-900"
+                        className={cn("group px-3 py-2.5 rounded-xl hover:bg-gray-100 focus:bg-gray-100 hover:text-gray-900 focus:text-gray-900 flex items-center", isRTL && "flex-row-reverse")}
                       >
                         <AnimateIcon animate={isSettingsHover}>
-                          <Settings size={16} className="mr-2 text-gray-400 group-hover:text-gray-900 transition-colors" />
+                          <Settings size={16} className={cn("text-gray-400 group-hover:text-gray-900 transition-colors", isRTL ? "ml-2" : "mr-2")} />
                         </AnimateIcon>
-                        Account Settings
+                        <span className={isRTL ? "text-right" : "text-left"}>{t("sidebar.user.accountSettings")}</span>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem 
+                        onClick={(e) => {
+                          e.preventDefault()
+                          const otherLang = locale === 'en' ? 'ar' : 'en'
+                          // Set cookie
+                          document.cookie = `locale=${otherLang};path=/;max-age=31536000;sameSite=Lax`
+                          // Reload with new locale
+                          const url = new URL(window.location.href)
+                          url.searchParams.set('_locale', otherLang)
+                          url.searchParams.set('_t', Date.now().toString())
+                          window.location.replace(url.toString())
+                        }}
+                        onMouseEnter={() => setIsLanguageHover(true)}
+                        onMouseLeave={() => setIsLanguageHover(false)}
+                        className={cn("group px-3 py-2.5 rounded-xl hover:bg-gray-100 focus:bg-gray-100 hover:text-gray-900 focus:text-gray-900 flex items-center", isRTL && "flex-row-reverse")}
+                      >
+                        <AnimateIcon animate={isLanguageHover}>
+                          <Languages size={16} className={cn("text-gray-400 group-hover:text-gray-900 transition-colors", isRTL ? "ml-2" : "mr-2")} />
+                        </AnimateIcon>
+                        <span className={isRTL ? "text-right" : "text-left"}>{locale === 'en' ? t("sidebar.user.switchToArabic") : t("sidebar.user.switchToEnglish")}</span>
                       </DropdownMenuItem>
                       <DropdownMenuItem 
                         onClick={async () => {
@@ -1560,12 +1904,12 @@ function DashboardLayoutContentInner({
                         }}
                         onMouseEnter={() => setIsLogoutHover(true)}
                         onMouseLeave={() => setIsLogoutHover(false)}
-                        className="group text-red-600 focus:text-red-600 focus:bg-red-50 hover:text-red-600 hover:bg-red-50 px-3 py-2.5 rounded-xl [&_svg]:text-red-600 [&_svg]:group-hover:text-red-600"
+                        className={cn("group text-red-600 focus:text-red-600 focus:bg-red-50 hover:text-red-600 hover:bg-red-50 px-3 py-2.5 rounded-xl [&_svg]:text-red-600 [&_svg]:group-hover:text-red-600 flex items-center", isRTL && "flex-row-reverse")}
                       >
                         <AnimateIcon animate={isLogoutHover}>
-                          <LogOut size={16} className="mr-2 text-red-600" />
+                          <LogOut size={16} className={cn("text-red-600", isRTL ? "ml-2" : "mr-2")} />
                         </AnimateIcon>
-                        Logout
+                        <span className={isRTL ? "text-right" : "text-left"}>{t("sidebar.user.logout")}</span>
                       </DropdownMenuItem>
                     </div>
                   </DropdownMenuContent>
@@ -1586,6 +1930,283 @@ function DashboardLayoutContentInner({
           open={isSearchModalOpen} 
           onOpenChange={setIsSearchModalOpen} 
         />
+        {/* Create Store Modal */}
+        <CreateStoreModal
+          open={isCreateStoreModalOpen}
+          onOpenChange={setIsCreateStoreModalOpen}
+        />
+        {/* Store Logo Upload Modal */}
+        <Dialog open={isLogoUploadModalOpen} onOpenChange={setIsLogoUploadModalOpen}>
+          <DialogContent className="max-w-md rounded-3xl shadow-2xl bg-white p-6 sm:p-8">
+            <DialogHeader className="text-left space-y-1.5">
+              <DialogTitle className="text-xl sm:text-2xl font-bold text-gray-900 tracking-tight">
+                {t('header.storeLogo.uploadTitle')}
+              </DialogTitle>
+              <DialogDescription className="text-sm sm:text-base text-gray-500">
+                {t('header.storeLogo.uploadDescription')}
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-6 py-4">
+              {/* Logo Preview Section */}
+              {(logoPreview || storeLogoUrl) && (
+                <div className="space-y-4">
+                  <p className="text-sm font-medium text-gray-500 text-center">Preview</p>
+                  <div className="relative w-32 h-32 mx-auto rounded-lg overflow-hidden bg-gray-900 flex items-center justify-center border-2 border-dashed border-gray-700">
+                    {logoPreview ? (
+                      <Image
+                        src={logoPreview}
+                        alt="Logo preview"
+                        fill
+                        className="object-contain"
+                        style={{
+                          transform: `scale(${logoZoom / 100})`,
+                          transition: 'transform 0.2s ease-out'
+                        }}
+                        unoptimized
+                      />
+                    ) : storeLogoUrl ? (
+                      <Image
+                        key={storeLogoUrl}
+                        src={storeLogoUrl}
+                        alt="Current store logo"
+                        fill
+                        className="object-contain"
+                        style={{
+                          transform: `scale(${logoZoom / 100})`,
+                          transition: 'transform 0.2s ease-out'
+                        }}
+                        unoptimized
+                      />
+                    ) : null}
+                  </div>
+                  
+                  {/* Zoom Slider */}
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-3 px-2">
+                      <button
+                        type="button"
+                        onClick={() => setLogoZoom(Math.max(50, logoZoom - 10))}
+                        className="flex items-center justify-center w-8 h-8 rounded-full border border-gray-300 hover:bg-gray-100 transition-colors"
+                        aria-label="Zoom out"
+                      >
+                        <Minus className="h-4 w-4 text-gray-600" />
+                      </button>
+                      <Slider
+                        value={[logoZoom]}
+                        onValueChange={(value) => setLogoZoom(value[0])}
+                        min={50}
+                        max={200}
+                        step={5}
+                        className="flex-1"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setLogoZoom(Math.min(200, logoZoom + 10))}
+                        className="flex items-center justify-center w-8 h-8 rounded-full border border-gray-300 hover:bg-gray-100 transition-colors"
+                        aria-label="Zoom in"
+                      >
+                        <Plus className="h-4 w-4 text-gray-600" />
+                      </button>
+                    </div>
+                    <p className="text-xs text-gray-500 text-center">
+                      {t('header.storeLogo.adjustImage') || 'Adjust the image until it fits inside the rounded box'}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setLogoFile(null)
+                        setLogoPreview(null)
+                        setLogoZoom(100)
+                        document.getElementById('logo-upload')?.click()
+                      }}
+                      className="text-sm font-medium text-[#F4610B] hover:text-[#F4610B]/80 transition-colors mx-auto block"
+                    >
+                      {t('header.storeLogo.selectDifferentImage') || 'Select a different image'}
+                    </button>
+                  </div>
+                </div>
+              )}
+              
+              {/* Upload Area */}
+              <div className="space-y-2">
+                <label
+                  htmlFor="logo-upload"
+                  className="relative flex flex-col items-center justify-center w-full h-32 border border-dashed border-gray-300 rounded-xl bg-white hover:bg-[#F4610B]/10 hover:border-[#F4610B] transition-colors cursor-pointer group"
+                >
+                  <input
+                    id="logo-upload"
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0]
+                      if (file) {
+                        setLogoFile(file)
+                        setLogoZoom(100) // Reset zoom when new file is selected
+                        const reader = new FileReader()
+                        reader.onloadend = () => {
+                          setLogoPreview(reader.result as string)
+                        }
+                        reader.readAsDataURL(file)
+                      }
+                    }}
+                    className="hidden"
+                  />
+                  
+                  <div className="flex flex-col items-center justify-center gap-3">
+                    <p className="text-sm text-gray-600">
+                      {t('header.storeLogo.dragAndDrop')}
+                    </p>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="bg-[#F4610B] text-white border-[#F4610B] hover:bg-[#F4610B]/90 hover:text-white"
+                      onClick={(e) => {
+                        e.preventDefault()
+                        document.getElementById('logo-upload')?.click()
+                      }}
+                    >
+                      {t('header.storeLogo.chooseLogo')}
+                    </Button>
+                    <p className="text-xs text-gray-500">
+                      {t('header.storeLogo.fileRequirements')}
+                    </p>
+                  </div>
+                </label>
+              </div>
+              
+              {/* Remove Logo Button (only show if logo exists) */}
+              {storeLogoUrl && !logoPreview && (
+                <div className="flex justify-center">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={async () => {
+                      if (!selectedConnectionId) return
+                      
+                      setIsUploadingLogo(true)
+                      try {
+                        const response = await fetch(`/api/store-connections/${selectedConnectionId}/upload-logo`, {
+                          method: 'DELETE',
+                        })
+
+                        const data = await response.json()
+
+                        if (!response.ok) {
+                          throw new Error(data.error || 'Remove failed')
+                        }
+
+                        toast.success(t('header.storeLogo.removeSuccess'))
+                        setIsLogoUploadModalOpen(false)
+                        setLogoZoom(100) // Reset zoom after removal
+                        
+                        // Clear the logo URL in state
+                        setStoreLogoUrl(null)
+                        
+                        // Update the storeConnections array to remove the logo URL and reset zoom
+                        setStoreConnections(prev => 
+                          prev.map(conn => 
+                            conn.id === selectedConnectionId 
+                              ? { ...conn, store_logo_url: null, logo_zoom: 100 }
+                              : conn
+                          )
+                        )
+                        
+                        // Dispatch event to notify sidebar to refresh connections
+                        window.dispatchEvent(new CustomEvent('storeLogoUpdated', { 
+                          detail: { connectionId: selectedConnectionId, logoUrl: null, logoZoom: 100 }
+                        }))
+                      } catch (error) {
+                        console.error('Error removing logo:', error)
+                        toast.error(t('header.storeLogo.removeError'))
+                      } finally {
+                        setIsUploadingLogo(false)
+                      }
+                    }}
+                    disabled={isUploadingLogo}
+                    className="border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700"
+                  >
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    {t('header.storeLogo.removeLogo')}
+                  </Button>
+                </div>
+              )}
+            </div>
+            <DialogFooter className="flex-row-reverse sm:flex-row sm:justify-end sm:space-x-2 gap-2">
+              <Button
+                onClick={async () => {
+                  if (!logoFile || !selectedConnectionId) return
+                  
+                  setIsUploadingLogo(true)
+                  try {
+                    const formData = new FormData()
+                    formData.append('file', logoFile)
+                    formData.append('zoom', logoZoom.toString())
+
+                    const response = await fetch(`/api/store-connections/${selectedConnectionId}/upload-logo`, {
+                      method: 'POST',
+                      body: formData,
+                    })
+
+                    const data = await response.json()
+
+                    if (!response.ok) {
+                      throw new Error(data.error || 'Upload failed')
+                    }
+
+                    toast.success(t('header.storeLogo.uploadSuccess'))
+                    setIsLogoUploadModalOpen(false)
+                    setLogoFile(null)
+                    setLogoPreview(null)
+                    setLogoZoom(100) // Reset zoom after upload
+                    
+                    // Update the logo URL in state
+                    if (data.logoUrl) {
+                      // Add timestamp to force image refresh
+                      const logoUrlWithTimestamp = `${data.logoUrl}?t=${Date.now()}`
+                      setStoreLogoUrl(logoUrlWithTimestamp)
+                      
+                      // Update the storeConnections array to include the new logo URL
+                      setStoreConnections(prev => 
+                        prev.map(conn => 
+                          conn.id === selectedConnectionId 
+                            ? { ...conn, store_logo_url: logoUrlWithTimestamp }
+                            : conn
+                        )
+                      )
+                      
+                      // Dispatch event to notify sidebar to refresh connections
+                      window.dispatchEvent(new CustomEvent('storeLogoUpdated', { 
+                        detail: { connectionId: selectedConnectionId, logoUrl: logoUrlWithTimestamp, logoZoom: logoZoom }
+                      }))
+                    }
+                  } catch (error) {
+                    console.error('Error uploading logo:', error)
+                    toast.error(t('header.storeLogo.uploadError'))
+                  } finally {
+                    setIsUploadingLogo(false)
+                  }
+                }}
+                disabled={!logoFile || isUploadingLogo}
+                className="bg-[#F4610B] hover:bg-[#F4610B]/90 text-white"
+              >
+                {isUploadingLogo ? t('common.uploading') : t('common.upload')}
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setIsLogoUploadModalOpen(false)
+                  setLogoFile(null)
+                  setLogoPreview(null)
+                  setLogoZoom(100) // Reset zoom when closing
+                }}
+                className="border-gray-200 hover:bg-gray-50"
+              >
+                {t('common.cancel')}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
         <div className="flex flex-1 flex-col gap-4 p-4 sm:px-0 sm:py-4 md:px-4 lg:px-8 relative h-full">
           {children}
           {/* Loading overlay when changing stores */}
@@ -1740,6 +2361,10 @@ function DashboardLayoutContentInner({
               <Button
                 variant="outline"
                 className="w-full justify-between mt-auto bg-[#F4610B] text-white border-[#F4610B] opacity-0 group-hover:opacity-100 transition-all h-12 rounded-xl shadow-none hover:bg-[#F4610B] hover:text-white"
+                onClick={() => {
+                  closeModal()
+                  setIsCreateStoreModalOpen(true)
+                }}
               >
                 <span>{t('onboarding.modal.createStore.button')}</span>
                 <ArrowRight className={cn("h-4 w-4 group-hover:translate-x-1 transition-transform", isRTL && "group-hover:-translate-x-1")} />
@@ -1847,6 +2472,18 @@ function DashboardLayoutContentInner({
           </div>
         )}
       </WideCardModal>
+
+      {/* Product Approval Modal for Sync */}
+      {selectedConnectionId && (
+        <ProductApprovalModal
+          open={showProductApprovalModal}
+          onOpenChange={setShowProductApprovalModal}
+          products={previewProducts}
+          platform={selectedConnection?.platform || storeConnections.find(c => c.id === selectedConnectionId)?.platform || 'unknown'}
+          onApprove={handleApproveProducts}
+          isLoading={isSyncing}
+        />
+      )}
 
       {/* Celebration Modal */}
       <CelebrationModal

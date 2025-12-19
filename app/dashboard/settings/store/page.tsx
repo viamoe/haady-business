@@ -27,15 +27,15 @@ export default async function StoreSettingsPage() {
   }
 
   // Check if user has completed setup
-  const { data: merchantUser } = await supabase
-    .from('merchant_users')
-    .select('merchant_id, full_name')
+  const { data: businessProfile } = await supabase
+    .from('business_profile')
+    .select('id, business_name, full_name')
     .eq('auth_user_id', user.id)
     .maybeSingle()
 
-  if (!merchantUser?.merchant_id) {
+  if (!businessProfile?.business_name) {
     const cookieStore = await cookies();
-    const setupUrl = getLocalizedUrlFromRequest('/setup', {
+    const onboardingUrl = getLocalizedUrlFromRequest('/onboarding/personal-details', {
       cookies: {
         get: (name: string) => {
           const cookie = cookieStore.get(name);
@@ -43,13 +43,13 @@ export default async function StoreSettingsPage() {
         }
       }
     });
-    redirect(setupUrl);
+    redirect(onboardingUrl);
   }
 
-  // Get store connections
+  // Get store connections (external platform connections like Salla, Shopify, etc.)
   const { data: connectionsData, error: connectionsError } = await supabase
     .from('store_connections')
-    .select('id, platform, store_external_id, store_name, store_domain')
+    .select('id, platform, store_external_id, store_name, store_domain, store_logo_url, logo_zoom')
     .eq('user_id', user.id)
     .order('created_at', { ascending: false })
 

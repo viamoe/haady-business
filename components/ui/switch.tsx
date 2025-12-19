@@ -9,10 +9,13 @@ interface SwitchProps {
   disabled?: boolean
   className?: string
   id?: string
+  dir?: "ltr" | "rtl"
 }
 
 const Switch = React.forwardRef<HTMLButtonElement, SwitchProps>(
-  ({ className, checked, onCheckedChange, disabled, id, ...props }, ref) => {
+  ({ className, checked, onCheckedChange, disabled, id, dir, ...props }, ref) => {
+    const isRTL = dir === "rtl" || (typeof document !== "undefined" && document.documentElement.dir === "rtl")
+    
     return (
       <button
         type="button"
@@ -28,12 +31,15 @@ const Switch = React.forwardRef<HTMLButtonElement, SwitchProps>(
           checked ? "bg-primary" : "bg-input",
           className
         )}
+        dir={dir}
         {...props}
       >
         <span
           className={cn(
             "pointer-events-none block h-5 w-5 rounded-full bg-background shadow-lg ring-0 transition-transform",
-            checked ? "translate-x-5" : "translate-x-0"
+            checked 
+              ? isRTL ? "-translate-x-5" : "translate-x-5"
+              : "translate-x-0"
           )}
         />
       </button>

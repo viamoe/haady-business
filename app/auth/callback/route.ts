@@ -10,7 +10,7 @@ function validateRedirectUrl(url: string, origin: string): string {
     if (urlObj.origin !== origin) {
       return '/dashboard';
     }
-    const allowedPaths = ['/dashboard', '/setup'];
+    const allowedPaths = ['/dashboard', '/setup', '/onboarding'];
     if (allowedPaths.some(path => urlObj.pathname.startsWith(path))) {
       return urlObj.pathname + urlObj.search;
     }
@@ -82,10 +82,10 @@ export async function GET(request: Request) {
                         session.user.user_metadata?.picture ||
                         null;
 
-  if (appType === 'merchant' && session.user) {
+  if (appType === 'business' && session.user) {
     await supabase.auth.updateUser({
       data: {
-        app_type: 'merchant',
+        app_type: 'business',
         preferred_country: preferredCountry,
         preferred_language: preferredLanguage,
       },
@@ -177,55 +177,54 @@ export async function GET(request: Request) {
     }
   }
 
-  let { data: merchantUser, error: merchantError } = await supabase
-    .from('merchant_users')
-    .select('merchant_id, full_name')
+  let { data: businessProfile, error: businessError } = await supabase
+    .from('business_profile')
+    .select('id, business_name, full_name')
     .eq('auth_user_id', session.user.id)
     .maybeSingle();
 
-  if (!merchantUser && !merchantError && appType === 'merchant') {
-    console.log('Creating merchant_user record for new Google OAuth user');
+  if (!businessProfile && !businessError && appType === 'business') {
+    console.log('Creating business_profile record for new Google OAuth user');
     
-    const { data: newMerchantUser, error: createError } = await supabase
-      .from('merchant_users')
+    const { data: newBusinessProfile, error: createError } = await supabase
+      .from('business_profile')
       .insert({
         auth_user_id: session.user.id,
-        merchant_id: null,
         role: 'manager',
         preferred_country: preferredCountry,
         preferred_language: preferredLanguage,
         full_name: userFullName,
         is_primary_contact: true,
       })
-      .select('merchant_id, full_name')
+      .select('id, business_name, full_name')
       .single();
 
     if (createError) {
-      console.error('Error creating merchant_user:', createError);
+      console.error('Error creating business_profile:', createError);
     } else {
-      merchantUser = newMerchantUser;
-      console.log('Successfully created merchant_user record with full_name:', userFullName);
+      businessProfile = newBusinessProfile;
+      console.log('Successfully created business_profile record with full_name:', userFullName);
     }
-  } else if (merchantUser && userFullName && !merchantUser.full_name) {
-    // Update existing merchant_user with full_name if it's missing
-    console.log('Updating merchant_user with full_name from Google OAuth');
+  } else if (businessProfile && userFullName && !businessProfile.full_name) {
+    // Update existing business_profile with full_name if it's missing
+    console.log('Updating business_profile with full_name from Google OAuth');
     const { error: updateError } = await supabase
-      .from('merchant_users')
+      .from('business_profile')
       .update({ full_name: userFullName })
       .eq('auth_user_id', session.user.id);
 
     if (updateError) {
-      console.error('Error updating merchant_user full_name:', updateError);
+      console.error('Error updating business_profile full_name:', updateError);
     } else {
-      console.log('Successfully updated merchant_user full_name:', userFullName);
+      console.log('Successfully updated business_profile full_name:', userFullName);
     }
   }
 
   let redirectPath: string;
-  if (merchantUser && merchantUser.merchant_id) {
+  if (businessProfile && businessProfile.business_name) {
     redirectPath = validateRedirectUrl(nextParam || '/dashboard', requestUrl.origin);
   } else {
-    redirectPath = '/setup';
+    redirectPath = '/onboarding/personal-details';
   }
   
   const redirectUrl = new URL(

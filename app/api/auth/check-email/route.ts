@@ -3,7 +3,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 
 /**
  * POST /api/auth/check-email
- * Check if an email already exists as a merchant user
+ * Check if an email already exists as a business user
  * Returns whether user should login or signup
  */
 export async function POST(request: Request) {
@@ -25,7 +25,7 @@ export async function POST(request: Request) {
       console.warn('SUPABASE_SERVICE_ROLE_KEY not configured - skipping email check');
       return NextResponse.json({
         exists: null, // Unknown - let user proceed
-        isMerchant: null,
+        isBusiness: null,
         message: 'Email check unavailable',
       });
     }
@@ -48,7 +48,7 @@ export async function POST(request: Request) {
         console.error('Error listing users:', listError);
         return NextResponse.json({
           exists: null,
-          isMerchant: null,
+          isBusiness: null,
           message: 'Email check unavailable',
         });
       }
@@ -72,44 +72,44 @@ export async function POST(request: Request) {
       // No auth user exists - user should signup
       return NextResponse.json({
         exists: false,
-        isMerchant: false,
+        isBusiness: false,
         shouldLogin: false,
         shouldSignup: true,
       });
     }
 
-    // Check if user has a merchant_user record
-    const { data: merchantUser, error: checkError } = await adminClient
-      .from('merchant_users')
-      .select('id, merchant_id')
+    // Check if user has a business_profile record
+    const { data: businessProfile, error: checkError } = await adminClient
+      .from('business_profile')
+      .select('id, business_name')
       .eq('auth_user_id', authUser.id)
       .maybeSingle();
 
     if (checkError && checkError.code !== 'PGRST116') {
-      console.error('Error checking merchant user:', checkError);
+      console.error('Error checking business user:', checkError);
       return NextResponse.json({
         exists: null,
-        isMerchant: null,
+        isBusiness: null,
         message: 'Email check unavailable',
       });
     }
 
-    if (merchantUser) {
-      // User exists as merchant - should login
+    if (businessProfile) {
+      // User exists as business - should login
       return NextResponse.json({
         exists: true,
-        isMerchant: true,
+        isBusiness: true,
         shouldLogin: true,
         shouldSignup: false,
         message: 'You already have a Haady Business account. Please log in instead.',
       });
     }
 
-    // Auth user exists but not as merchant - could be consumer app user
+    // Auth user exists but not as business - could be consumer app user
     // Still allow signup, but suggest login
     return NextResponse.json({
       exists: true,
-      isMerchant: false,
+      isBusiness: false,
       shouldLogin: true,
       shouldSignup: false,
       message: 'An account with this email already exists. Please log in instead.',
@@ -119,7 +119,7 @@ export async function POST(request: Request) {
     // Return unknown status on error - don't block user
     return NextResponse.json({
       exists: null,
-      isMerchant: null,
+      isBusiness: null,
       message: 'Email check unavailable',
     });
   }

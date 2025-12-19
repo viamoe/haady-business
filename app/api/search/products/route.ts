@@ -27,14 +27,14 @@ export async function GET(request: Request) {
       )
     }
 
-    // Get merchant_id from merchant_users
-    const { data: merchantUser, error: merchantError } = await supabase
-      .from('merchant_users')
-      .select('merchant_id')
+    // Get business profile
+    const { data: businessProfile, error: businessError } = await supabase
+      .from('business_profile')
+      .select('id, business_name')
       .eq('auth_user_id', user.id)
       .single()
 
-    if (merchantError || !merchantUser) {
+    if (businessError || !businessProfile) {
       return NextResponse.json(
         { error: 'Merchant not found' },
         { status: 404 }
@@ -44,7 +44,7 @@ export async function GET(request: Request) {
     // Get store connection ID from query params (optional)
     const storeConnectionId = searchParams.get('storeConnectionId')
 
-    // Get store IDs - filter by store connection if provided, otherwise get all stores for merchant
+    // Get store IDs - filter by store connection if provided, otherwise get all stores for business
     let storeIds: string[] = []
     
     if (storeConnectionId) {
@@ -64,11 +64,11 @@ export async function GET(request: Request) {
 
       storeIds = stores?.map(s => s.id) || []
     } else {
-      // Get all store IDs for this merchant (fallback for backward compatibility)
+      // Get all store IDs for this business (fallback for backward compatibility)
       const { data: stores, error: storesError } = await supabase
         .from('stores')
         .select('id')
-        .eq('merchant_id', merchantUser.merchant_id)
+        .eq('business_id', businessProfile.id)
         .eq('is_active', true)
 
       if (storesError) {

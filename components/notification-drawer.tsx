@@ -150,7 +150,7 @@ export function NotificationDrawer({
                 <Bell animateOnHover loop={false} size={20} />
                 {totalUnreadCount > 0 && (
                   <span className={cn(
-                    "absolute -top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white z-10 min-w-[16px] px-0.5",
+                    "absolute -top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-[#F4610B] text-[10px] font-bold text-white z-10 min-w-[16px] px-0.5",
                     isRTL ? "-left-0.5" : "-right-0.5"
                   )}>
                     {totalUnreadCount > 99 ? '99+' : totalUnreadCount}

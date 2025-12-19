@@ -36,61 +36,59 @@ export async function POST(
 
     console.log('Sync request for connection ID:', connectionId, 'User ID:', user.id)
 
-    // Get connection details - handle missing columns gracefully
+    // Get connection with store details (RLS will filter by user via business_profile)
     const { data: connectionData, error: fetchError } = await supabase
       .from('store_connections')
-      .select('id, user_id, platform, access_token, refresh_token')
+      .select(`
+        id,
+        access_token,
+        refresh_token,
+        expires_at,
+        connection_status,
+        stores!inner (
+          id,
+          platform,
+          business_id,
+          business_profile!inner (
+            auth_user_id
+          )
+        )
+      `)
       .eq('id', connectionId)
-      .eq('user_id', user.id)
+      .eq('stores.business_profile.auth_user_id', user.id)
       .single()
 
-    if (fetchError) {
+    if (fetchError || !connectionData) {
       console.error('Error fetching connection:', fetchError)
       console.error('Connection ID:', connectionId)
       console.error('User ID:', user.id)
       
-      // Try to see if connection exists at all
-      const { data: allConnections } = await supabase
-        .from('store_connections')
-        .select('id, user_id, platform')
-        .eq('user_id', user.id)
-      
-      console.log('All user connections:', allConnections)
-      
       return NextResponse.json(
         { 
           error: 'Store connection not found',
-          details: fetchError.message,
+          details: fetchError?.message || 'Connection not found',
           connectionId,
-          userConnections: allConnections?.map(c => ({ id: c.id, platform: c.platform }))
         },
         { status: 404 }
       )
     }
 
-    connection = connectionData
-
-    if (!connection) {
-      console.error('Connection is null for ID:', connectionId)
-      return NextResponse.json(
-        { error: 'Store connection not found', connectionId },
-        { status: 404 }
-      )
+    // Extract store and connection data
+    const store = Array.isArray(connectionData.stores) ? connectionData.stores[0] : connectionData.stores
+    
+    connection = {
+      id: connectionData.id,
+      platform: store.platform, // Get platform from store
+      access_token: connectionData.access_token,
+      refresh_token: connectionData.refresh_token,
     }
 
     console.log('Connection found:', { id: connection.id, platform: connection.platform })
 
-    // Try to get additional fields if they exist
-    const { data: fullConnection } = await supabase
-      .from('store_connections')
-      .select('*')
-      .eq('id', connectionId)
-      .single()
-
     const connectionWithDefaults = {
       ...connection,
-      expires_at: fullConnection?.expires_at || null,
-      connection_status: fullConnection?.connection_status || 'connected',
+      expires_at: connectionData.expires_at || null,
+      connection_status: connectionData.connection_status || 'connected',
     }
 
     // Check if token is expired (using connectionWithDefaults)
@@ -126,12 +124,18 @@ export async function POST(
       console.error('Error updating sync status:', updateError)
     }
 
-    // Get store name and domain from connection if available
-    const { data: fullConnectionData } = await supabase
-      .from('store_connections')
-      .select('store_name, store_domain')
-      .eq('id', connectionId)
+    // Get store name and domain from stores table (source of truth)
+    const { data: storeData } = await supabase
+      .from('stores')
+      .select('name, store_connections!inner(store_domain)')
+      .eq('store_connections.id', connectionId)
       .single()
+
+    const storeName = storeData?.name || null
+    const storeConnections = storeData?.store_connections
+    const storeDomain = Array.isArray(storeConnections) 
+      ? (storeConnections[0] as any)?.store_domain || null
+      : (storeConnections as any)?.store_domain || null
 
     // Implement actual sync logic based on platform
     console.log('🔄 Starting sync for platform:', connection.platform)
@@ -139,8 +143,8 @@ export async function POST(
       platform: connection.platform,
       syncType,
       userId: user.id,
-      storeName: fullConnectionData?.store_name,
-      storeDomain: fullConnectionData?.store_domain,
+      storeName,
+      storeDomain,
     })
     
     const syncResult = await performSync(
@@ -149,8 +153,8 @@ export async function POST(
       connectionId,
       syncType,
       user.id,
-      fullConnectionData?.store_name,
-      fullConnectionData?.store_domain,
+      storeName,
+      storeDomain,
       selectedProductIds
     )
     

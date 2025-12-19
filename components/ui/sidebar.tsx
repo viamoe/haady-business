@@ -477,7 +477,7 @@ function SidebarContent({ className, ...props }: React.ComponentProps<"div">) {
       data-slot="sidebar-content"
       data-sidebar="content"
       className={cn(
-        "flex min-h-0 flex-1 flex-col gap-2 overflow-auto group-data-[collapsible=icon]:overflow-hidden scrollbar-custom",
+        "flex min-h-0 flex-1 flex-col gap-2 overflow-auto group-data-[collapsible=icon]:overflow-visible scrollbar-custom",
         className
       )}
       {...props}
@@ -490,7 +490,7 @@ function SidebarGroup({ className, ...props }: React.ComponentProps<"div">) {
     <div
       data-slot="sidebar-group"
       data-sidebar="group"
-      className={cn("relative flex w-full min-w-0 flex-col p-2", className)}
+      className={cn("relative flex w-full min-w-0 flex-col p-2 group-data-[collapsible=icon]:items-center group-data-[collapsible=icon]:px-0", className)}
       {...props}
     />
   )
@@ -548,7 +548,7 @@ function SidebarGroupContent({
     <div
       data-slot="sidebar-group-content"
       data-sidebar="group-content"
-      className={cn("w-full text-sm", className)}
+      className={cn("w-full text-sm px-1 group-data-[collapsible=icon]:w-auto group-data-[collapsible=icon]:px-0", className)}
       {...props}
     />
   )
@@ -559,7 +559,7 @@ function SidebarMenu({ className, ...props }: React.ComponentProps<"ul">) {
     <ul
       data-slot="sidebar-menu"
       data-sidebar="menu"
-      className={cn("flex w-full min-w-0 flex-col gap-1 group-data-[collapsible=icon]:gap-3", className)}
+      className={cn("flex w-full min-w-0 flex-col gap-1 group-data-[collapsible=icon]:gap-2 group-data-[collapsible=icon]:items-center group-data-[collapsible=icon]:px-0", className)}
       {...props}
     />
   )
@@ -570,26 +570,65 @@ function SidebarMenuItem({ className, ...props }: React.ComponentProps<"li">) {
     <li
       data-slot="sidebar-menu-item"
       data-sidebar="menu-item"
-      className={cn("group/menu-item relative", className)}
+      className={cn(
+        "group/menu-item relative group-data-[collapsible=icon]:w-auto rounded-xl transition-colors duration-150 hover:bg-gray-100/75",
+        "data-[active=true]:bg-gray-100/80",
+        className
+      )}
       {...props}
     />
   )
 }
 
 const sidebarMenuButtonVariants = cva(
-  "peer/menu-button flex w-full items-center gap-4 overflow-hidden rounded-md px-4 py-4 text-left text-sm font-medium outline-hidden ring-sidebar-ring transition-all duration-200 ease-in-out cursor-pointer disabled:pointer-events-none disabled:opacity-50 group-has-data-[sidebar=menu-action]/menu-item:pr-8 aria-disabled:pointer-events-none aria-disabled:opacity-50 group-data-[collapsible=icon]:size-8! group-data-[collapsible=icon]:px-2! group-data-[collapsible=icon]:py-2! group-data-[collapsible=icon]:mb-2 [&>span:last-child]:truncate [&[data-transitioning=true]>span:last-child]:hidden [&>svg]:size-[18px] [&>svg]:shrink-0 [&>svg]:transition-none group-data-[collapsible=icon]:[&>svg]:size-5",
+  // Base styles
+  [
+    "peer/menu-button flex w-full items-center gap-3 rounded-xl px-3 py-2.5",
+    "text-left text-sm font-medium outline-hidden cursor-pointer",
+    // Only transition background color for hover (no size/position transitions)
+    "transition-[background-color] duration-150",
+    "disabled:pointer-events-none disabled:opacity-50",
+    "aria-disabled:pointer-events-none aria-disabled:opacity-50",
+    "group-has-data-[sidebar=menu-action]/menu-item:pr-8",
+    // Collapsed state - INSTANT size change (no transition), fixed square button
+    "group-data-[collapsible=icon]:!transition-none",
+    "group-data-[collapsible=icon]:!w-10 group-data-[collapsible=icon]:!h-10",
+    "group-data-[collapsible=icon]:!p-0 group-data-[collapsible=icon]:!justify-center group-data-[collapsible=icon]:!items-center",
+    "group-data-[collapsible=icon]:!rounded-lg group-data-[collapsible=icon]:!gap-0",
+    // Hide text when collapsed
+    "group-data-[collapsible=icon]:[&>span]:!hidden",
+    // Icon styles - FIXED size, NO transitions (prevents movement during sidebar animation)
+    "[&>svg]:!size-5 [&>svg]:!shrink-0 [&>svg]:!transition-none [&>svg]:!transform-none",
+    // Text truncation (when expanded)
+    "[&>span:last-child]:truncate [&[data-transitioning=true]>span:last-child]:hidden",
+  ].join(" "),
   {
     variants: {
       variant: {
-        default:
-          "text-muted-foreground hover:bg-gray-100 hover:text-sidebar-foreground focus-visible:ring-2 active:bg-gray-100 active:text-sidebar-foreground data-[active=true]:bg-white data-[active=true]:text-gray-900 data-[active=true]:font-semibold data-[active=true]:shadow-sm data-[active=true]:ring-1 data-[active=true]:ring-gray-200 dark:hover:bg-gray-800 dark:active:bg-gray-800 dark:data-[active=true]:bg-gray-800 dark:data-[active=true]:text-white dark:data-[active=true]:ring-gray-700",
-        outline:
-          "bg-background shadow-[0_0_0_1px_hsl(var(--sidebar-border))] text-muted-foreground hover:text-sidebar-foreground hover:shadow-[0_0_0_1px_hsl(var(--sidebar-accent))] hover:bg-gray-100 data-[active=true]:bg-white data-[active=true]:text-gray-900 data-[active=true]:shadow-sm data-[active=true]:ring-1 data-[active=true]:ring-gray-200 dark:hover:bg-gray-800 dark:data-[active=true]:bg-gray-800 dark:data-[active=true]:text-white dark:data-[active=true]:ring-gray-700",
+        default: [
+          // Default state
+          "text-gray-500 [&>svg]:text-gray-400",
+          // Hover state - darker gray
+          "hover:bg-gray-200 hover:text-gray-900 hover:[&>svg]:text-gray-600",
+          // Focus state
+          "focus-visible:ring-2 focus-visible:ring-orange-200",
+          // Active/pressed state
+          "active:bg-orange-100 active:text-orange-600",
+          // Selected/current state - gray background with dark text
+          "data-[active=true]:!bg-gray-100 data-[active=true]:!text-gray-900 data-[active=true]:!font-semibold",
+          "data-[active=true]:[&>svg]:!text-gray-700",
+        ].join(" "),
+        outline: [
+          "bg-transparent text-gray-500",
+          "hover:bg-gray-200 hover:text-gray-900",
+          "data-[active=true]:!bg-gray-100 data-[active=true]:!text-gray-900 data-[active=true]:!font-semibold",
+          "data-[active=true]:[&>svg]:!text-gray-700",
+        ].join(" "),
       },
       size: {
-        default: "h-9 text-sm font-medium",
-        sm: "h-7 text-xs",
-        lg: "h-12 text-sm font-medium group-data-[collapsible=icon]:p-0!",
+        default: "h-10 text-sm font-medium",
+        sm: "h-8 text-xs",
+        lg: "h-12 text-sm font-medium group-data-[collapsible=icon]:!p-0",
       },
     },
     defaultVariants: {
@@ -643,6 +682,8 @@ function SidebarMenuButton({
       <TooltipContent
         side="right"
         align="center"
+        sideOffset={16}
+        className="text-xs px-2 py-1.5"
         hidden={state !== "collapsed" || isMobile}
         {...tooltip}
       />

@@ -39,14 +39,19 @@ export function LoadingProvider({ children }: { children: ReactNode }) {
         prevPathnameRef.current?.startsWith('/dashboard') && 
         pathname.startsWith('/dashboard');
       
+      // Check if this is navigation within onboarding (step changes)
+      const isOnboardingNavigation = 
+        prevPathnameRef.current?.includes('/onboarding/') && 
+        pathname.includes('/onboarding/');
+      
       // Show loading bar for all navigation (including dashboard)
-      // But disable overlay for dashboard navigation
+      // But disable overlay for dashboard and onboarding navigation
       setIsLoading(true);
       setLoadingMessage(undefined);
       setLoadingDuration(undefined);
       
-      // Disable overlay for dashboard navigation
-      if (isDashboardNavigation) {
+      // Disable overlay for dashboard and onboarding navigation
+      if (isDashboardNavigation || isOnboardingNavigation) {
         setShowOverlay(false);
       } else {
         setShowOverlay(true);
@@ -58,8 +63,8 @@ export function LoadingProvider({ children }: { children: ReactNode }) {
       }
 
       // Hide loading bar after navigation completes
-      // Use a shorter delay for dashboard navigation, longer for others
-      const delay = isDashboardNavigation ? 300 : 800;
+      // Use a shorter delay for dashboard and onboarding navigation, longer for others
+      const delay = (isDashboardNavigation || isOnboardingNavigation) ? 300 : 800;
       navigationTimeoutRef.current = setTimeout(() => {
         setIsLoading(false);
         setLoadingMessage(undefined);

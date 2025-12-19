@@ -12,6 +12,8 @@ import {
   ChevronUp,
   ChevronDown,
   Plus,
+  Heart,
+  Gift,
 } from "lucide-react"
 import Link from "next/link"
 import Image from "next/image"
@@ -92,6 +94,8 @@ interface StoreConnection {
   store_external_id: string | null
   store_name: string | null
   store_domain: string | null
+  store_logo_url: string | null
+  logo_zoom: number | null
   connection_status?: string
   sync_status?: string
 }
@@ -101,6 +105,7 @@ const PLATFORM_LOGOS: Record<string, string> = {
   salla: 'https://rovphhvuuxwbhgnsifto.supabase.co/storage/v1/object/public/assets/ecommerce/salla-icon.png',
   zid: 'https://rovphhvuuxwbhgnsifto.supabase.co/storage/v1/object/public/assets/ecommerce/zid.svg',
   shopify: 'https://rovphhvuuxwbhgnsifto.supabase.co/storage/v1/object/public/assets/ecommerce/shopify-icon.png',
+  haady: 'https://rovphhvuuxwbhgnsifto.supabase.co/storage/v1/object/public/assets/haady-icon.svg',
 }
 
 // Get platform display name
@@ -109,6 +114,7 @@ function getPlatformName(platform: string): string {
     salla: 'Salla',
     zid: 'Zid',
     shopify: 'Shopify',
+    haady: 'Haady',
   }
   return names[platform] || platform.charAt(0).toUpperCase() + platform.slice(1)
 }
@@ -156,15 +162,69 @@ function ProjectSelector() {
     const minLoadingTime = hasLoadedRef.current ? 0 : 800 // Only delay on initial load
 
     try {
-      // Fetch store connections
-      const { data: connectionsData, error: connectionsError } = await supabase
-        .from('store_connections')
-        .select('id, platform, store_external_id, store_name, store_domain')
-        .eq('user_id', user.id)
+      // First get business profile
+      const { data: businessProfile } = await supabase
+        .from('business_profile')
+        .select('id')
+        .eq('auth_user_id', user.id)
+        .single()
+
+      if (!businessProfile) {
+        setIsLoading(false)
+        return
+      }
+
+      // Fetch stores with their connections (stores is now the source of truth)
+      // Only fetch active stores (is_active = true) that have connections
+      const { data: storesData, error: storesError } = await supabase
+        .from('stores')
+        .select(`
+          id,
+          name,
+          logo_url,
+          platform,
+          is_active,
+          store_connections!inner (
+            id,
+            store_external_id,
+            store_domain
+          )
+        `)
+        .eq('business_id', businessProfile.id)
+        .eq('is_active', true)
         .order('created_at', { ascending: false })
 
-      if (!connectionsError && connectionsData) {
+      if (!storesError && storesData) {
+        // Transform stores data to match the StoreConnection interface
+        // store_connections is an array from the join, get the first one
+        const connectionsData = storesData
+          .map(store => {
+            const connection = Array.isArray(store.store_connections) 
+              ? store.store_connections[0] 
+              : store.store_connections
+            return {
+              id: connection.id, // Use connection ID for selection
+              platform: store.platform,
+              store_external_id: connection.store_external_id,
+              store_name: store.name, // From stores table
+              store_domain: connection.store_domain,
+              store_logo_url: store.logo_url, // From stores table
+              logo_zoom: null, // Can be added to stores table if needed
+            }
+          })
+        
         setConnections(connectionsData)
+        
+        // Check if currently selected connection is still active
+        if (selectedConnectionId) {
+          const connectionExists = connectionsData.find(c => c.id === selectedConnectionId)
+          if (!connectionExists) {
+            // Selected connection is no longer active, clear selection
+            setSelectedConnectionId(null)
+            localStorage.removeItem('selectedStoreConnectionId')
+            window.dispatchEvent(new CustomEvent('storeConnectionChanged', { detail: null }))
+          }
+        }
         
         // Only auto-select on the very first load (when hasLoadedRef.current is false)
         // After that, respect user's selection/deselection choices
@@ -180,14 +240,6 @@ function ProjectSelector() {
             setSelectedConnectionId(connectionToSelect)
             localStorage.setItem('selectedStoreConnectionId', connectionToSelect)
             window.dispatchEvent(new CustomEvent('storeConnectionChanged', { detail: connectionToSelect }))
-          }
-        } else if (connectionsData.length > 0 && selectedConnectionId) {
-          // On subsequent fetches, verify selected connection still exists
-          const connectionExists = connectionsData.find(c => c.id === selectedConnectionId)
-          if (!connectionExists) {
-            // Selected connection no longer exists, clear selection
-            setSelectedConnectionId(null)
-            localStorage.removeItem('selectedStoreConnectionId')
           }
         }
         // If selectedConnectionId is null and hasLoadedRef.current is true, 
@@ -209,6 +261,36 @@ function ProjectSelector() {
 
   React.useEffect(() => {
     fetchConnections()
+  }, [fetchConnections])
+
+  // Listen for store logo updates to refresh connections
+  React.useEffect(() => {
+    const handleStoreLogoUpdate = (event: CustomEvent) => {
+      // Also update the logo URL and zoom in the connections array if we have the detail
+      if (event.detail?.connectionId) {
+        setConnections(prev => 
+          prev.map(conn => 
+            conn.id === event.detail.connectionId 
+              ? { ...conn, store_logo_url: event.detail.logoUrl || null, logo_zoom: event.detail.logoZoom || 100 }
+              : conn
+          )
+        )
+      }
+    }
+
+    // Listen for store connection refresh events (e.g., when store is paused/resumed)
+    const handleRefreshConnections = () => {
+      // Force refresh by calling fetchConnections
+      fetchConnections()
+    }
+    
+    window.addEventListener('storeLogoUpdated', handleStoreLogoUpdate as EventListener)
+    window.addEventListener('refreshStoreConnections', handleRefreshConnections)
+    
+    return () => {
+      window.removeEventListener('storeLogoUpdated', handleStoreLogoUpdate as EventListener)
+      window.removeEventListener('refreshStoreConnections', handleRefreshConnections)
+    }
   }, [fetchConnections])
 
   const selectedConnection = connections.find(c => c.id === selectedConnectionId)
@@ -252,18 +334,22 @@ function ProjectSelector() {
               ) : (
                 <>
                   <div className={`flex aspect-square size-8 items-center justify-center rounded-lg shrink-0 overflow-hidden relative border border-gray-200 ${
-                    selectedConnection && PLATFORM_LOGOS[selectedConnection.platform?.toLowerCase()] 
+                    selectedConnection?.store_logo_url 
                       ? '' 
-                      : 'bg-white'
+                      : 'bg-[#F4610B]/10'
                   }`}>
-                    {selectedConnection && PLATFORM_LOGOS[selectedConnection.platform?.toLowerCase()] ? (
+                    {selectedConnection?.store_logo_url ? (
                       <img 
-                        src={PLATFORM_LOGOS[selectedConnection.platform?.toLowerCase()]} 
-                        alt={selectedConnection.platform}
+                        src={selectedConnection.store_logo_url} 
+                        alt="Store logo"
                         className="absolute inset-0 size-full object-cover rounded-lg"
+                        style={{
+                          transform: `scale(${(selectedConnection.logo_zoom || 100) / 100})`,
+                          transition: 'transform 0.2s ease-out'
+                        }}
                       />
                     ) : (
-                      <Store className="size-4 relative z-10 text-gray-400" />
+                      <Store className="size-4 relative z-10 text-[#F4610B]" />
                     )}
                   </div>
                   <div className="grid flex-1 text-start text-sm leading-tight group-data-[collapsible=icon]:hidden">
@@ -323,6 +409,7 @@ function ProjectSelector() {
                 {connections.length > 0 ? (
                   connections.map((connection) => {
                     const isSelected = connection.id === selectedConnectionId
+                    const logoUrl = connection.store_logo_url
                     const platformLogo = PLATFORM_LOGOS[connection.platform?.toLowerCase()]
                     return (
                       <DropdownMenuItem
@@ -350,16 +437,21 @@ function ProjectSelector() {
                         disabled={isAnyStoreSyncing}
                       >
                         <div className={`flex size-6 items-center justify-center rounded-md border overflow-hidden relative ${
-                          platformLogo ? '' : 'bg-white'
+                          logoUrl ? '' : 'bg-[#F4610B]/10'
                         }`}>
-                          {platformLogo ? (
+                          {logoUrl ? (
                             <img 
-                              src={platformLogo} 
-                              alt={connection.platform}
+                              key={logoUrl}
+                              src={logoUrl} 
+                              alt="Store logo"
                               className="absolute inset-0 size-full object-cover"
+                              style={{
+                                transform: `scale(${(connection.logo_zoom || 100) / 100})`,
+                                transition: 'transform 0.2s ease-out'
+                              }}
                             />
                           ) : (
-                            <Store className="size-4 relative z-10 text-gray-400" />
+                            <Store className="size-4 relative z-10 text-[#F4610B]" />
                           )}
                         </div>
                         <div className={cn(
@@ -408,9 +500,11 @@ function ProjectSelector() {
                       "gap-2 cursor-pointer mt-2 rounded-lg transition-colors hover:bg-[#F4610B]/10 hover:text-[#F4610B]",
                       isRTL && "flex-row-reverse"
                     )}
-                    onClick={() => {
-                      // Open the onboarding modal
-                      window.dispatchEvent(new CustomEvent('openOnboardingModal'))
+                    onClick={(e) => {
+                      e.preventDefault()
+                      e.stopPropagation()
+                      // Open the onboarding modal with the choice between Connect or Create
+                      window.dispatchEvent(new CustomEvent('openOnboardingModal', { bubbles: true }))
                     }}
                   >
                     <div className="flex size-6 items-center justify-center rounded-md border border-dashed">
@@ -445,7 +539,7 @@ function UserFooter() {
   const [isLoading, setIsLoading] = React.useState(true)
   const hasLoadedRef = React.useRef(false)
 
-  // Fetch full name from merchant_users table
+  // Fetch full name from business_profile table
   React.useEffect(() => {
     const fetchFullName = async () => {
       if (!user?.id) {
@@ -463,7 +557,7 @@ function UserFooter() {
 
       try {
         const { data, error } = await supabase
-          .from('merchant_users')
+          .from('business_profile')
           .select('full_name')
           .eq('auth_user_id', user.id)
           .maybeSingle()
@@ -554,21 +648,44 @@ function UserFooter() {
         align={isRTL ? "end" : "start"} 
         side="top" 
         className={cn(
-          "w-[--radix-dropdown-menu-trigger-width] min-w-[13rem] mb-2 rounded-xl overflow-hidden p-1",
+          "w-[--radix-dropdown-menu-trigger-width] min-w-[15rem] mb-2 rounded-2xl overflow-hidden p-2 bg-white shadow-[0_18px_45px_rgba(15,23,42,0.12)] border-0",
           isRTL ? "mr-2" : "ml-2"
         )}
       >
+        <div className="px-3 py-3 mb-4 flex items-center gap-3 bg-gray-50 rounded-xl">
+          <Avatar className="h-10 w-10 !border-0 !shadow-none shrink-0">
+            <AvatarImage 
+              src={user.user_metadata?.avatar_url || user.user_metadata?.picture} 
+              alt={fullName || user.email?.split('@')[0] || 'User'}
+            />
+            <AvatarFallback 
+              identifier={fullName || user.email || 'user'}
+              className="text-sm font-medium"
+            >
+              {fullName 
+                ? fullName.split(/\s+/).map(n => n[0]).join('').toUpperCase().slice(0, 2)
+                : getUserInitials(user.email)
+              }
+            </AvatarFallback>
+          </Avatar>
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-gray-900 truncate">
+              {fullName || user.email?.split('@')[0] || 'User'}
+            </p>
+            <p className="text-xs text-gray-500 truncate">{user.email}</p>
+          </div>
+        </div>
         <DropdownMenuItem
           onClick={() => {
             router.push('/dashboard/settings/account')
             setIsOpen(false)
           }}
           className={cn(
-            "cursor-pointer rounded-lg",
+            "cursor-pointer rounded-xl text-sm font-normal text-gray-900 hover:bg-gray-100 flex items-center gap-2 py-2",
             isRTL && "flex-row-reverse"
           )}
         >
-          <User className={cn("h-4 w-4", isRTL ? "ms-2" : "me-2")} />
+          <User className="h-4 w-4 text-gray-400" />
           {t('sidebar.user.profile')}
         </DropdownMenuItem>
         <DropdownMenuItem
@@ -577,11 +694,11 @@ function UserFooter() {
             setIsOpen(false)
           }}
           className={cn(
-            "cursor-pointer rounded-lg",
+            "cursor-pointer rounded-xl text-sm font-normal text-gray-900 hover:bg-gray-100 flex items-center gap-2 py-2",
             isRTL && "flex-row-reverse"
           )}
         >
-          <Settings className={cn("h-4 w-4", isRTL ? "ms-2" : "me-2")} />
+          <Settings className="h-4 w-4 text-gray-400" />
           {t('sidebar.user.accountSettings')}
         </DropdownMenuItem>
         <DropdownMenuItem
@@ -590,11 +707,11 @@ function UserFooter() {
             setIsOpen(false)
           }}
           className={cn(
-            "cursor-pointer text-destructive focus:text-destructive focus:bg-destructive/10 rounded-lg",
+            "cursor-pointer text-red-600 hover:bg-red-50 focus:bg-red-50 rounded-xl text-sm font-normal flex items-center gap-2 py-2",
             isRTL && "flex-row-reverse"
           )}
         >
-          <LogOut className={cn("h-4 w-4", isRTL ? "ms-2" : "me-2")} />
+          <LogOut className="h-4 w-4" />
           {t('sidebar.user.signOut')}
         </DropdownMenuItem>
       </DropdownMenuContent>
@@ -630,16 +747,24 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
 
   return (
     <Sidebar variant="inset" {...props}>
-      <SidebarHeader className="px-2">
+      <SidebarHeader className="px-2 py-6 min-h-[80px]">
         <div className="flex items-center ml-4 group-data-[collapsible=icon]:ml-0">
-          <Image
-            src={HAADY_LOGO_URL}
-            alt="Haady"
-            width={42}
-            height={42}
-            className="h-12 w-auto"
-            unoptimized
-          />
+          <div className="heart-spread-container">
+            <Image
+              src={HAADY_LOGO_URL}
+              alt="Haady"
+              width={42}
+              height={42}
+              className="h-12 w-auto hover:animate-heartbeat transition-transform cursor-pointer relative z-20"
+              unoptimized
+            />
+            <Heart className="heart-particle fill-[#F4610B] text-[#F4610B]" size={12} />
+            <Gift className="heart-particle text-[#F4610B]" size={12} />
+            <Heart className="heart-particle fill-[#F4610B] text-[#F4610B]" size={12} />
+            <Gift className="heart-particle text-[#F4610B]" size={12} />
+            <Heart className="heart-particle fill-[#F4610B] text-[#F4610B]" size={12} />
+            <Gift className="heart-particle text-[#F4610B]" size={12} />
+          </div>
         </div>
       </SidebarHeader>
 
@@ -650,7 +775,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           ) : (
             <SidebarGroupLabel>{t('sidebar.navigation')}</SidebarGroupLabel>
           )}
-          <SidebarGroupContent>
+          <SidebarGroupContent className="px-1">
             <SidebarMenu>
               {isLoading || isChangingStore ? (
                 // Skeleton
@@ -671,15 +796,12 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                     const sortedItems = [...navItems].sort((a, b) => b.url.length - a.url.length)
                     
                     // Find the first (most specific) item that matches
-                    const activeItem = sortedItems.find(item => {
-                      if (pathname === item.url) {
-                        return true // Exact match
-                      }
-                      if (pathname.startsWith(item.url + '/')) {
-                        return true // Pathname is a child of this item
-                      }
-                      return false
-                    })
+                    const activeItem =
+                      sortedItems.find(item => {
+                        if (pathname === item.url) return true
+                        if (pathname.startsWith(item.url + '/')) return true
+                        return false
+                      }) ?? navItems.find(item => item.url === '/dashboard')
                     
                     return navItems.map((item) => {
                       const isActive = activeItem?.url === item.url
@@ -692,7 +814,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                             tooltip={item.title}
                           >
                             <Link href={item.url} aria-current={isActive ? 'page' : undefined}>
-                              <item.icon className="w-[18px] h-[18px]" />
+                              <item.icon />
                               <span>{item.title}</span>
                             </Link>
                           </SidebarMenuButton>
