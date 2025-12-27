@@ -29,11 +29,17 @@ export default async function DashboardPage() {
   // Check if user has completed setup and get user details
   const { data: businessProfile } = await supabase
     .from('business_profile')
-    .select('id, full_name, business_name, status, business_country')
+    .select('id, full_name, status, business_country, is_onboarded, onboarding_step, store_id')
     .eq('auth_user_id', user.id)
     .maybeSingle()
 
-  if (!businessProfile?.business_name) {
+  // Check if onboarding is completed
+  const isOnboardingComplete = businessProfile && (
+    businessProfile.is_onboarded === true || 
+    businessProfile.onboarding_step === null
+  );
+
+  if (!businessProfile || !isOnboardingComplete) {
     const cookieStore = await cookies();
     const onboardingUrl = getLocalizedUrlFromRequest('/onboarding/personal-details', {
       cookies: {
@@ -79,7 +85,7 @@ export default async function DashboardPage() {
           .in('store_id', storeIds)
           .eq('is_active', true)
           .is('deleted_at', null)
-      : Promise.resolve({ data: null, count: 0, error: null }),
+      : Promise.resolve({ data: null, count: 0, error: null } as { data: null; count: number; error: null }),
     
     // Get store connections via stores (new structure)
     supabase
@@ -98,11 +104,25 @@ export default async function DashboardPage() {
       .eq('is_active', true),
   ])
 
-  // Business data is now directly in businessProfile
+  // Get primary store name (business name is now the store name)
+  let businessName = 'Your Business'
+  if (businessProfile?.store_id) {
+    const { data: primaryStore } = await supabase
+      .from('stores')
+      .select('name')
+      .eq('id', businessProfile.store_id)
+      .maybeSingle()
+    
+    if (primaryStore?.name) {
+      businessName = primaryStore.name
+    }
+  }
+
+  // Business data
   const business = {
-    name: businessProfile.business_name,
-    status: businessProfile.status,
-    country: businessProfile.business_country
+    name: businessName,
+    status: businessProfile?.status,
+    country: businessProfile?.business_country
   }
   const storeCount = storeCountResult.count || 0
   
@@ -110,17 +130,36 @@ export default async function DashboardPage() {
   let productCount = 0
   if (productCountResult.error) {
     // If error is due to deleted_at column not existing, try without it
-    if (productCountResult.error.message?.includes('deleted_at') || productCountResult.error.code === '42703') {
+    const errorMessage = productCountResult.error.message || ''
+    const errorCode = productCountResult.error.code || ''
+    
+    if (errorMessage.includes('deleted_at') || errorCode === '42703') {
       if (storeIds.length > 0) {
-        const { count: retryCount } = await supabase
+        const { count: retryCount, error: retryError } = await supabase
           .from('products')
           .select('id', { count: 'exact', head: true })
           .in('store_id', storeIds)
           .eq('is_active', true)
-        productCount = retryCount || 0
+        
+        if (retryError) {
+          // Only log retry errors if they have meaningful content
+          if (retryError.message || retryError.code) {
+            console.warn('Error fetching product count (retry failed):', retryError)
+          }
+          productCount = 0
+        } else {
+          productCount = retryCount || 0
+        }
+      } else {
+        productCount = 0
       }
     } else {
-      console.error('Error fetching product count:', productCountResult.error)
+      // Only log error if it has a message or code (not an empty object)
+      if (errorMessage || errorCode) {
+        console.error('Error fetching product count:', productCountResult.error)
+      }
+      // Silently handle empty error objects
+      productCount = 0
     }
   } else {
     productCount = productCountResult.count || 0

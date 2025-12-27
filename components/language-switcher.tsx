@@ -22,23 +22,19 @@ export function LanguageSwitcher() {
 
   const handleLanguageSwitch = () => {
     if (otherLang) {
-      const loadingMessage = locale === 'ar' 
-        ? 'جاري تبديل اللغة...' 
-        : 'Switching language...';
-      setLoading(true, loadingMessage);
+      setLoading(true);
       // Delay to ensure loading overlay is visible before reload
       setTimeout(() => {
         setLocale(otherLang.code);
-      }, 2000);
+      }, 3000);
     }
   };
 
   return (
     <Button
       variant="ghost"
-      size="sm"
       onClick={handleLanguageSwitch}
-      className="gap-2 py-4 px-4" 
+      className="gap-2 h-10 px-4 text-gray-600 hover:text-orange-500 hover:bg-orange-100 transition-colors" 
       title={`Switch to ${otherLang?.name}`}
     >
       {otherLang?.code === 'ar' ? (

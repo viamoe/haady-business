@@ -9,7 +9,7 @@ import { cn } from "@/lib/utils"
  * - Height: h-11 (44px)
  * - Border: standard border with rounded-md corners
  * - Shadow: shadow-xs
- * - Focus: primary color border with ring
+ * - Hover/Focus: Haady orange (#F4610B) border with ring
  * - Background: transparent
  * - Padding: px-3 py-1
  * 
@@ -27,15 +27,17 @@ const Input = React.forwardRef<HTMLInputElement, React.ComponentProps<"input">>(
         "h-11 w-full min-w-0 rounded-md border border-border bg-transparent px-3 py-1",
         "text-base md:text-sm",
         "shadow-xs",
-        "transition-[color,box-shadow]",
+        "transition-all duration-200",
         "outline-none",
         
         // Text and placeholder
         "file:text-foreground placeholder:text-muted-foreground",
         "selection:bg-primary selection:text-primary-foreground",
         
-        // Focus states - primary color
-        "focus-visible:border-primary focus-visible:ring-primary/50 focus-visible:ring-[3px]",
+        // Hover and Focus states - Haady orange
+        "hover:border-orange-500/50",
+        "focus:border-orange-500 focus:ring-orange-500/30 focus:ring-[3px]",
+        "focus-visible:border-orange-500 focus-visible:ring-orange-500/30 focus-visible:ring-[3px]",
         "focus:placeholder:text-gray-400 focus-visible:placeholder:text-gray-400",
         
         // Error states

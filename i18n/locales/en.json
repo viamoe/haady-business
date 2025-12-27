@@ -16,49 +16,272 @@
     "error": "Error",
     "success": "Success"
   },
-  "landing": {
-    "title": "Grow your business with Haady",
-    "subtitle": "The all-in-one platform to manage your stores, track sales, and scale your business effortlessly.",
-    "getStarted": "Get Started",
-    "learnMore": "Learn More",
-    "startFreeTrial": "Start Free Trial",
-    "readyToGrow": "Ready to grow your business?",
-    "joinThousands": "Join thousands of businesses already using Haady to manage their operations.",
+        "landing": {
+    "header": {
+      "logo": "Haady Business",
+      "nav": {
+        "features": "Features",
+        "integrations": "Integrations",
+        "howItWorks": "How it works",
+        "success": "Success",
+        "faq": "FAQ"
+      },
+      "cta": {
+        "primary": "Get started",
+        "secondary": "Request a demo"
+      },
+      "completeSetup": "Complete setup",
+      "avatar": "MS",
+      "mobileLanguage": "Language",
+      "mobileCompleteSetup": "Setup",
+      "mobileMenu": "Menu",
+      "successMenu": {
+        "stories": "Customer stories",
+        "results": "Results"
+      }
+    },
+    "hero": {
+      "kicker": "Haady for gifting commerce",
+      "title": "Turn your store into a gifting destination.",
+      "subtitle": "Haady brings gift-ready customers to your products. Shoppers send gifts by @username - recipients confirm address and delivery time inside Haady - so you fulfill like a normal order.",
+      "cta": {
+        "primary": "Create your Haady store",
+        "secondary": "See how it works"
+      },
+      "microTrust": "Zero setup fees. Minutes to launch",
+      "bullets": {
+        "conversions": "More conversions: send by @username - no address friction at checkout",
+        "autoSync": "Auto-sync: products, variants, inventory, and orders stay accurate",
+        "giftReady": "Gift-ready upsell: notes, add-ons, wrap, bundles, curated collections",
+        "dashboard": "Business dashboard: orders, status, payouts, and performance in one place"
+      },
+      "microLine": "Your brand stays front and center - you control pricing, availability, and delivery coverage.",
+      "panel": {
+        "title": "Gift orders at a glance",
+        "subtitle": "Stay ahead of demand and keep every store in sync.",
+        "lines": {
+          "line1": {
+            "label": "Gift orders this week",
+            "value": "+28%"
+          },
+          "line2": {
+            "label": "Catalog sync status",
+            "value": "Live"
+          },
+          "line3": {
+            "label": "Top moment",
+            "value": "Birthday bundles up 2.3x"
+          }
+        }
+      }
+    },
+    "socialProof": {
+      "title": "Built for stores that win gifting moments",
+      "points": {
+        "trusted": "Trusted by growing brands across KSA and GCC",
+        "seasons": "Built for peak seasons: Eid, Ramadan, weddings, birthdays, new baby",
+        "fulfillment": "Clear recipient confirmation means fewer failed deliveries and support tickets"
+      },
+      "logosLabel": "Partner stores",
+      "logos": {
+        "items": {
+          "brand1": "Palm & Petal",
+          "brand2": "Sugar Atelier",
+          "brand3": "Riyadh Roast"
+        }
+      }
+    },
+    "problem": {
+      "title": "People love sending gifts, we help checkout feel effortless.",
+      "subtitle": "No awkward \"what's their address?\" at checkout. The recipient confirms delivery details inside Haady after purchase",
+      "problemTitle": "The problem",
+      "points": {
+        "address": "Address",
+        "timing": "Timing",
+        "carts": "Abandonment",
+        "manual": "Coordination",
+        "failed": "Failures"
+      }
+    },
+    "solution": {
+      "title": "The Haady solution",
+      "subtitle": "A buyer-first gifting flow.",
+      "body": "With Haady, the buyer checks out in seconds. The recipient privately confirms address, delivery time, and instructions inside Haady - then you fulfill with clean, confirmed details."
+    },
     "features": {
-      "title": "Everything you need to run your business",
-      "multiStore": {
-        "title": "Multi-Store Management",
-        "description": "Manage multiple stores from a single dashboard. Add, edit, and organize all your locations effortlessly."
+      "title": "Conversion-focused features",
+      "subtitle": "Everything you need to turn gifting intent into revenue.",
+      "items": {
+        "username": {
+          "title": "Gifts by @username",
+          "subtitle": "Higher conversion. Cleaner orders.",
+          "description": "Customers purchase without the recipient's address upfront. The recipient confirms where and when to receive it - so you reduce cancellations, support chats, and failed deliveries."
+        },
+        "catalog": {
+          "title": "Sync your catalog automatically",
+          "subtitle": "Always accurate products and stock.",
+          "description": "Connect your platform and publish in minutes. Titles, images, variants, and inventory stay aligned - so shoppers only see what you can fulfill."
+        },
+        "presentation": {
+          "title": "Turn products into gift experiences",
+          "subtitle": "Increase basket size with add-ons and bundles.",
+          "description": "Offer gift notes, wrapping, add-ons, and curated sets. Haady helps you package gifting choices in a way that naturally increases AOV."
+        },
+        "management": {
+          "title": "Centralized gift order management",
+          "subtitle": "Everything you need to fulfill with confidence.",
+          "description": "Every order comes with context: occasion, message, recipient instructions, and confirmed delivery timing - plus status updates from preparing to delivered."
+        },
+        "campaigns": {
+          "title": "Get featured during peak seasons",
+          "subtitle": "Visibility when demand spikes.",
+          "description": "Join seasonal collections and curated lists - Eid, Ramadan, graduations, weddings - so gift shoppers discover you at the right moment."
+        },
+        "insights": {
+          "title": "Insights that help you grow",
+          "subtitle": "Know what sells - and when.",
+          "description": "Track performance by occasion, category, and product. Use insights to refine pricing, bundles, and assortment with confidence."
+        }
       },
-      "analytics": {
-        "title": "Sales Analytics",
-        "description": "Track your performance with real-time analytics and insights to make data-driven decisions."
+      "outcomes": {
+        "abandoned": "Fewer abandoned carts",
+        "aov": "Higher AOV",
+        "delivery": "Cleaner delivery success",
+        "repeat": "Repeat treat orders"
+      }
+    },
+    "howItWorks": {
+      "title": "Go live in 3 simple steps",
+      "subtitle": "Launch your gifting storefront in minutes.",
+      "steps": {
+        "profile": {
+          "title": "Create your business profile",
+          "description": "Store info, logo, category, coverage."
+        },
+        "connect": {
+          "title": "Connect your store",
+          "description": "Import products and sync inventory automatically."
+        },
+        "launch": {
+          "title": "Start receiving gift orders",
+          "description": "Fulfill with confirmed delivery details and clear context."
+        }
       },
-      "security": {
-        "title": "Secure & Reliable",
-        "description": "Your data is protected with enterprise-grade security. We keep your business information safe."
+      "cta": "Start now - launch in minutes"
+    },
+    "integrations": {
+      "title": "Built to plug into your existing store",
+      "subtitle": "Connect your store and manage gifting orders from one place.",
+      "items": {
+        "shopify": {
+          "title": "Shopify",
+          "description": "Sync products, inventory, and orders"
+        },
+        "zid": {
+          "title": "Zid",
+          "description": "Import catalog and keep stock updated"
+        },
+        "salla": {
+          "title": "Salla",
+          "description": "Coming soon"
+        },
+        "request": {
+          "title": "Request an integration",
+          "description": "Tell us what you use"
+        }
       },
-      "speed": {
-        "title": "Lightning Fast",
-        "description": "Built for speed. Access your dashboard and manage your business from anywhere, anytime."
+      "cta": "Connect your store"
+    },
+    "success": {
+      "title": "Success stories in the making",
+      "subtitle": "Merchants grow gifting revenue without adding operational complexity.",
+      "highlight": {
+        "title": "Peak season ready",
+        "description": "Launch collections for Eid, weddings, birthdays, and thank-you moments in days."
       },
-      "collaboration": {
-        "title": "Team Collaboration",
-        "description": "Invite team members, assign roles, and collaborate seamlessly across your organization."
+      "panel": {
+        "title": "Gifting impact",
+        "subtitle": "A snapshot of what merchants see after going live.",
+        "metrics": {
+          "giftOrders": "Gift orders",
+          "repeat": "Repeat customers",
+          "reviews": "Store reviews"
+        }
+      }
+    },
+    "trust": {
+      "title": "Built for reliable fulfillment",
+      "subtitle": "Keep every gift on time with verified workflows.",
+      "items": {
+        "confirm": "Recipient confirms address and delivery time before fulfillment",
+        "status": "Clear order statuses: Preparing -> Out for delivery -> Delivered",
+        "coverage": "Coverage controls: locations, hours, blackout dates, availability",
+        "security": "Secure business access and verified store profiles"
       },
-      "tools": {
-        "title": "Business Tools",
-        "description": "All the tools you need to run your business efficiently, from inventory to customer management."
+      "note": "Less confusion. Fewer failed drops. Happier customers."
+    },
+    "conversion": {
+      "title": "Ready to grow with gifting?",
+      "subtitle": "Join Haady Business and start converting high-intent gift shoppers today.",
+      "cta": {
+        "primary": "Create your Haady store",
+        "secondary": "Talk to sales"
+      },
+      "micro": "No setup fees - you can edit catalog, coverage, and settings anytime."
+    },
+    "faq": {
+      "title": "FAQ",
+      "subtitle": "Answers to common questions about gifting with Haady.",
+      "items": {
+        "address": {
+          "question": "Do I need the recipient's address at checkout?",
+          "answer": "No - the buyer purchases instantly, and the recipient confirms address and timing inside Haady."
+        },
+        "coverage": {
+          "question": "Can I choose where I deliver?",
+          "answer": "Yes - set your coverage areas so customers only see what you can fulfill."
+        },
+        "products": {
+          "question": "How do products get added to Haady?",
+          "answer": "Connect your platform to import titles, prices, images, and variants. Inventory stays synced."
+        },
+        "control": {
+          "question": "Can I control which products appear?",
+          "answer": "Yes - you can publish only the items you want to sell through Haady."
+        },
+        "brands": {
+          "question": "Is Haady only for big brands?",
+          "answer": "No - Haady is designed to help quality stores of all sizes grow through gifting."
+        },
+        "delivery": {
+          "question": "Who handles delivery - Haady or my store?",
+          "answer": "You fulfill like normal. Haady provides confirmed delivery details and gifting context."
+        },
+        "pause": {
+          "question": "Can I pause Haady orders anytime?",
+          "answer": "Yes - control availability, coverage, and published products anytime."
+        }
       }
     },
     "footer": {
-      "copyright": "© {year} Haady Business. All rights reserved.",
-      "signIn": "Sign In"
+      "copyright": "© Haady Business. All rights reserved.",
+      "links": {
+        "integrations": "Integrations",
+        "changelog": "Changelog",
+        "status": "Status",
+        "terms": "Terms",
+        "privacy": "Privacy",
+        "support": "Support",
+        "contact": "Contact"
+      }
     }
   },
+
   "auth": {
     "createAccount": "Create account",
     "loginToAccount": "Login to your account",
+    "otpVerificationTitle": "Verify your email",
+    "otpVerificationSubtitle": "Enter the 6-digit code we sent to your email",
     "subtitle": "Welcome back — let's get you signed in.",
     "signIn": "Login",
     "enterEmail": "Enter your email to receive a verification code and get started.",
@@ -106,7 +329,8 @@
     "loginInstead": "Log in instead",
     "accountExists": "An account with this email already exists. Please ",
     "noAccountFound": "No account found with this email",
-    "createAccountInstead": "Create account instead"
+    "createAccountInstead": "Create account instead",
+    "tooManyRequests": "Too many requests. Please wait before trying again."
   },
   "setup": {
     "welcome": "Welcome to Haady Business",
@@ -637,4 +861,3 @@
     }
   }
 }
-

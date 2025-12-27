@@ -38,7 +38,7 @@ import { Unplug } from '@/components/animate-ui/icons/unplug'
 import { Sparkles } from '@/components/animate-ui/icons/sparkles'
 import { supabase } from '@/lib/supabase/client'
 import { CelebrationModal } from '@/components/celebration-modal'
-import { Wormmy } from '@/components/wormmy'
+// TODO: Wormmy removed - will be reimplemented with new architecture
 import {
   Dialog,
   DialogContent,
@@ -55,7 +55,7 @@ import { cn } from '@/lib/utils'
 import { NotificationDrawer } from '@/components/notification-drawer'
 import { SearchModal } from '@/components/search-modal'
 import { CreateStoreModal } from '@/components/create-store-modal'
-import { ProductApprovalModal, ProductPreview } from '@/components/product-approval-modal'
+// TODO: ProductApprovalModal removed - will be reimplemented with new architecture
 import { Search } from 'lucide-react'
 import { Kbd } from '@/components/ui/kbd'
 import {
@@ -110,15 +110,9 @@ function DashboardLayoutContentInner({
   const [isLanguageHover, setIsLanguageHover] = useState(false)
   const [isLogoutHover, setIsLogoutHover] = useState(false)
   const [isStoreDropdownOpen, setIsStoreDropdownOpen] = useState(false)
-  const [isSyncing, setIsSyncing] = useState(false)
+  // TODO: isSyncing removed - will be reimplemented with new architecture
   const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null)
-  const [isHoveringSync, setIsHoveringSync] = useState(false)
-  const [currentSyncPhrase, setCurrentSyncPhrase] = useState(0)
-  const [syncSource, setSyncSource] = useState<'header' | 'products' | null>(null)
   const [messagesCount, setMessagesCount] = useState(0)
-  const [showProductApprovalModal, setShowProductApprovalModal] = useState(false)
-  const [previewProducts, setPreviewProducts] = useState<ProductPreview[]>([])
-  const [isLoadingPreview, setIsLoadingPreview] = useState(false)
   const [isSearchModalOpen, setIsSearchModalOpen] = useState(false)
   const [isCreateStoreModalOpen, setIsCreateStoreModalOpen] = useState(false)
   const [isLogoUploadModalOpen, setIsLogoUploadModalOpen] = useState(false)
@@ -509,11 +503,7 @@ function DashboardLayoutContentInner({
     // NotificationDrawer handles its own state updates
   }
   
-  const syncPhrases = React.useMemo(() => [
-    t('header.sync.phrases.fetchingProducts'),
-    t('header.sync.phrases.countingInventory'),
-    t('header.sync.phrases.polishingThings')
-  ], [t])
+  // TODO: syncPhrases removed - will be reimplemented with new architecture
 
   // Format relative time (e.g., "3 min ago", "1 hour ago")
   const formatRelativeTime = (date: Date): string => {
@@ -602,52 +592,7 @@ function DashboardLayoutContentInner({
     fetchLastSyncTime()
   }, [fetchLastSyncTime])
 
-  // Listen for sync events from products page
-  useEffect(() => {
-    const handleProductsSyncStarted = (event: CustomEvent) => {
-      const { connectionId, source } = event.detail
-      // Only update if it's for the currently selected connection
-      if (connectionId === selectedConnectionId) {
-        setIsSyncing(true)
-        setSyncSource(source || 'products')
-      }
-    }
-
-    const handleProductsSyncCompleted = (event: CustomEvent) => {
-      const { connectionId, success } = event.detail
-      // Only update if it's for the currently selected connection
-      if (connectionId === selectedConnectionId) {
-        if (success) {
-          // Fetch updated sync time
-          fetchLastSyncTime()
-        }
-        setIsSyncing(false)
-        setSyncSource(null)
-      }
-    }
-
-    window.addEventListener('productsSyncStarted', handleProductsSyncStarted as EventListener)
-    window.addEventListener('productsSyncCompleted', handleProductsSyncCompleted as EventListener)
-
-    return () => {
-      window.removeEventListener('productsSyncStarted', handleProductsSyncStarted as EventListener)
-      window.removeEventListener('productsSyncCompleted', handleProductsSyncCompleted as EventListener)
-    }
-  }, [selectedConnectionId, fetchLastSyncTime])
-
-  // Rotate sync phrases while syncing
-  useEffect(() => {
-    if (!isSyncing) {
-      setCurrentSyncPhrase(0)
-      return
-    }
-
-    const interval = setInterval(() => {
-      setCurrentSyncPhrase((prev) => (prev + 1) % syncPhrases.length)
-    }, 2000) // Change phrase every 2 seconds
-
-    return () => clearInterval(interval)
-  }, [isSyncing, syncPhrases.length])
+  // TODO: Sync event listeners removed - will be reimplemented with new architecture
 
   // Fetch store name, ID, and logo when selectedConnectionId changes
   useEffect(() => {
@@ -660,23 +605,35 @@ function DashboardLayoutContentInner({
       }
 
       try {
-        // Fetch store via connection (new structure: store_connections.store_id -> stores.id)
-        // Logo and name are now in stores table
-        const { data: store, error: storeError } = await supabase
-          .from('stores')
-          .select(`
-            id,
-            name,
-            logo_url,
-            store_connections!inner(id)
-          `)
-          .eq('store_connections.id', selectedConnectionId)
-          .eq('is_active', true)
-          .limit(1)
+        // New structure: store_connections.store_id -> stores.id
+        // First get the store_id from the connection, then fetch store details
+        const { data: connection, error: connectionError } = await supabase
+          .from('store_connections')
+          .select('store_id')
+          .eq('id', selectedConnectionId)
           .maybeSingle()
 
-        if (storeError) {
-          console.error('Error fetching store info:', storeError)
+        if (connectionError || !connection?.store_id) {
+          if (connectionError?.message) {
+            console.error('Error fetching connection:', connectionError.message)
+          }
+          setStoreName(null)
+          setStoreId(null)
+          setStoreLogoUrl(null)
+          setLogoZoom(100)
+          return
+        }
+
+        // Now fetch the store details
+        const { data: store, error: storeError } = await supabase
+          .from('stores')
+          .select('id, name, logo_url')
+          .eq('id', connection.store_id)
+          .eq('is_active', true)
+          .maybeSingle()
+
+        if (storeError?.message) {
+          console.error('Error fetching store info:', storeError.message)
           setStoreName(null)
           setStoreId(null)
           setStoreLogoUrl(null)
@@ -688,7 +645,7 @@ function DashboardLayoutContentInner({
           setStoreName(store.name)
           setStoreId(store.id)
           setStoreLogoUrl(store.logo_url || null)
-          setLogoZoom(100) // logo_zoom can be added to stores table if needed
+          setLogoZoom(100)
         } else {
           setStoreName(null)
           setStoreId(null)
@@ -774,216 +731,8 @@ function DashboardLayoutContentInner({
     fetchConnections()
   }, [user?.id])
 
-  // Handle sync button click - show product approval modal
-  const handleSync = async () => {
-    if (!selectedConnectionId) {
-      toast.error(t('toast.error.noStoreSelected'), {
-        description: t('toast.error.noStoreSelectedDesc'),
-      })
-      return
-    }
-
-    if (isSyncing || isLoadingPreview) {
-      return // Prevent multiple simultaneous syncs
-    }
-
-    setIsLoadingPreview(true)
-    try {
-      const previewResponse = await safeFetch(
-        `/api/store-connections/${selectedConnectionId}/sync/preview`,
-        { method: 'GET' },
-        { context: 'Preview products', showToast: false }
-      )
-
-      if (!previewResponse.ok) {
-        const errorData = await previewResponse.json().catch(() => ({ error: 'Failed to fetch preview' }))
-        throw new Error(errorData.error || 'Failed to preview products')
-      }
-
-      const previewData = await previewResponse.json()
-      
-      if (!previewData.success || !previewData.products) {
-        throw new Error(previewData.error || 'Failed to preview products')
-      }
-
-      setPreviewProducts(previewData.products)
-      setShowProductApprovalModal(true)
-    } catch (error: any) {
-      const errorMessage = error?.message || String(error)
-      if (errorMessage.includes('not yet implemented') || errorMessage.includes('404') || errorMessage.includes('Not Found')) {
-        // Fallback to direct sync if preview is not implemented
-        await performDirectSync()
-      } else {
-        handleError(error, {
-          context: 'Preview products',
-          showToast: true,
-        })
-        setIsLoadingPreview(false)
-      }
-    } finally {
-      // Only set loading to false if we're not doing direct sync
-      if (!isSyncing) {
-        setIsLoadingPreview(false)
-      }
-    }
-  }
-
-  // Perform direct sync (fallback when preview is not available)
-  const performDirectSync = async () => {
-    if (!selectedConnectionId) return
-
-    setIsSyncing(true)
-    setSyncSource('header')
-
-    try {
-      const response = await safeFetch(
-        `/api/store-connections/${selectedConnectionId}/sync`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ type: 'all' }),
-        },
-        { context: 'Sync store products', showToast: true }
-      )
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }))
-        throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`)
-      }
-
-      const data = await response.json()
-
-      if (data.success) {
-        // Fetch the updated last_sync_at from database to ensure persistence
-        await fetchLastSyncTime()
-        
-        // Dispatch sync completed event to refresh dashboard
-        window.dispatchEvent(new CustomEvent('productsSyncCompleted', { 
-          detail: { connectionId: selectedConnectionId, success: true } 
-        }))
-        
-        // Show timestamp immediately by setting syncing to false
-        setIsSyncing(false)
-        
-        if (data.details) {
-          const { productsCreated, productsUpdated, productsSynced } = data.details
-          let description = t('toast.success.productsSynchronized')
-          
-          if (productsCreated > 0 && productsUpdated > 0) {
-            description = t('toast.success.productsCreatedAndUpdated', { 
-              created: productsCreated, 
-              updated: productsUpdated 
-            })
-          } else if (productsCreated > 0) {
-            description = t('toast.success.productsCreated', { count: productsCreated })
-          } else if (productsUpdated > 0) {
-            description = t('toast.success.productsUpdated', { count: productsUpdated })
-          } else if (productsSynced > 0) {
-            description = t('toast.success.productsSynced', { count: productsSynced })
-          }
-          
-          toast.success(t('toast.success.syncCompleted'), { description })
-        } else {
-          toast.success(t('toast.success.syncCompleted'), { 
-            description: t('toast.success.productsSynchronized')
-          })
-        }
-      } else {
-        throw new Error(data.error || data.message || t('toast.error.syncFailed'))
-      }
-    } catch (error: any) {
-      // Dispatch sync failed event
-      window.dispatchEvent(new CustomEvent('productsSyncCompleted', { 
-        detail: { connectionId: selectedConnectionId, success: false } 
-      }))
-      handleError(error, {
-        context: 'Sync store products',
-        showToast: true,
-        fallbackMessage: t('toast.error.failedToStartSync'),
-      })
-        setIsSyncing(false) // Stop syncing on error too
-        setSyncSource(null)
-    }
-  }
-
-  // Handle product approval - sync selected products
-  const handleApproveProducts = async (selectedProductIds: string[]) => {
-    if (!selectedConnectionId || selectedProductIds.length === 0) {
-      return
-    }
-
-    setIsSyncing(true)
-    setSyncSource('header')
-    setShowProductApprovalModal(false)
-
-    try {
-      const response = await safeFetch(
-        `/api/store-connections/${selectedConnectionId}/sync`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ 
-            type: 'selected',
-            selectedProductIds 
-          }),
-        },
-        { context: 'Sync selected products', showToast: true }
-      )
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }))
-        throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`)
-      }
-
-      const data = await response.json()
-
-      if (data.success) {
-        // Fetch the updated last_sync_at from database to ensure persistence
-        await fetchLastSyncTime()
-        
-        // Show timestamp immediately by setting syncing to false
-        setIsSyncing(false)
-        
-        if (data.details) {
-          const { productsCreated, productsUpdated, productsSynced } = data.details
-          let description = t('toast.success.productsSynchronized')
-          
-          if (productsCreated > 0 && productsUpdated > 0) {
-            description = t('toast.success.productsCreatedAndUpdated', { 
-              created: productsCreated, 
-              updated: productsUpdated 
-            })
-          } else if (productsCreated > 0) {
-            description = t('toast.success.productsCreated', { count: productsCreated })
-          } else if (productsUpdated > 0) {
-            description = t('toast.success.productsUpdated', { count: productsUpdated })
-          } else if (productsSynced > 0) {
-            description = t('toast.success.productsSynced', { count: productsSynced })
-          }
-          
-          toast.success(t('toast.success.syncCompleted'), { description })
-        } else {
-          toast.success(t('toast.success.syncCompleted'), { 
-            description: t('toast.success.productsSynchronized')
-          })
-        }
-      } else {
-        throw new Error(data.error || data.message || t('toast.error.syncFailed'))
-      }
-    } catch (error: any) {
-      // Dispatch sync failed event
-      window.dispatchEvent(new CustomEvent('productsSyncCompleted', { 
-        detail: { connectionId: selectedConnectionId, success: false } 
-      }))
-      handleError(error, {
-        context: 'Sync selected products',
-        showToast: true,
-        fallbackMessage: t('toast.error.failedToStartSync'),
-      })
-      setIsSyncing(false)
-      setSyncSource(null)
-    }
-  }
+  // TODO: Sync functionality will be reimplemented with new architecture
+  // handleSync, performDirectSync, and handleApproveProducts removed pending new implementation
   const [hasCheckedConnections, setHasCheckedConnections] = useState(false)
   const [hasManuallyOpened, setHasManuallyOpened] = useState(false)
   const [showShopifyDialog, setShowShopifyDialog] = useState(false)
@@ -1027,42 +776,70 @@ function DashboardLayoutContentInner({
     }
   }, [urlStep, setModalStep, openModal, hasManuallyOpened])
 
-  // Check if user has any store connections on mount
+  // Check if user has completed onboarding and has stores on mount
   useEffect(() => {
-    const checkStoreConnections = async () => {
+    const checkOnboardingStatus = async () => {
       if (!user?.id || hasCheckedConnections) return
 
       try {
-        // Query stores with connections (RLS will filter by user via business_profile)
-        const { data: stores, error } = await supabase
+        // Check if user has completed onboarding
+        const { data: businessProfile, error: profileError } = await supabase
+          .from('business_profile')
+          .select('id, is_onboarded, onboarding_step, store_id')
+          .eq('auth_user_id', user.id)
+          .maybeSingle()
+
+        if (profileError) {
+          console.error('Error checking business profile:', profileError)
+          setHasCheckedConnections(true)
+          return
+        }
+
+        // If user has completed onboarding, don't show the modal
+        const hasCompletedOnboarding = businessProfile && (
+          businessProfile.is_onboarded || 
+          businessProfile.onboarding_step === null
+        )
+
+        // If user has a store_id in business_profile, they have a store
+        const hasStore = businessProfile?.store_id !== null
+
+        // Don't show modal if:
+        // 1. User has completed onboarding, OR
+        // 2. User has a store (even without connections)
+        if (hasCompletedOnboarding || hasStore) {
+          setHasCheckedConnections(true)
+          return
+        }
+
+        // Check if user has any stores (fallback check)
+        const { data: stores, error: storesError } = await supabase
           .from('stores')
-          .select(`
-            id,
-            store_connections!inner(id)
-          `)
+          .select('id')
+          .eq('business_id', businessProfile?.id)
           .eq('is_active', true)
           .limit(1)
 
-        if (error) {
-          console.error('Error checking store connections:', error)
+        if (storesError) {
+          console.error('Error checking stores:', storesError)
           // If there's an error, don't show the modal
           setHasCheckedConnections(true)
           return
         }
 
-        // Only show modal if no stores with connections exist
+        // Only show modal if user has no stores at all
         if (!stores || stores.length === 0) {
           openModal()
         }
 
         setHasCheckedConnections(true)
       } catch (error) {
-        console.error('Exception checking store connections:', error)
+        console.error('Exception checking onboarding status:', error)
         setHasCheckedConnections(true)
       }
     }
 
-    checkStoreConnections()
+    checkOnboardingStatus()
   }, [user?.id, hasCheckedConnections, openModal])
 
   // Handle success/error messages from OAuth callback
@@ -1438,7 +1215,7 @@ function DashboardLayoutContentInner({
       <AppSidebar side={isRTL ? "right" : "left"} />
       <SidebarInset className="shadow-none md:shadow-none [&]:!shadow-none">
         <header className="flex h-16 shrink-0 items-center justify-between gap-2 border-b border-gray-100 relative overflow-hidden">
-          <Wormmy isActive={isSyncing} />
+          {/* TODO: Wormmy animation - will be reimplemented with new architecture */}
           <div className="flex items-center gap-3 flex-1">
             <Tooltip>
               <TooltipTrigger asChild>
@@ -1493,101 +1270,20 @@ function DashboardLayoutContentInner({
             isRTL ? "left-4" : "right-4"
           )}>
             <div className="flex items-center relative">
-              {/* Syncing indicator or timestamp */}
-              {isSyncing && syncSource === 'products' ? (
-                // When sync is from products page: show rotating icon only
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="size-7 [&_svg]:!h-5 [&_svg]:!w-5 text-gray-500 flex items-center justify-center"
-                      aria-label={t('header.sync.products')}
-                      disabled
-                    >
-                      <RefreshCcw 
-                        size={20} 
-                        className="animate-spin"
-                        style={{ animationDuration: '2s' }}
-                      />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent 
-                    side="bottom" 
-                    sideOffset={10} 
-                    className="text-xs px-2 py-1.5"
-                  >
-                    Syncing products...
-                  </TooltipContent>
-                </Tooltip>
-              ) : isSyncing && syncSource === 'header' ? (
-                // When sync is from header: show Sparkles and animated text
+              {/* Last sync timestamp */}
+              {lastSyncTime && (
                 <div
                   className={cn(
                     'flex items-center gap-2 transition-opacity',
                     'duration-500 ease-out opacity-100 me-2'
                   )}
                 >
-                  <AnimateIcon animate={isSyncing} loop={isSyncing} animation="fill">
-                    <Sparkles size={12} className="text-gray-300 flex-shrink-0" />
-                  </AnimateIcon>
-                  <span
-                    className={cn(
-                      'text-xs font-medium text-gray-600 whitespace-nowrap shimmer-text'
-                    )}
-                    style={{
-                      animation: 'shimmer 6s linear infinite',
-                    }}
-                  >
-                    {syncPhrases[currentSyncPhrase]}
+                  <span className="text-xs font-medium text-gray-400 whitespace-nowrap">
+                    {t('header.sync.updated')} {formatRelativeTime(lastSyncTime)}
                   </span>
                 </div>
-              ) : (
-                // When not syncing: show timestamp and sync button
-                <>
-                  {lastSyncTime && (
-                    <div
-                      className={cn(
-                        'flex items-center gap-2 transition-opacity',
-                        'duration-500 ease-out opacity-100 me-2'
-                      )}
-                    >
-                      <span className="text-xs font-medium text-gray-400 whitespace-nowrap">
-                        {t('header.sync.updated')} {formatRelativeTime(lastSyncTime)}
-                      </span>
-                    </div>
-                  )}
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="size-7 [&_svg]:!h-5 [&_svg]:!w-5 text-gray-500 hover:text-gray-700 flex items-center justify-center"
-                        aria-label={t('header.sync.products')}
-                        onClick={handleSync}
-                        disabled={!selectedConnectionId || isSyncing || isLoadingPreview}
-                        onMouseEnter={() => setIsHoveringSync(true)}
-                        onMouseLeave={() => setIsHoveringSync(false)}
-                      >
-                        {(isSyncing || isLoadingPreview) ? (
-                          <Loader2 className="h-5 w-5 animate-spin" />
-                        ) : (
-                          <AnimateIcon animateOnHover>
-                            <RefreshCcw size={20} />
-                          </AnimateIcon>
-                        )}
-                      </Button>
-                    </TooltipTrigger>
-                  <TooltipContent 
-                    side="bottom" 
-                    sideOffset={16} 
-                    className="text-xs px-2 py-1.5"
-                  >
-                    {t('header.sync.products')}
-                  </TooltipContent>
-                  </Tooltip>
-                </>
               )}
+              {/* TODO: Sync button - to be reimplemented with new architecture */}
             </div>
             <NotificationDrawer
               updates={dummyUpdates}
@@ -2473,17 +2169,7 @@ function DashboardLayoutContentInner({
         )}
       </WideCardModal>
 
-      {/* Product Approval Modal for Sync */}
-      {selectedConnectionId && (
-        <ProductApprovalModal
-          open={showProductApprovalModal}
-          onOpenChange={setShowProductApprovalModal}
-          products={previewProducts}
-          platform={selectedConnection?.platform || storeConnections.find(c => c.id === selectedConnectionId)?.platform || 'unknown'}
-          onApprove={handleApproveProducts}
-          isLoading={isSyncing}
-        />
-      )}
+      {/* TODO: Product Approval Modal - to be reimplemented with new architecture */}
 
       {/* Celebration Modal */}
       <CelebrationModal

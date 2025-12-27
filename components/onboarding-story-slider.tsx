@@ -83,7 +83,7 @@ const storySlides: StorySlide[] = [
 const SLIDE_DURATION = 10000
 const LAST_SLIDE_DURATION = 18000 // Longer duration for notification preview animation
 
-const PRODUCTS_STORAGE_URL = 'https://rovphhvuuxwbhgnsifto.supabase.co/storage/v1/object/public/assets/products'
+const PRODUCTS_STORAGE_URL = 'https://rovphhvuuxwbhgnsifto.supabase.co/storage/v1/object/public/assets/haady/gifts'
 const HAADY_LOGO_URL = 'https://rovphhvuuxwbhgnsifto.supabase.co/storage/v1/object/public/assets/haady-icon.svg'
 
 const notifications = [

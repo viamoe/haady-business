@@ -250,8 +250,8 @@ const translations = {
     storeAddress: 'Address',
     storeAddressPlaceholder: 'Store address',
     storeLogo: 'Store Logo',
-    uploadLogo: 'Click to upload logo',
-    logoFormat: 'PNG, JPG or GIF up to 2MB',
+    uploadLogo: 'Drop your logo here, or click to upload',
+    logoFormat: 'PNG only • Square (1:1) • Max 2 MB',
     continue: 'Continue',
     creating: 'Creating your business...',
   },
@@ -278,8 +278,8 @@ const translations = {
     storeType: 'نوع المتجر',
     selectStoreType: 'اختر نوع المتجر',
     storeLogo: 'شعار المتجر',
-    uploadLogo: 'انقر لرفع الشعار',
-    logoFormat: 'PNG, JPG أو GIF حتى 2MB',
+    uploadLogo: 'أسقط شعارك هنا، أو انقر للرفع',
+    logoFormat: 'PNG فقط • مربع (1:1) • الحد الأقصى 2 ميجابايت',
     continue: 'متابعة',
     creating: 'جاري إنشاء عملك...',
   },
@@ -520,12 +520,21 @@ export function BusinessSetupStep({ onNext }: OnboardingStepProps) {
         try {
           const { data, error } = await supabase
             .from('business_profile')
-            .select('preferred_country')
+            .select('business_country')
             .eq('auth_user_id', userId)
             .maybeSingle()
 
-          if (!error && data?.preferred_country) {
-            return data.preferred_country
+          if (!error && data?.business_country) {
+            // Get ISO2 code from country ID
+            const { data: countryData, error: countryError } = await supabase
+              .from('countries')
+              .select('iso2')
+              .eq('id', data.business_country)
+              .single()
+            
+            if (!countryError && countryData?.iso2) {
+              return countryData.iso2
+            }
           }
         } catch (error) {
           console.error('Error loading user country preference:', error)
@@ -774,33 +783,6 @@ export function BusinessSetupStep({ onNext }: OnboardingStepProps) {
         throw new Error('City is required')
       }
 
-      let userIpAddress = ''
-      try {
-        const ipResponse = await fetch('https://api.ipify.org?format=json')
-        if (ipResponse.ok) {
-          const ipData = await ipResponse.json()
-          userIpAddress = ipData.ip || ''
-        }
-      } catch (error) {
-        console.warn('Could not fetch IP address:', error)
-      }
-
-      let termVersionId: string | null = null
-      try {
-        const { data: termsData, error: termsError } = await supabase
-          .from('terms_versions')
-          .select('id')
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .maybeSingle()
-
-        if (!termsError && termsData?.id) {
-          termVersionId = termsData.id
-        }
-      } catch (error) {
-        console.warn('Could not fetch terms version:', error)
-      }
-
       const urlCountry = parseLocaleCountry(pathname)
       let preferredCountry = urlCountry?.country || selectedCountryData?.iso2
       let preferredLanguage = urlCountry?.locale || locale
@@ -816,45 +798,108 @@ export function BusinessSetupStep({ onNext }: OnboardingStepProps) {
       preferredCountry = preferredCountry || selectedCountryData?.iso2 || 'SA'
       preferredLanguage = preferredLanguage || locale || 'en'
 
-      // TODO: Implement database storage
-      // For now, just save to cookies and proceed to next step
-      const rpcParams = {
-        user_full_name: user?.user_metadata?.full_name || '',
-        user_phone: user?.phone || '',
-        business_name: values.storeName?.trim() || values.storeNameAr?.trim() || '', // Using store name as business name (prefer English, fallback to Arabic)
-        selected_business_type_id: 'b2c', // Default to B2C for now
-        selected_category_id: values.storeCategory[0], // Use first selected category as primary
-        store_name: values.storeName?.trim() || null, // English store name (can be null if only Arabic is provided)
-        store_name_ar: values.storeNameAr?.trim() || null, // Arabic store name (can be null if only English is provided)
-        store_city: values.storeCity,
-        store_country: values.storeCountry,
-        store_type: values.storeType && values.storeType.length > 0 ? values.storeType[0] : 'online', // Use first selected type or default to 'online'
-        opening_hours: values.openingHours && Object.keys(values.openingHours).length > 0 ? values.openingHours : null,
-        store_lat: null,
-        store_lng: null,
-        store_address: values.storeAddress?.trim() || null,
-        term_version_id: termVersionId,
-        user_ip_address: userIpAddress || null,
-        preferred_country: preferredCountry,
-        preferred_language: preferredLanguage,
-        business_country: values.storeCountry || null,
+      // Step 1: Create store first (to get store_id for logo upload) with timeout protection
+      const rpcCall = supabase.rpc('save_store_details_onboarding', {
+        p_store_name: values.storeName?.trim() || null,
+        p_store_name_ar: values.storeNameAr?.trim() || null,
+        p_category_ids: values.storeCategory,
+        p_store_types: values.storeType || ['online'], // Multi-select array
+        p_country_id: values.storeCountry,
+        p_city_id: values.storeCity,
+        p_address: values.storeAddress?.trim() || null,
+        p_opening_hours: values.openingHours && Object.keys(values.openingHours).length > 0 ? values.openingHours : null,
+        p_logo_url: null, // Will be set after upload if logo exists
+      })
+      
+      // Add timeout to prevent infinite loading (30 seconds)
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        setTimeout(() => {
+          reject(new Error('Request timeout. Please check your connection and try again.'))
+        }, 30000)
+      })
+      
+      const result = await Promise.race([rpcCall, timeoutPromise])
+      const { data: storeData, error: storeError } = result
+
+      if (storeError) {
+        throw new Error(storeError.message)
       }
 
-      // Store data in cookies for now
-      console.log('Store setup data:', rpcParams)
+      if (!storeData?.success) {
+        throw new Error(storeData?.error || 'Failed to save store details')
+      }
+
+      const storeId = storeData.store_id
+      let logoUrl: string | null = null
+
+      // Step 2: Upload logo if provided
+      if (logoFile && storeId) {
+        try {
+          setLoading(true, locale === 'ar' ? 'جاري رفع الشعار...' : 'Uploading logo...')
+          
+          const logoFormData = new FormData()
+          logoFormData.append('file', logoFile)
+          logoFormData.append('storeId', storeId)
+
+          const uploadResponse = await fetch('/api/stores/upload-logo', {
+            method: 'POST',
+            body: logoFormData,
+          })
+
+          if (!uploadResponse.ok) {
+            const uploadError = await uploadResponse.json()
+            throw new Error(uploadError.error || 'Failed to upload logo')
+          }
+
+          const uploadData = await uploadResponse.json()
+          logoUrl = uploadData.logo_url
+
+          // Logo URL is already updated in the API route, so we don't need to update again
+          console.log('Logo uploaded successfully:', logoUrl)
+        } catch (logoError: any) {
+          console.error('Logo upload error:', logoError)
+          // Don't fail the whole process if logo upload fails
+          toast.error('Warning', {
+            description: logoError?.message || 'Store created but logo upload failed. You can add it later.',
+            duration: 5000,
+          })
+        } finally {
+          setLoading(false)
+        }
+      }
+
+      console.log('Store details saved:', { ...storeData, logo_url: logoUrl })
+
+      // Also save to cookies as backup
       FormStateCookies.clearFormDraft('business_setup')
-      FormStateCookies.saveLastFormData('business_setup', values)
+      FormStateCookies.saveLastFormData('business_setup', {
+        ...values,
+        storeId: storeData.store_id,
+        businessProfileId: storeData.business_profile_id,
+        slug: storeData.slug,
+        logoUrl,
+      })
       UserPreferencesCookies.setCountry(preferredCountry)
       UserPreferencesCookies.setLocale(preferredLanguage)
 
-      // Proceed to next step
-      await onNext()
-      
-      // BYPASSED: Database call - will be implemented later
-      // const { data, error } = await supabase.rpc('create_business_onboarding', rpcParams)
-      // if (error) {
-      //   throw new Error(error.message)
-      // }
+      // Proceed to next step with timeout protection
+      try {
+        const nextStepPromise = onNext()
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Navigation timeout')), 10000)
+        )
+        
+        await Promise.race([nextStepPromise, timeoutPromise])
+      } catch (nextError: any) {
+        // If navigation fails, still consider the form submitted successfully
+        // The data is already saved, so we can manually navigate
+        console.warn('Navigation error (data already saved):', nextError)
+        
+        // Try to navigate manually if onNext fails
+        const currentPath = pathname
+        const nextStepPath = currentPath.replace(/\/[^/]+$/, '/connect-store')
+        router.push(nextStepPath)
+      }
       
     } catch (err: any) {
       console.error('Error creating business:', err)
@@ -923,7 +968,6 @@ export function BusinessSetupStep({ onNext }: OnboardingStepProps) {
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6" dir={isRTL ? 'rtl' : 'ltr'}>
       {/* Logo Upload */}
       <div className="space-y-2">
-        <Label>{t.storeLogo}</Label>
         <div className="flex items-center gap-4">
           {logoPreview ? (
             <div className="relative">

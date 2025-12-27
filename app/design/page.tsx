@@ -543,7 +543,7 @@ export default function DesignPage() {
                 <motion.button
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
-                  className="w-full p-4 bg-primary text-white rounded-lg"
+                  className="w-full p-4 bg-primary text-white rounded-lg hover:bg-orange-500 transition-colors"
                 >
                   Animated Button
                 </motion.button>

@@ -1,17 +1,19 @@
 'use client'
 
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import Image from 'next/image'
 import { PersonalDetailsStep } from './steps/PersonalDetailsStep'
 import { BusinessSetupStep } from './steps/BusinessSetupStep'
 import { ConnectStoreStep } from './steps/ConnectStoreStep'
+import { SummaryStep } from './steps/SummaryStep'
 import { useLocale } from '@/i18n/context'
 import { useOnboarding } from '@/lib/onboarding-context'
 import { useLocalizedUrl } from '@/lib/use-localized-url'
 import { useAuth } from '@/lib/auth/auth-context'
 import { useLoading } from '@/lib/loading-context'
+import { getStepIndex, isValidStep, type OnboardingStepId } from '@/lib/constants/onboarding'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -37,10 +39,19 @@ const OnboardingStorySlider = dynamic(
 
 // Constants
 const HAADY_LOGO_URL = 'https://rovphhvuuxwbhgnsifto.supabase.co/storage/v1/object/public/assets/haady-icon.svg'
-const TRANSITION_DELAY = 800
-const POST_TRANSITION_DELAY = 600
-const LANGUAGE_SWITCH_DELAY = 2000
-const URL_SYNC_DELAY = 100
+
+// Transition timing constants (in milliseconds)
+export const ONBOARDING_TRANSITION_DELAYS = {
+  TRANSITION: 800, // Delay before starting transition
+  POST_TRANSITION: 600, // Delay after transition completes
+  LANGUAGE_SWITCH: 3000, // Delay for language switching
+  URL_SYNC: 100, // Delay for URL synchronization
+} as const
+
+const TRANSITION_DELAY = ONBOARDING_TRANSITION_DELAYS.TRANSITION
+const POST_TRANSITION_DELAY = ONBOARDING_TRANSITION_DELAYS.POST_TRANSITION
+const LANGUAGE_SWITCH_DELAY = ONBOARDING_TRANSITION_DELAYS.LANGUAGE_SWITCH
+const URL_SYNC_DELAY = ONBOARDING_TRANSITION_DELAYS.URL_SYNC
 
 // Types
 export type OnboardingStep = {
@@ -69,7 +80,7 @@ const steps: OnboardingStep[] = [
     component: PersonalDetailsStep,
   },
   {
-    id: 'business-setup',
+    id: 'business-setup' as OnboardingStepId,
     title: 'Set up your store',
     titleAr: 'قم بإعداد متجرك',
     description: 'These details help customers discover and trust your brand.',
@@ -77,12 +88,20 @@ const steps: OnboardingStep[] = [
     component: BusinessSetupStep,
   },
   {
-    id: 'connect-store',
+    id: 'connect-store' as OnboardingStepId,
     title: 'Connect your store',
     titleAr: 'اربط متجرك',
     description: 'Import products from your existing store',
     descriptionAr: 'استورد المنتجات من متجرك الحالي',
     component: ConnectStoreStep,
+  },
+  {
+    id: 'summary' as OnboardingStepId,
+    title: 'Review & Complete',
+    titleAr: 'مراجعة وإكمال',
+    description: 'Review your information and finalize setup',
+    descriptionAr: 'راجع معلوماتك وأكمل الإعداد',
+    component: SummaryStep,
   },
 ] as const
 
@@ -119,6 +138,7 @@ const getStepFromUrl = (pathname: string): number => {
 
 export function OnboardingWizard() {
   const pathname = usePathname()
+  const router = useRouter()
   const { locale, isRTL, setLocale } = useLocale()
   const { setStepInfo } = useOnboarding()
   const { localizedUrl } = useLocalizedUrl()
@@ -129,16 +149,35 @@ export function OnboardingWizard() {
   const isChangingStepRef = useRef(false)
   const urlSyncTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
-  // Memoize step calculation from URL
-  const initialStep = useMemo(() => {
-    if (typeof window !== 'undefined') {
-      return getStepFromUrl(pathname)
-    }
-    return 0
+  // Note: Server-side redirect in [step]/page.tsx already handles:
+  // - Redirecting to correct step based on database
+  // - Preventing access to future steps
+  // - Redirecting completed users to dashboard
+  // So we can trust the URL as the source of truth
+
+  // Map onboarding_step to step index (for backward compatibility if needed)
+  const getStepIndexFromOnboardingStep = useCallback((onboardingStep: string | null): number => {
+    if (!onboardingStep || !isValidStep(onboardingStep)) return 0 // Start from beginning
+    return getStepIndex(onboardingStep)
+  }, [])
+  
+  // Get current step from URL (server ensures it's correct)
+  const getCurrentStepFromUrl = useCallback((): number => {
+    return getStepFromUrl(pathname)
   }, [pathname])
 
-  const [currentStep, setCurrentStep] = useState(initialStep)
+  // Initialize from URL path - works on both server and client
+  // Server-side redirect in page.tsx already ensures the URL is correct
+  const [currentStep, setCurrentStep] = useState(() => getStepFromUrl(pathname))
   const [isTransitioning, setIsTransitioning] = useState(false)
+
+  // Sync currentStep with URL when pathname changes (e.g., after navigation)
+  useEffect(() => {
+    const stepFromUrl = getStepFromUrl(pathname)
+    if (stepFromUrl !== currentStep) {
+      setCurrentStep(stepFromUrl)
+    }
+  }, [pathname, currentStep])
 
   // Memoize current step data
   const step = useMemo(() => steps[currentStep], [currentStep])
@@ -190,11 +229,14 @@ export function OnboardingWizard() {
   }, [localizedUrl])
 
   // Sync step with URL on mount and when pathname changes
+  // Server-side redirect handles preventing access to future steps, we just sync state
   useEffect(() => {
     if (isChangingStepRef.current) return
     
     const stepFromUrl = getStepFromUrl(pathname)
-    if (stepFromUrl !== currentStep) {
+    
+    // Only sync state if URL step is valid (server already prevented invalid steps)
+    if (stepFromUrl !== -1 && stepFromUrl !== currentStep) {
       setCurrentStep(stepFromUrl)
     }
   }, [pathname, currentStep])
@@ -239,8 +281,11 @@ export function OnboardingWizard() {
   }, [currentStep, totalSteps, updateUrl])
 
   const handlePrevious = useCallback(() => {
+    // Prevent going back to earlier steps - users must complete steps in order
     if (currentStep <= 0) return
 
+    // Server-side redirect already prevents accessing steps beyond user's progress
+    // We can safely allow going back one step
     const prevStep = currentStep - 1
     setCurrentStep(prevStep)
     updateUrl(prevStep)
@@ -285,6 +330,7 @@ export function OnboardingWizard() {
     justify: isRTL ? 'justify-start' : 'justify-end',
     justifyReverse: isRTL ? 'justify-end' : 'justify-start',
   }), [isRTL])
+
 
   return (
     <div className="h-screen bg-gray-50 overflow-hidden" dir={isRTL ? 'rtl' : 'ltr'}>
@@ -389,16 +435,19 @@ export function OnboardingWizard() {
             )}
             
             <div className="w-full max-w-[600px] px-16 pt-8 pb-12 mt-8 mx-auto" dir={isRTL ? 'rtl' : 'ltr'}>
-              <div className="mb-8">
-                <h1 className="text-3xl font-bold text-gray-900 mb-2 tracking-tight">
-                  {stepTitle}
-                </h1>
-                {stepDescription && (
-                  <p className="text-lg text-gray-500 mb-12">
-                    {stepDescription}
-                  </p>
-                )}
-              </div>
+              {/* Hide header for summary step - it has its own header */}
+              {steps[currentStep]?.id !== 'summary' && (
+                <div className="mb-8">
+                  <h1 className="text-3xl font-bold text-gray-900 mb-2 tracking-tight">
+                    {stepTitle}
+                  </h1>
+                  {stepDescription && (
+                    <p className="text-lg text-gray-500 mb-12">
+                      {stepDescription}
+                    </p>
+                  )}
+                </div>
+              )}
 
               <StepComponent
                 onNext={handleNext}
@@ -435,9 +484,8 @@ export function OnboardingWizard() {
               <div className="flex items-center gap-3">
                 <Button
                   variant="ghost"
-                  size="sm"
                   onClick={handleLanguageToggle}
-                  className="flex items-center gap-2 text-sm text-white hover:bg-white/20 hover:text-white"
+                  className="flex items-center gap-2 text-sm h-10 text-white hover:bg-white/20 hover:text-white transition-colors"
                 >
                   <Globe className="h-4 w-4 text-white" />
                   <span 

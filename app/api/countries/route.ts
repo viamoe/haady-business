@@ -22,10 +22,10 @@ export async function GET() {
     );
     
     // Fetch countries from 'countries' table
-    // Fetch only active countries (is_active=true) including flag_url and name_ar
+    // Fetch only active countries (is_active=true) including flag_url, name_ar, and currency_icon
     let { data: countries, error } = await supabase
       .from('countries')
-      .select('id, name, name_ar, iso2, iso3, phone_code, flag_url')
+      .select('id, name, name_ar, iso2, iso3, phone_code, flag_url, currency_icon')
       .eq('is_active', true)
       .order('name', { ascending: true });
 
@@ -34,7 +34,7 @@ export async function GET() {
       console.log('is_active column not found in countries table, fetching all countries');
       const { data: allCountries, error: allError } = await supabase
         .from('countries')
-        .select('id, name, name_ar, iso2, iso3, phone_code, flag_url')
+        .select('id, name, name_ar, iso2, iso3, phone_code, flag_url, currency_icon')
         .order('name', { ascending: true });
       
       if (allError) {

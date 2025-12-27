@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useMemo, useRef } from 'react'
-import { useRouter, usePathname } from 'next/navigation'
+import { useRouter, usePathname, useSearchParams } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -24,6 +24,7 @@ import { parseLocaleCountry, getLocaleCountryFromCookies } from '@/lib/localized
 import { useAuth } from '@/lib/auth/auth-context'
 import { FormStateCookies } from '@/lib/cookies'
 import { OnboardingStepProps } from '../OnboardingWizard'
+import { ONBOARDING_STEPS, getOnboardingStepPath } from '@/lib/constants/onboarding'
 
 interface Country {
   id: string
@@ -165,6 +166,7 @@ const translations = {
 export function PersonalDetailsStep({ onNext }: OnboardingStepProps) {
   const router = useRouter()
   const pathname = usePathname()
+  const searchParams = useSearchParams()
   const { setLoading } = useLoading()
   const { locale, isRTL } = useLocale()
   const { user } = useAuth()
@@ -223,15 +225,57 @@ export function PersonalDetailsStep({ onNext }: OnboardingStepProps) {
   const role = watch('role')
   const selectedRole = roleOptions.find(r => r.value === role)
 
-  // Load user data if available
+  // Load user data from auth (email from any auth method, full name from Google Auth)
   useEffect(() => {
-    if (user?.email) {
-      setValue('email', user.email, { shouldValidate: false })
+    const loadUserData = async () => {
+      // Get email from auth user or URL query param (passed from OTP signup)
+      const emailFromUrl = searchParams?.get('email')
+      let emailToUse = user?.email || emailFromUrl
+      
+      // If email is still empty, fetch from auth database
+      if (!emailToUse) {
+        try {
+          const { data: { user: currentUser }, error: userError } = await supabase.auth.getUser()
+          if (!userError && currentUser?.email) {
+            emailToUse = currentUser.email
+            console.log('📧 Fetched email from auth database:', emailToUse)
+          }
+        } catch (error) {
+          console.error('❌ Error fetching user email from auth:', error)
+        }
+      }
+      
+      if (emailToUse) {
+        console.log('📧 Loading email:', emailToUse, user?.email ? '(from auth context)' : emailFromUrl ? '(from URL)' : '(from auth DB)')
+        setValue('email', emailToUse, { shouldValidate: false })
+        
+        // Clean up URL param after reading
+        if (emailFromUrl && typeof window !== 'undefined') {
+          const url = new URL(window.location.href)
+          url.searchParams.delete('email')
+          window.history.replaceState({}, '', url.toString())
+        }
+      }
+      
+      if (!user) return
+      
+      // Load full name from Google Auth metadata (multiple possible fields)
+      // Google Auth provides: full_name, name, or given_name + family_name
+      const fullName = 
+        user.user_metadata?.full_name ||
+        user.user_metadata?.name ||
+        (user.user_metadata?.given_name && user.user_metadata?.family_name
+          ? `${user.user_metadata.given_name} ${user.user_metadata.family_name}`
+          : null)
+      
+      if (fullName) {
+        console.log('👤 Loading full name from auth:', fullName)
+        setValue('fullName', fullName.trim(), { shouldValidate: false })
+      }
     }
-    if (user?.user_metadata?.full_name) {
-      setValue('fullName', user.user_metadata.full_name, { shouldValidate: false })
-    }
-  }, [user, setValue])
+    
+    loadUserData()
+  }, [user, setValue, searchParams])
 
   // Fetch countries
   useEffect(() => {
@@ -412,7 +456,14 @@ export function PersonalDetailsStep({ onNext }: OnboardingStepProps) {
   }, [])
 
   const onSubmit = async (values: PersonalDetailsFormData) => {
+    console.log('🚀 Form submission started')
     setIsSubmitting(true)
+    
+    // Safety timeout - ensure state is reset even if something goes wrong
+    const safetyTimeout = setTimeout(() => {
+      console.error('⚠️ Safety timeout triggered - resetting state')
+      setIsSubmitting(false)
+    }, 45000) // 45 seconds total safety net
 
     try {
       const selectedCountryData = countries.find(c => c.id === values.country)
@@ -428,27 +479,114 @@ export function PersonalDetailsStep({ onNext }: OnboardingStepProps) {
       if (!values.fullName?.trim()) {
         throw new Error('Full name is required')
       }
-      if (!values.email?.trim()) {
+      
+      // Get current user first (needed for email fetch and authentication check)
+      const { data: { user: currentUser }, error: userError } = await supabase.auth.getUser()
+      if (userError || !currentUser) {
+        throw new Error('User not authenticated')
+      }
+      
+      // If email is empty, fetch from auth database
+      let emailToUse = values.email?.trim()
+      if (!emailToUse && currentUser?.email) {
+        emailToUse = currentUser.email
+        console.log('📧 Email was empty, fetched from auth database:', emailToUse)
+        // Update the form value
+        setValue('email', emailToUse, { shouldValidate: true })
+      }
+      
+      if (!emailToUse) {
         throw new Error('Email is required')
       }
+      
       if (!values.mobilePhone?.trim()) {
         throw new Error('Mobile phone is required')
       }
+      
+      // Show progress message after 3 seconds if still processing
+      const progressTimeout = setTimeout(() => {
+        toast.info('Saving your information...', {
+          description: 'This should only take a moment',
+          duration: 2000,
+        })
+      }, 3000)
+      
+      // Call RPC function to save personal details and create/update business profile
+      const { data, error } = await supabase.rpc('save_personal_details', {
+        p_full_name: values.fullName.trim(),
+        p_phone: fullPhoneNumber,
+        p_country_id: selectedCountryData.id,
+        p_role: values.role || 'owner',
+        p_email: emailToUse,
+      })
+      
+      // Clear progress timeout if RPC completed quickly
+      clearTimeout(progressTimeout)
+      
+      if (error) {
+        console.error('❌ RPC error:', error)
+        throw new Error(error.message || 'Failed to save personal details')
+      }
+      
+      if (!data?.success) {
+        console.error('❌ RPC returned error:', data?.error)
+        throw new Error(data?.error || 'Failed to save personal details')
+      }
+      
+      const businessProfileId = data.business_profile_id
+      console.log('✅ Personal details saved successfully:', data)
 
-      // Save personal details to cookies for the next step (BusinessSetupStep)
+      // Also save to cookies for the next step (BusinessSetupStep) as backup
       FormStateCookies.saveLastFormData('personal_details', {
         fullName: values.fullName,
-        email: values.email,
+        email: emailToUse,
         countryId: selectedCountryData.id,
         countryIso2: selectedCountryData.iso2,
         mobilePhone: fullPhoneNumber,
+        businessProfileId,
       })
 
-      // Proceed to the next step
-      await onNext()
+      // Proceed to the next step with timeout protection
+      console.log('🔄 Navigating to next step...')
+      try {
+        // Set a timeout to prevent infinite loading
+        const nextStepPromise = onNext()
+        const navTimeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Navigation timeout')), 10000)
+        )
+        
+        await Promise.race([nextStepPromise, navTimeoutPromise])
+        console.log('✅ Navigation completed')
+      } catch (nextError: any) {
+        // If navigation fails, still consider the form submitted successfully
+        // The data is already saved, so we can manually navigate
+        console.warn('⚠️ Navigation error (data already saved):', nextError)
+        
+        // Try to navigate manually if onNext fails
+        const currentPath = pathname
+        const nextStepPath = currentPath.replace(/\/[^/]+$/, getOnboardingStepPath(ONBOARDING_STEPS.BUSINESS_SETUP))
+        console.log('🔄 Attempting manual navigation to:', nextStepPath)
+        router.push(nextStepPath)
+        
+        // Give router.push a moment, then force redirect if needed
+        setTimeout(() => {
+          if (window.location.pathname === pathname) {
+            console.log('⚠️ Router.push failed, using window.location')
+            window.location.href = nextStepPath
+          }
+        }, 1000)
+      }
       
     } catch (err: any) {
-      console.error('Error saving personal details:', err)
+      console.error('❌ Error saving personal details:', err)
+      console.error('❌ Error details:', {
+        message: err?.message,
+        error: err?.error,
+        details: err?.details,
+        hint: err?.hint,
+        stack: err?.stack,
+        fullError: err,
+      })
       
       const errorMessage = 
         err?.message || 
@@ -465,6 +603,9 @@ export function PersonalDetailsStep({ onNext }: OnboardingStepProps) {
         duration: 5000,
       })
     } finally {
+      // Always reset submitting state, even if navigation fails
+      clearTimeout(safetyTimeout)
+      console.log('🔄 Resetting isSubmitting state')
       setIsSubmitting(false)
     }
   }
@@ -499,9 +640,10 @@ export function PersonalDetailsStep({ onNext }: OnboardingStepProps) {
           type="email"
           {...register('email')}
           placeholder={t.emailPlaceholder}
-          className={`h-12 w-full hover:!border-orange-500 hover:!ring-1 hover:!ring-orange-500 focus-visible:!ring-1 focus-visible:!ring-orange-500 focus-visible:!border-orange-500 ${errors.email ? '!border-red-500 focus-visible:!ring-red-500 focus-visible:!border-red-500' : '!border-gray-300'}`}
-          disabled={isSubmitting || !!user?.email}
+          className={`h-12 w-full hover:!border-orange-500 hover:!ring-1 hover:!ring-orange-500 focus-visible:!ring-1 focus-visible:!ring-orange-500 focus-visible:!border-orange-500 ${errors.email ? '!border-red-500 focus-visible:!ring-red-500 focus-visible:!border-red-500' : '!border-gray-300'} ${(isSubmitting || !!user?.email || !!email) ? 'bg-gray-50 cursor-not-allowed' : ''}`}
+          disabled={isSubmitting || !!user?.email || !!email}
           dir={isRTL ? 'rtl' : 'ltr'}
+          readOnly={!!user?.email || !!email}
         />
         {errors.email && (
           <p className="text-xs text-red-500">{errors.email.message}</p>

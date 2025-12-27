@@ -28,11 +28,11 @@ export async function PATCH(
     // Get user's business
     const { data: businessProfile } = await supabase
       .from('business_profile')
-      .select('id, business_name')
+      .select('id, store_id')
       .eq('auth_user_id', user.id)
       .maybeSingle()
 
-    if (!businessProfile?.business_name) {
+    if (!businessProfile) {
       return NextResponse.json(
         { error: 'Merchant not found' },
         { status: 404 }

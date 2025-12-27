@@ -202,7 +202,7 @@ export default function TestAnnouncementsPage() {
       title: 'Action Required',
       description: 'Please complete your profile setup',
       ctaText: 'Complete Now',
-      ctaLink: '/setup',
+      ctaLink: '/onboarding',
       position: 'bottom',
     });
   };

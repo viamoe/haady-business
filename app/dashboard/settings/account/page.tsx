@@ -29,11 +29,11 @@ export default async function AccountSettingsPage() {
   // Check if user has completed setup
   const { data: businessProfile } = await supabase
     .from('business_profile')
-    .select('id, full_name, business_name, status, created_at')
+    .select('id, full_name, store_id, is_onboarded, onboarding_step, status, created_at')
     .eq('auth_user_id', user.id)
     .maybeSingle()
 
-  if (!businessProfile?.business_name) {
+  if (!businessProfile?.is_onboarded && businessProfile?.onboarding_step !== null) {
     const cookieStore = await cookies();
     const onboardingUrl = getLocalizedUrlFromRequest('/onboarding/personal-details', {
       cookies: {
@@ -52,10 +52,21 @@ export default async function AccountSettingsPage() {
     .select('id', { count: 'exact', head: true })
     .eq('business_id', businessProfile.id)
 
+  // Get the primary store name
+  let storeName = null
+  if (businessProfile.store_id) {
+    const { data: store } = await supabase
+      .from('stores')
+      .select('name')
+      .eq('id', businessProfile.store_id)
+      .maybeSingle()
+    storeName = store?.name
+  }
+
   // Create business object from business_profile (data is now merged)
   const business = {
     id: businessProfile.id,
-    name: businessProfile.business_name,
+    name: storeName || 'My Business',
     status: businessProfile.status,
     created_at: businessProfile.created_at
   }

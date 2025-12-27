@@ -17,7 +17,9 @@ interface AccountSettingsContentProps {
   } | null
   businessUser: {
     id: string
-    business_name: string | null
+    store_id: string | null
+    is_onboarded: boolean | null
+    onboarding_step: string | null
     full_name: string | null
   } | null
   storeCount: number

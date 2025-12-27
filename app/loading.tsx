@@ -4,7 +4,7 @@ const HAADY_LOGO_URL = 'https://rovphhvuuxwbhgnsifto.supabase.co/storage/v1/obje
 
 export default function Loading() {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-white">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#F8F4EE]">
       <div className="flex flex-col items-center gap-6">
         {/* Haady Logo with Heartbeat Animation */}
         <div className="animate-heartbeat">
@@ -17,11 +17,6 @@ export default function Loading() {
             priority
           />
         </div>
-        
-        {/* Loading text */}
-        <p className="text-sm font-medium text-gray-500 shimmer-text">
-          Loading...
-        </p>
       </div>
     </div>
   );

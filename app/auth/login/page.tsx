@@ -4,6 +4,8 @@ import { createServerSupabase } from '@/lib/supabase/server';
 import AuthForm from '../AuthForm';
 import { cookies } from 'next/headers';
 import { getLocalizedUrlFromRequest } from '@/lib/localized-url';
+import { AuthErrorBoundary } from '../error-boundary-wrapper';
+import { PlatformHeader } from '@/components/platform-header';
 
 export const dynamic = 'force-dynamic';
 
@@ -20,11 +22,11 @@ export default async function LoginPage({ searchParams }: PageProps) {
   if (!error && user) {
     const { data: businessProfile } = await supabase
       .from('business_profile')
-      .select('id, business_name')
+      .select('id, store_id, is_onboarded, onboarding_step')
       .eq('auth_user_id', user.id)
       .maybeSingle();
 
-    if (businessProfile?.business_name) {
+    if (businessProfile?.is_onboarded || (businessProfile?.store_id && businessProfile?.onboarding_step === null)) {
       const cookieStore = await cookies();
       const dashboardUrl = getLocalizedUrlFromRequest('/dashboard', {
         cookies: {
@@ -50,9 +52,12 @@ export default async function LoginPage({ searchParams }: PageProps) {
   }
 
   return (
-    <Suspense fallback={<div>Loading...</div>}>
-      <AuthForm mode="login" reason={params.reason} />
-    </Suspense>
+    <AuthErrorBoundary>
+      <PlatformHeader variant="default" hideNavButtons showLanguageSwitcher />
+      <Suspense fallback={<div>Loading...</div>}>
+        <AuthForm mode="login" reason={params.reason} />
+      </Suspense>
+    </AuthErrorBoundary>
   );
 }
 

@@ -3,7 +3,6 @@ import { ThemeProvider } from '@/components/theme-provider';
 import { AuthProvider } from '@/lib/auth/auth-context';
 import { LoadingProvider } from '@/lib/loading-context';
 import { NetworkStatusProvider } from '@/lib/network-context';
-import { Header } from '@/components/header';
 import { NetworkStatusOverlay, SlowConnectionBanner } from '@/components/network-status-overlay';
 import { OfflineGuard } from '@/components/offline-guard';
 import { AnnouncementProvider } from '@/lib/announcement-context';
@@ -17,7 +16,7 @@ import { OnboardingProvider } from '@/lib/onboarding-context';
 import { Toaster } from '@/components/ui/sonner';
 import type { Metadata } from 'next';
 import type { Locale } from '@/i18n/request';
-import { IBM_Plex_Sans_Arabic, Inter } from 'next/font/google';
+import { Inter } from 'next/font/google';
 
 // English font
 const inter = Inter({
@@ -26,13 +25,8 @@ const inter = Inter({
   display: 'swap',
 });
 
-// Arabic font
-const ibmPlexSansArabic = IBM_Plex_Sans_Arabic({
-  subsets: ['arabic'],
-  weight: ['300', '400', '500', '600', '700'],
-  variable: '--font-ibm-plex-arabic',
-  display: 'swap',
-});
+// Arabic font is loaded via @font-face in globals.css from Supabase storage
+// Variable is defined in globals.css
 
 export const metadata: Metadata = {
   title: 'Grow your business with Haady',
@@ -43,11 +37,13 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const locale = (await getLocale()) as Locale;
   const messages = await getMessages();
   const dir = locale === 'ar' ? 'rtl' : 'ltr';
-  const fontClass = locale === 'ar' ? ibmPlexSansArabic.className : inter.className;
+  // Arabic font is loaded via @font-face in globals.css
+  // The font-family is applied via CSS rules in globals.css based on lang="ar" or dir="rtl"
+  const fontClass = inter.className;
 
   return (
-    <html lang={locale} dir={dir} suppressHydrationWarning className={`h-full ${inter.variable} ${ibmPlexSansArabic.variable}`}>
-      <body className={`h-full antialiased ${fontClass}`}>
+    <html lang={locale} dir={dir} suppressHydrationWarning className={`h-full ${inter.variable} hide-scrollbar`}>
+      <body className={`h-full antialiased ${fontClass} hide-scrollbar`}>
         <NextIntlClientProvider messages={messages}>
           <LocaleProvider initialLocale={locale}>
             <ThemeProvider defaultTheme="light" storageKey="haady-theme">
@@ -58,7 +54,6 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                       <AuthProvider>
                         <OnboardingProvider>
                           <OfflineGuard>
-                            <Header />
                             {children}
                           <Toaster />
                           <NetworkStatusOverlay />

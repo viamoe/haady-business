@@ -29,11 +29,11 @@ export default async function ProductsPage() {
   // Check if user has completed setup
   const { data: businessProfile } = await supabase
     .from('business_profile')
-    .select('id, business_name, full_name')
+    .select('id, store_id, is_onboarded, onboarding_step, full_name')
     .eq('auth_user_id', user.id)
     .maybeSingle()
 
-  if (!businessProfile?.business_name) {
+  if (!businessProfile?.is_onboarded && businessProfile?.onboarding_step !== null) {
     const cookieStore = await cookies();
     const onboardingUrl = getLocalizedUrlFromRequest('/onboarding/personal-details', {
       cookies: {

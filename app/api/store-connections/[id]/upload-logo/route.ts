@@ -161,29 +161,21 @@ export async function POST(
       )
     }
 
-    // Also update the stores table if it exists and is linked
-    const { data: store } = await adminClient
-      .from('stores')
-      .select('id')
-      .eq('store_connection_id', connectionId)
+    // Also update the stores table if it exists and is linked (new structure: store_connections.store_id -> stores.id)
+    const { data: connectionWithStore } = await adminClient
+      .from('store_connections')
+      .select('store_id')
+      .eq('id', connectionId)
       .single()
 
-    if (store) {
-      // Get platform from connection to sync to store
-      const { data: connectionData } = await adminClient
-        .from('store_connections')
-        .select('platform')
-        .eq('id', connectionId)
-        .single()
-
+    if (connectionWithStore?.store_id) {
       await adminClient
         .from('stores')
         .update({ 
           logo_url: logoUrl,
-          platform: connectionData?.platform || null,
           updated_at: new Date().toISOString()
         })
-        .eq('id', store.id)
+        .eq('id', connectionWithStore.store_id)
     }
 
     return NextResponse.json({
@@ -285,29 +277,21 @@ export async function DELETE(
       )
     }
 
-    // Also update the stores table if it exists and is linked
-    const { data: store } = await adminClient
-      .from('stores')
-      .select('id')
-      .eq('store_connection_id', connectionId)
+    // Also update the stores table if it exists and is linked (new structure: store_connections.store_id -> stores.id)
+    const { data: connectionWithStore } = await adminClient
+      .from('store_connections')
+      .select('store_id')
+      .eq('id', connectionId)
       .single()
 
-    if (store) {
-      // Get platform from connection to sync to store
-      const { data: connectionData } = await adminClient
-        .from('store_connections')
-        .select('platform')
-        .eq('id', connectionId)
-        .single()
-
+    if (connectionWithStore?.store_id) {
       await adminClient
         .from('stores')
         .update({ 
           logo_url: null,
-          platform: connectionData?.platform || null,
           updated_at: new Date().toISOString()
         })
-        .eq('id', store.id)
+        .eq('id', connectionWithStore.store_id)
     }
 
     return NextResponse.json({

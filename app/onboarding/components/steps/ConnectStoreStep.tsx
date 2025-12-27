@@ -1,16 +1,27 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, Suspense } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
+import { supabase } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useLocale } from '@/i18n/context'
+import { useLocalizedUrl } from '@/lib/use-localized-url'
+import { toast } from '@/lib/toast'
 import { OnboardingStepProps } from '../OnboardingWizard'
-import { Store, ShoppingBag, Link as LinkIcon, Check } from 'lucide-react'
+import { Store, Link as LinkIcon, Check, Loader2 } from 'lucide-react'
 import Image from 'next/image'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 
 const ECOMMERCE_STORAGE_URL = 'https://rovphhvuuxwbhgnsifto.supabase.co/storage/v1/object/public/assets/ecommerce'
 
@@ -47,15 +58,6 @@ const platforms = [
     logo: `${ECOMMERCE_STORAGE_URL}/woow-logo.png`,
     description: 'Connect your WooCommerce store',
     descriptionAr: 'اربط متجر ووكومرس الخاص بك',
-  },
-  {
-    id: 'custom',
-    name: 'Custom Platform',
-    nameAr: 'منصة مخصصة',
-    logo: null,
-    icon: '⚙️',
-    description: 'Connect your custom e-commerce',
-    descriptionAr: 'اربط متجرك الإلكتروني المخصص',
   },
 ]
 
@@ -116,13 +118,21 @@ const translations = {
   },
 }
 
-export function ConnectStoreStep({ onNext, currentStep, totalSteps }: OnboardingStepProps) {
+// Inner component that uses useSearchParams
+function ConnectStoreStepContent({ onNext, currentStep, totalSteps }: OnboardingStepProps) {
+  const router = useRouter()
+  const searchParams = useSearchParams()
   const { locale, isRTL } = useLocale()
+  const { localizedUrl } = useLocalizedUrl()
   const t = translations[locale as keyof typeof translations] || translations.en
   
   const [selectedPlatform, setSelectedPlatform] = useState<string | null>(null)
   const [isConnecting, setIsConnecting] = useState(false)
+  const [isSkipping, setIsSkipping] = useState(false)
   const [connectionStep, setConnectionStep] = useState<'select' | 'connect'>('select')
+  const [user, setUser] = useState<any>(null)
+  const [shopDomainInput, setShopDomainInput] = useState('')
+  const [showShopifyDialog, setShowShopifyDialog] = useState(false)
 
   const connectionSchema = createConnectionSchema(locale)
   
@@ -141,10 +151,56 @@ export function ConnectStoreStep({ onNext, currentStep, totalSteps }: Onboarding
   const storeUrl = watch('storeUrl')
   const apiKey = watch('apiKey')
 
+  // Get current user
+  useEffect(() => {
+    const getUser = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser()
+        setUser(user)
+      } catch (err) {
+        console.error('Error getting user:', err)
+      }
+    }
+    getUser()
+  }, [])
+
+  // Check for OAuth callback success/error
+  useEffect(() => {
+    try {
+      const success = searchParams.get('success')
+      const error = searchParams.get('error')
+      
+      if (success) {
+        toast.success(t.connectionSuccess, { duration: 3000 })
+        // Move to summary step instead of completing
+        setTimeout(() => {
+          router.push(localizedUrl('/onboarding/summary'))
+        }, 1000)
+      } else if (error) {
+        const message = searchParams.get('message') || t.connectionError
+        toast.error(message, { duration: 5000 })
+        // Clean up URL params
+        router.replace(localizedUrl('/onboarding?step=connect'))
+      }
+    } catch (err) {
+      console.error('Error reading search params:', err)
+    }
+  }, [searchParams, router, localizedUrl, t])
+
   const handlePlatformSelect = (platformId: string) => {
+    // For OAuth platforms, trigger OAuth flow directly
+    if (platformId === 'salla') {
+      handleSallaClick()
+    } else if (platformId === 'zid') {
+      handleZidClick()
+    } else if (platformId === 'shopify') {
+      setShowShopifyDialog(true)
+    } else {
+      // For WooCommerce and Custom, show API key form
     setSelectedPlatform(platformId)
     setValue('platform', platformId)
     setConnectionStep('connect')
+    }
   }
 
   const handleBack = () => {
@@ -152,31 +208,301 @@ export function ConnectStoreStep({ onNext, currentStep, totalSteps }: Onboarding
     setConnectionStep('select')
   }
 
+  // OAuth handlers
+  const handleSallaClick = () => {
+    const clientId = process.env.NEXT_PUBLIC_SALLA_CLIENT_ID
+    const redirectUri = process.env.NEXT_PUBLIC_SALLA_REDIRECT_URI || `${window.location.origin}/callback`
+    
+    if (!clientId) {
+      toast.error(locale === 'ar' ? 'Salla OAuth غير مُكوّن' : 'Salla OAuth not configured', {
+        description: 'Please configure NEXT_PUBLIC_SALLA_CLIENT_ID in your environment variables',
+        duration: 5000,
+      })
+      return
+    }
+
+    if (!user?.id) {
+      toast.error(locale === 'ar' ? 'المستخدم غير مصادق عليه' : 'User not authenticated')
+      return
+    }
+
+    // Note: Scopes must be enabled in Salla Partner Dashboard for your app
+    // Start with minimal scopes - add more as needed based on app permissions
+    const scopes = [
+      'offline_access',
+    ].join(' ')
+
+    // Include onboarding flag in state: userId:platform:onboarding
+    const state = `${user.id}:salla:onboarding`
+
+    const params = new URLSearchParams({
+      client_id: clientId,
+      response_type: 'code',
+      redirect_uri: redirectUri,
+      scope: scopes,
+      state: state,
+    })
+
+    const authUrl = `https://accounts.salla.sa/oauth2/auth?${params.toString()}`
+    window.location.href = authUrl
+  }
+
+  const handleZidClick = () => {
+    const clientId = process.env.NEXT_PUBLIC_ZID_CLIENT_ID
+    const redirectUri = process.env.NEXT_PUBLIC_ZID_REDIRECT_URI || `${window.location.origin}/callback`
+    
+    if (!clientId) {
+      toast.error(locale === 'ar' ? 'Zid OAuth غير مُكوّن' : 'Zid OAuth not configured')
+      return
+    }
+
+    if (!user?.id) {
+      toast.error(locale === 'ar' ? 'المستخدم غير مصادق عليه' : 'User not authenticated')
+      return
+    }
+
+    const scopes = [
+      'account.read',
+      'products.read',
+      'products.write',
+      'product_inventory_stock.read',
+      'product_inventory_stock.write',
+      'orders.read',
+      'orders.write',
+      'abandoned_carts.read',
+      'categories.read',
+      'inventory.read',
+      'inventory.write',
+    ].join(' ')
+
+    // Include onboarding flag in state: userId:platform:onboarding
+    const state = `${user.id}:zid:onboarding`
+
+    const params = new URLSearchParams({
+      client_id: clientId,
+      response_type: 'code',
+      redirect_uri: redirectUri,
+      scope: scopes,
+      state: state,
+    })
+
+    const authUrl = `https://oauth.zid.sa/oauth/authorize?${params.toString()}`
+    window.location.href = authUrl
+  }
+
+  const handleShopifyDialogSubmit = () => {
+    const shopDomain = shopDomainInput.trim()
+    
+    if (!shopDomain) {
+      toast.error(locale === 'ar' ? 'اسم المتجر مطلوب' : 'Shop domain is required')
+      return
+    }
+
+    // Clean the shop domain
+    let cleanShop = shopDomain
+      .replace(/^https?:\/\//, '')
+      .replace(/\/$/, '')
+      .trim()
+
+    if (cleanShop.endsWith('.myshopify.com')) {
+      cleanShop = cleanShop.replace(/\.myshopify\.com$/, '')
+    }
+    
+    if (cleanShop.includes('admin.shopify.com/store/')) {
+      cleanShop = cleanShop.replace(/.*admin\.shopify\.com\/store\//, '')
+    }
+
+    if (!cleanShop || !/^[a-zA-Z0-9_-]+$/.test(cleanShop)) {
+      toast.error(locale === 'ar' ? 'اسم المتجر غير صالح' : 'Invalid shop domain')
+      return
+    }
+
+    setShowShopifyDialog(false)
+    proceedWithShopifyOAuth(cleanShop)
+  }
+
+  const proceedWithShopifyOAuth = (cleanShop: string) => {
+    const clientId = process.env.NEXT_PUBLIC_SHOPIFY_CLIENT_ID
+    const redirectUri = process.env.NEXT_PUBLIC_SHOPIFY_REDIRECT_URI || `${window.location.origin}/callback`
+    
+    if (!clientId) {
+      toast.error(locale === 'ar' ? 'Shopify OAuth غير مُكوّن' : 'Shopify OAuth not configured')
+      return
+    }
+
+    if (!user?.id) {
+      toast.error(locale === 'ar' ? 'المستخدم غير مصادق عليه' : 'User not authenticated')
+      return
+    }
+
+    const scopes = [
+      'read_products',
+      'write_products',
+      'read_orders',
+      'write_orders',
+      'read_inventory',
+      'write_inventory',
+      'read_customers',
+      'read_fulfillments',
+      'write_fulfillments',
+      'read_shipping',
+    ].join(',')
+
+    // Include onboarding flag and shop in state: userId:shopify:shopDomain:onboarding
+    const state = `${user.id}:shopify:${cleanShop}:onboarding`
+
+    const shopUrl = `https://${cleanShop}.myshopify.com`
+    const params = new URLSearchParams({
+      client_id: clientId,
+      scope: scopes,
+      redirect_uri: redirectUri,
+      state: state,
+    })
+
+    const authUrl = `${shopUrl}/admin/oauth/authorize?${params.toString()}`
+    window.location.href = authUrl
+  }
+
+  // Complete onboarding and redirect to dashboard
+  const completeOnboarding = async () => {
+    try {
+      const { data, error } = await supabase.rpc('complete_onboarding')
+      
+      if (error) {
+        console.error('Error completing onboarding:', error)
+        // Still redirect even if this fails
+      }
+      
+      if (data && !data.success) {
+        console.warn('Onboarding completion warning:', data.error)
+      }
+      
+      // Redirect to dashboard
+      router.push(localizedUrl('/dashboard'))
+    } catch (err) {
+      console.error('Error in completeOnboarding:', err)
+      // Still redirect
+      router.push(localizedUrl('/dashboard'))
+    }
+  }
+
   const handleConnect = async (data: ConnectionFormData) => {
     setIsConnecting(true)
     
     try {
-      // TODO: Implement actual API connection logic
-      await new Promise(resolve => setTimeout(resolve, 2000))
-      
-      // Store connection details
-      console.log('Connecting to platform:', {
-        platform: selectedPlatform,
-        storeUrl: data.storeUrl,
-        apiKey: data.apiKey,
+      if (!selectedPlatform) {
+        throw new Error('Please select a platform')
+      }
+
+      if (!data.apiKey) {
+        throw new Error('API key is required')
+      }
+
+      // Save store connection via RPC with timeout protection
+      const rpcCall = supabase.rpc('save_store_connection_onboarding', {
+        p_platform: selectedPlatform,
+        p_access_token: data.apiKey,
+        p_refresh_token: null, // Will be set during OAuth flow
+        p_token_expires_at: null,
+        p_external_store_id: null, // Will be fetched from platform API
+        p_store_url: data.storeUrl || null,
+        p_webhook_secret: null,
       })
       
-      await onNext()
-    } catch (error) {
-      console.error('Connection error:', error)
+      // Add timeout to prevent infinite loading (30 seconds)
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        setTimeout(() => {
+          reject(new Error('Request timeout. Please check your connection and try again.'))
+        }, 30000)
+      })
+      
+      const result = await Promise.race([rpcCall, timeoutPromise])
+      const { data: rpcData, error } = result
+
+      if (error) {
+        throw new Error(error.message)
+      }
+
+      if (!rpcData?.success) {
+        throw new Error(rpcData?.error || 'Failed to save store connection')
+      }
+
+      console.log('Store connection saved:', rpcData)
+
+      toast.success(t.connectionSuccess, {
+        duration: 3000,
+      })
+
+      // Move to summary step with timeout protection
+      try {
+        const nextStepPromise = onNext()
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Navigation timeout')), 10000)
+        )
+        
+        await Promise.race([nextStepPromise, timeoutPromise])
+      } catch (nextError: any) {
+        // If navigation fails, still consider the form submitted successfully
+        // The data is already saved, so we can manually navigate
+        console.warn('Navigation error (data already saved):', nextError)
+        router.push(localizedUrl('/onboarding/summary'))
+      }
+    } catch (err: any) {
+      console.error('Connection error:', err)
+      toast.error(t.connectionError, {
+        description: err?.message || 'Please try again',
+        duration: 5000,
+      })
     } finally {
       setIsConnecting(false)
     }
   }
 
   const handleSkip = async () => {
-    // User chooses to skip this step
-    await onNext()
+    setIsSkipping(true)
+    try {
+      // User chooses to skip - no store_connections record will be created
+      // Update onboarding_step to summary with timeout protection
+      const rpcCall = supabase.rpc('skip_store_connection_onboarding')
+      
+      // Add timeout to prevent infinite loading (30 seconds)
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        setTimeout(() => {
+          reject(new Error('Request timeout. Please check your connection and try again.'))
+        }, 30000)
+      })
+      
+      const result = await Promise.race([rpcCall, timeoutPromise])
+      const { data, error } = result
+      
+      if (error) {
+        console.error('Error updating onboarding step:', error)
+      }
+      
+      if (data && !data.success) {
+        console.warn('Onboarding step update warning:', data.error)
+      }
+      
+      // Move to summary step with timeout protection
+      try {
+        const nextStepPromise = onNext()
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Navigation timeout')), 10000)
+        )
+        
+        await Promise.race([nextStepPromise, timeoutPromise])
+      } catch (nextError: any) {
+        // If navigation fails, still try to redirect manually
+        console.warn('Navigation error:', nextError)
+        router.push(localizedUrl('/onboarding/summary'))
+      }
+    } catch (err) {
+      console.error('Error skipping:', err)
+      // Still try to redirect
+      router.push(localizedUrl('/onboarding/summary'))
+    } finally {
+      setIsSkipping(false)
+    }
   }
 
   return (
@@ -209,7 +535,7 @@ export function ConnectStoreStep({ onNext, currentStep, totalSteps }: Onboarding
                       />
                     </div>
                   ) : (
-                    <div className="text-4xl flex-shrink-0">{platform.icon}</div>
+                    <div className="text-4xl flex-shrink-0">🏪</div>
                   )}
                   <div className={`flex-1 min-w-0 ${isRTL ? 'text-right' : 'text-left'}`}>
                     <h3 className="text-lg font-semibold text-gray-900 mb-1">
@@ -227,17 +553,46 @@ export function ConnectStoreStep({ onNext, currentStep, totalSteps }: Onboarding
             ))}
           </div>
 
-          {/* Skip Option */}
-          <div className="pt-4 border-t border-gray-200">
-            <button
-              type="button"
-              onClick={handleSkip}
-              className="w-full flex items-center justify-center gap-2 text-gray-600 hover:text-gray-900 transition-colors py-3 rounded-lg hover:bg-gray-50"
-            >
-              <ShoppingBag className="w-5 h-5" />
-              <span>{t.noConnection}</span>
-            </button>
+          {/* Shopify Domain Dialog */}
+          <Dialog open={showShopifyDialog} onOpenChange={setShowShopifyDialog}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>
+                  {locale === 'ar' ? 'أدخل اسم متجر Shopify' : 'Enter your Shopify store name'}
+                </DialogTitle>
+                <DialogDescription>
+                  {locale === 'ar' 
+                    ? 'أدخل اسم متجرك فقط (مثل: mystore) بدون .myshopify.com'
+                    : 'Enter just your store name (e.g., mystore) without .myshopify.com'
+                  }
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4">
+                <Input
+                  placeholder={locale === 'ar' ? 'mystore' : 'mystore'}
+                  value={shopDomainInput}
+                  onChange={(e) => setShopDomainInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      handleShopifyDialogSubmit()
+                    }
+                  }}
+                />
+                <div className="flex gap-2 justify-end">
+                  <Button
+                    variant="outline"
+                    onClick={() => setShowShopifyDialog(false)}
+                  >
+                    {locale === 'ar' ? 'إلغاء' : 'Cancel'}
+                  </Button>
+                  <Button onClick={handleShopifyDialogSubmit}>
+                    {locale === 'ar' ? 'متابعة' : 'Continue'}
+                  </Button>
+                </div>
           </div>
+            </DialogContent>
+          </Dialog>
+
         </>
       ) : (
         <>
@@ -257,9 +612,7 @@ export function ConnectStoreStep({ onNext, currentStep, totalSteps }: Onboarding
                   />
                 </div>
               ) : (
-                <div className="text-3xl flex-shrink-0">
-                  {platforms.find(p => p.id === selectedPlatform)?.icon}
-                </div>
+                <div className="text-3xl flex-shrink-0">🏪</div>
               )}
               <div className="flex-1">
                 <div className="text-sm text-gray-600">
@@ -348,16 +701,30 @@ export function ConnectStoreStep({ onNext, currentStep, totalSteps }: Onboarding
                 variant="outline"
                 onClick={handleSkip}
                 className="flex-1 sm:flex-none"
-                disabled={isConnecting}
+                disabled={isConnecting || isSkipping}
               >
-                {t.skip}
+                {isSkipping ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                    {locale === 'ar' ? 'جاري الإعداد...' : 'Setting up...'}
+                  </>
+                ) : (
+                  t.skip
+                )}
               </Button>
               <Button
                 type="submit"
                 className="flex-1 bg-gray-900 hover:bg-gray-800 text-white"
-                disabled={isConnecting}
+                disabled={isConnecting || isSkipping}
               >
-                {isConnecting ? t.connecting : t.connect}
+                {isConnecting ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                    {t.connecting}
+                  </>
+                ) : (
+                  t.connect
+                )}
               </Button>
             </div>
           </form>
@@ -367,3 +734,15 @@ export function ConnectStoreStep({ onNext, currentStep, totalSteps }: Onboarding
   )
 }
 
+// Wrapper component with Suspense
+export function ConnectStoreStep(props: OnboardingStepProps) {
+  return (
+    <Suspense fallback={
+      <div className="flex items-center justify-center p-8">
+        <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
+      </div>
+    }>
+      <ConnectStoreStepContent {...props} />
+    </Suspense>
+  )
+}

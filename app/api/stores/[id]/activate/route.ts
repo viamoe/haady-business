@@ -31,11 +31,11 @@ export async function POST(
     // Get the store and verify it belongs to the user's business
     const { data: businessProfile } = await supabase
       .from('business_profile')
-      .select('id, business_name')
+      .select('id, store_id')
       .eq('auth_user_id', user.id)
       .single()
 
-    if (!businessProfile?.business_name) {
+    if (!businessProfile) {
       return NextResponse.json(
         { error: 'Merchant not found' },
         { status: 404 }
@@ -151,11 +151,11 @@ export async function DELETE(
     // Get the store and verify it belongs to the user's business
     const { data: businessProfile } = await supabase
       .from('business_profile')
-      .select('id, business_name')
+      .select('id, store_id')
       .eq('auth_user_id', user.id)
       .single()
 
-    if (!businessProfile?.business_name) {
+    if (!businessProfile) {
       return NextResponse.json(
         { error: 'Merchant not found' },
         { status: 404 }

@@ -24,11 +24,11 @@ export async function POST(request: Request) {
     // Get business profile
     const { data: businessProfile, error: businessError } = await supabase
       .from('business_profile')
-      .select('id, business_name, business_country')
+      .select('id, store_id, business_country')
       .eq('auth_user_id', user.id)
       .single()
 
-    if (businessError || !businessProfile || !businessProfile.business_name) {
+    if (businessError || !businessProfile) {
       return NextResponse.json(
         { error: 'Business not found' },
         { status: 404 }
@@ -97,7 +97,6 @@ export async function POST(request: Request) {
         minimum_order_amount: minimum_order_amount ? parseFloat(minimum_order_amount.toString()) : null,
         description: description?.trim() || null,
         platform: 'haady',
-        store_connection_id: null,
         is_active: true,
       })
       .select()

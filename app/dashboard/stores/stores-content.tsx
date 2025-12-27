@@ -13,7 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Store, Plus, MapPin, Globe, Pencil, Trash2, ExternalLink, Power, Loader2, Save, X, Clock, Truck, Pause, Play, ShoppingBag, ShoppingCart, Package, Box, RefreshCcw } from 'lucide-react'
+import { Store, Plus, MapPin, Globe, Pencil, Trash2, ExternalLink, Power, Loader2, Save, X, Clock, Truck, Pause, Play, ShoppingBag, ShoppingCart, Package, Box } from 'lucide-react'
 import { ChevronUpDown } from '@/components/animate-ui/icons/chevron-up-down'
 import { AnimateIcon } from '@/components/animate-ui/icons/icon'
 import { useLocale } from '@/i18n/context'
@@ -25,8 +25,6 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { toast } from '@/lib/toast'
-import { ProductApprovalModal, ProductPreview } from '@/components/product-approval-modal'
-import { safeFetch, handleError } from '@/lib/error-handler'
 
 interface StoreData {
   id: string
@@ -39,10 +37,11 @@ interface StoreData {
   city: string | null
   is_active: boolean | null
   created_at: string
-  store_connection_id: string | null
   delivery_methods: string[] | null
   opening_hours: any | null
   product_count?: number
+  // Connection info fetched separately
+  connectionId?: string | null
 }
 
 interface StoresContentProps {
@@ -232,7 +231,7 @@ function StoreCard({ store, locale, isRTL }: { store: StoreData; locale: string;
   const platformLogo = PLATFORM_LOGOS[store.platform?.toLowerCase()]
   const isHaady = store.platform === 'haady'
   const isActive = store.is_active !== false
-  const isActivatedInSelector = !!store.store_connection_id
+  const isActivatedInSelector = !!store.connectionId
   const [isActivating, setIsActivating] = useState(false)
 
   const handleActivate = async () => {
@@ -442,10 +441,6 @@ function StoreListItem({
   const [countries, setCountries] = useState<Array<{ id: string; name: string; iso2: string; flag_url: string | null }>>([])
   const [isLoadingCountries, setIsLoadingCountries] = useState(false)
   const [isHovered, setIsHovered] = useState(false)
-  const [isSyncing, setIsSyncing] = useState(false)
-  const [isLoadingPreview, setIsLoadingPreview] = useState(false)
-  const [showProductApprovalModal, setShowProductApprovalModal] = useState(false)
-  const [previewProducts, setPreviewProducts] = useState<ProductPreview[]>([])
   const [formData, setFormData] = useState({
     name: store.name,
     slug: store.slug,
@@ -618,165 +613,8 @@ function StoreListItem({
     setEditingField(null)
   }
 
-  // Handle sync button click - show product approval modal
-  const handleSync = async (e: React.MouseEvent) => {
-    e.stopPropagation() // Prevent expanding the store item
-    
-    if (!store.store_connection_id) {
-      toast.error(locale === 'ar' ? 'لا يمكن مزامنة متجر Haady الأصلي' : 'Cannot sync native Haady stores')
-      return
-    }
-
-    if (isSyncing || isLoadingPreview) {
-      return // Prevent multiple simultaneous syncs
-    }
-
-    setIsLoadingPreview(true)
-    try {
-      const previewResponse = await safeFetch(
-        `/api/store-connections/${store.store_connection_id}/sync/preview`,
-        { method: 'GET' },
-        { context: 'Preview products', showToast: false }
-      )
-
-      if (!previewResponse.ok) {
-        const errorData = await previewResponse.json().catch(() => ({ error: 'Failed to fetch preview' }))
-        throw new Error(errorData.error || 'Failed to preview products')
-      }
-
-      const previewData = await previewResponse.json()
-      
-      if (!previewData.success || !previewData.products) {
-        throw new Error(previewData.error || 'Failed to preview products')
-      }
-
-      setPreviewProducts(previewData.products)
-      setShowProductApprovalModal(true)
-    } catch (error: any) {
-      const errorMessage = error?.message || String(error)
-      if (errorMessage.includes('not yet implemented') || errorMessage.includes('404') || errorMessage.includes('Not Found')) {
-        // Fallback to direct sync if preview is not implemented
-        await performDirectSync()
-      } else {
-        handleError(error, {
-          context: 'Preview products',
-          showToast: true,
-        })
-        setIsLoadingPreview(false)
-      }
-    } finally {
-      // Only set loading to false if we're not doing direct sync
-      if (!isSyncing) {
-        setIsLoadingPreview(false)
-      }
-    }
-  }
-
-  // Perform direct sync (fallback when preview is not available)
-  const performDirectSync = async () => {
-    if (!store.store_connection_id) return
-
-    setIsSyncing(true)
-    try {
-      const response = await safeFetch(
-        `/api/store-connections/${store.store_connection_id}/sync`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ type: 'all' }),
-        },
-        { context: 'Sync store products', showToast: true }
-      )
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }))
-        throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`)
-      }
-
-      const data = await response.json()
-
-      if (data.success) {
-        toast.success(locale === 'ar' ? 'تمت المزامنة بنجاح' : 'Sync completed successfully')
-        // Dispatch sync completed event to refresh dashboard
-        window.dispatchEvent(new CustomEvent('productsSyncCompleted', { 
-          detail: { connectionId: store.store_connection_id, success: true } 
-        }))
-        router.refresh()
-      } else {
-        throw new Error(data.error || 'Sync failed')
-      }
-    } catch (error: any) {
-      // Dispatch sync failed event
-      window.dispatchEvent(new CustomEvent('productsSyncCompleted', { 
-        detail: { connectionId: store.store_connection_id, success: false } 
-      }))
-      handleError(error, {
-        context: 'Sync store products',
-        showToast: true,
-      })
-    } finally {
-      setIsSyncing(false)
-      setIsLoadingPreview(false)
-    }
-  }
-
-  // Handle product approval - sync selected products
-  const handleApproveProducts = async (selectedProductIds: string[]) => {
-    if (!store.store_connection_id || selectedProductIds.length === 0) {
-      return
-    }
-
-    setIsSyncing(true)
-    setShowProductApprovalModal(false)
-
-    try {
-      const response = await safeFetch(
-        `/api/store-connections/${store.store_connection_id}/sync`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ 
-            type: 'selected',
-            selectedProductIds 
-          }),
-        },
-        { context: 'Sync selected products', showToast: true }
-      )
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }))
-        throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`)
-      }
-
-      const data = await response.json()
-
-      if (data.success) {
-        toast.success(
-          locale === 'ar' 
-            ? `تمت مزامنة ${selectedProductIds.length} منتج بنجاح`
-            : `Successfully synced ${selectedProductIds.length} product${selectedProductIds.length === 1 ? '' : 's'}`
-        )
-        // Dispatch sync completed event to refresh dashboard
-        window.dispatchEvent(new CustomEvent('productsSyncCompleted', { 
-          detail: { connectionId: store.store_connection_id, success: true } 
-        }))
-        router.refresh()
-      } else {
-        throw new Error(data.error || 'Sync failed')
-      }
-    } catch (error: any) {
-      // Dispatch sync failed event
-      window.dispatchEvent(new CustomEvent('productsSyncCompleted', { 
-        detail: { connectionId: store.store_connection_id, success: false } 
-      }))
-      handleError(error, {
-        context: 'Sync selected products',
-        showToast: true,
-      })
-    } finally {
-      setIsSyncing(false)
-    }
-  }
+  // TODO: Sync functionality will be reimplemented with new architecture
+  // For now, sync is disabled pending new implementation
 
   const handleFieldClick = (field: string) => {
     setEditingField(field)
@@ -901,27 +739,7 @@ function StoreListItem({
           </Badge>
         </div>
 
-        {/* Sync Button - Show for stores with connection when expanded */}
-        {store.store_connection_id && isExpanded && (
-          <Button
-            onClick={handleSync}
-            disabled={isSyncing || isLoadingPreview || !isActive}
-            variant="ghost"
-            size="sm"
-            className={cn(
-              "h-8 w-8 p-0",
-              "text-gray-600 hover:text-gray-700 hover:bg-gray-50",
-              (!isActive || isSyncing || isLoadingPreview) && "opacity-50 cursor-not-allowed"
-            )}
-            title={locale === 'ar' ? 'مزامنة المنتجات' : 'Sync Products'}
-          >
-            {isSyncing || isLoadingPreview ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <RefreshCcw className="h-4 w-4" />
-            )}
-          </Button>
-        )}
+        {/* TODO: Sync Button - to be reimplemented with new architecture */}
 
         {/* Pause/Resume Store Button */}
         {isExpanded && (
@@ -1355,17 +1173,7 @@ function StoreListItem({
         </div>
       </div>
 
-      {/* Product Approval Modal for Sync */}
-      {store.store_connection_id && (
-        <ProductApprovalModal
-          open={showProductApprovalModal}
-          onOpenChange={setShowProductApprovalModal}
-          products={previewProducts}
-          platform={store.platform}
-          onApprove={handleApproveProducts}
-          isLoading={isSyncing}
-        />
-      )}
+      {/* TODO: Product Approval Modal - to be reimplemented with new architecture */}
     </div>
   )
 }

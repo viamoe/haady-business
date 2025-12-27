@@ -30,7 +30,7 @@ export async function GET(request: Request) {
     // Get business profile
     const { data: businessProfile, error: businessError } = await supabase
       .from('business_profile')
-      .select('id, business_name')
+      .select('id, store_id')
       .eq('auth_user_id', user.id)
       .single()
 
@@ -48,21 +48,37 @@ export async function GET(request: Request) {
     let storeIds: string[] = []
     
     if (storeConnectionId) {
-      // Filter by selected store connection
-      const { data: stores, error: storesError } = await supabase
-        .from('stores')
-        .select('id')
-        .eq('store_connection_id', storeConnectionId)
-        .eq('is_active', true)
+      // New structure: store_connections.store_id -> stores.id
+      const { data: connection, error: connectionError } = await supabase
+        .from('store_connections')
+        .select('store_id')
+        .eq('id', storeConnectionId)
+        .maybeSingle()
 
-      if (storesError) {
+      if (connectionError) {
         return NextResponse.json(
-          { error: 'Failed to fetch stores', details: storesError.message },
+          { error: 'Failed to fetch connection', details: connectionError.message },
           { status: 500 }
         )
       }
 
-      storeIds = stores?.map(s => s.id) || []
+      if (connection?.store_id) {
+        const { data: store, error: storeError } = await supabase
+          .from('stores')
+          .select('id')
+          .eq('id', connection.store_id)
+          .eq('is_active', true)
+          .maybeSingle()
+
+        if (storeError) {
+          return NextResponse.json(
+            { error: 'Failed to fetch store', details: storeError.message },
+            { status: 500 }
+          )
+        }
+
+        storeIds = store ? [store.id] : []
+      }
     } else {
       // Get all store IDs for this business (fallback for backward compatibility)
       const { data: stores, error: storesError } = await supabase

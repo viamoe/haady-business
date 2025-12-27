@@ -1,8 +1,136 @@
+@import url("https://fonts.googleapis.com/css2?family=Google+Sans+Flex:opsz,wght@8..144,100..1000&display=swap");
 @import "tailwindcss";
+
+/* Self-hosted Arabic fonts from Supabase storage - PingAR+LT */
+@font-face {
+  font-family: 'PingAR+LT';
+  src: url('https://rovphhvuuxwbhgnsifto.supabase.co/storage/v1/object/public/assets/fonts/ar/PingAR+LT-ExtraLight.otf') format('opentype');
+  font-weight: 200;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'PingAR+LT';
+  src: url('https://rovphhvuuxwbhgnsifto.supabase.co/storage/v1/object/public/assets/fonts/ar/PingAR+LT-Regular.otf') format('opentype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'PingAR+LT';
+  src: url('https://rovphhvuuxwbhgnsifto.supabase.co/storage/v1/object/public/assets/fonts/ar/PingAR+LT-Medium.otf') format('opentype');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'PingAR+LT';
+  src: url('https://rovphhvuuxwbhgnsifto.supabase.co/storage/v1/object/public/assets/fonts/ar/PingAR+LT-Bold.otf') format('opentype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'PingAR+LT';
+  src: url('https://rovphhvuuxwbhgnsifto.supabase.co/storage/v1/object/public/assets/fonts/ar/PingAR+LT-Heavy.otf') format('opentype');
+  font-weight: 800;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'PingAR+LT';
+  src: url('https://rovphhvuuxwbhgnsifto.supabase.co/storage/v1/object/public/assets/fonts/ar/PingAR+LT-Black.otf') format('opentype');
+  font-weight: 900;
+  font-style: normal;
+  font-display: swap;
+}
 
 @plugin "tailwindcss-animate";
 
 @custom-variant dark (&:is(.dark *));
+
+/* Smooth scroll behavior */
+/* Hide native scrollbar completely */
+html {
+  overflow-y: scroll;
+  scrollbar-width: none !important; /* Firefox */
+  -ms-overflow-style: none !important; /* IE and Edge */
+}
+
+html::-webkit-scrollbar {
+  width: 0 !important;
+  height: 0 !important;
+  background: transparent !important;
+  display: none !important;
+}
+
+html::-webkit-scrollbar-track {
+  background: transparent !important;
+}
+
+html::-webkit-scrollbar-thumb {
+  background: transparent !important;
+}
+
+body {
+  overflow-x: hidden;
+  overflow-y: inherit;
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+
+body::-webkit-scrollbar {
+  width: 0 !important;
+  height: 0 !important;
+  background: transparent !important;
+  display: none !important;
+}
+
+/* Force hide on all containers */
+::-webkit-scrollbar {
+  width: 0 !important;
+  height: 0 !important;
+  background: transparent !important;
+}
+
+/* Utility class to hide scrollbar */
+.hide-scrollbar {
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+
+.hide-scrollbar::-webkit-scrollbar {
+  width: 0 !important;
+  height: 0 !important;
+  display: none !important;
+  background: transparent !important;
+}
+
+/* Lenis smooth scroll */
+html.lenis, html.lenis body {
+  height: auto;
+}
+
+.lenis.lenis-smooth {
+  scroll-behavior: auto !important;
+}
+
+.lenis.lenis-smooth [data-lenis-prevent] {
+  overscroll-behavior: contain;
+}
+
+.lenis.lenis-stopped {
+  overflow: hidden;
+}
+
+.lenis.lenis-scrolling iframe {
+  pointer-events: none;
+}
 
 @theme inline {
   --color-background: var(--background);
@@ -54,6 +182,8 @@
   --popover-foreground: oklch(0.145 0 0);
   --primary: oklch(0.205 0 0);
   --primary-foreground: oklch(0.985 0 0);
+  --haady-orange: #F4610B;
+  --haady-orange-rgb: 244, 97, 11;
   --secondary: oklch(0.97 0 0);
   --secondary-foreground: oklch(0.205 0 0);
   --muted: oklch(0.97 0 0);
@@ -117,12 +247,22 @@
 }
 
 @layer base {
+  :root {
+    --font-ibm-plex-arabic: 'PingAR+LT', sans-serif;
+  }
+  
   * {
     @apply border-border outline-ring/50;
   }
   body {
     @apply bg-background text-foreground;
+    /* Lenis handles scrolling, so we don't need body overflow */
+    overflow: visible;
 }
+
+  .font-google-sans {
+    font-family: "Google Sans Flex", var(--font-inter), sans-serif;
+  }
   
   /* Apply IBM Plex Sans Arabic font to all Arabic text by default */
   html[lang="ar"] *,
@@ -552,6 +692,7 @@ html[lang="ar"] [data-slot="dropdown-menu-content"] *,
 
 /* Universal input field hover and focus styles */
 input[type="text"],
+/* Input focus styles - Haady orange - using @apply for Tailwind compatibility */
 input[type="email"],
 input[type="tel"],
 input[type="password"],
@@ -559,7 +700,27 @@ input[type="number"],
 input[type="search"],
 input[data-slot="input"],
 textarea {
-  @apply hover:border-gray-400 focus:ring-gray-300 focus:ring-2 focus:border-gray-300 transition-colors;
+  @apply transition-all duration-200;
+}
+
+input[type="email"]:focus,
+input[type="tel"]:focus,
+input[type="password"]:focus,
+input[type="number"]:focus,
+input[type="search"]:focus,
+input[data-slot="input"]:focus,
+textarea:focus {
+  @apply !border-orange-500 !ring-orange-500/30 !ring-[3px] !outline-none;
+}
+
+input[type="email"]:hover:not(:focus),
+input[type="tel"]:hover:not(:focus),
+input[type="password"]:hover:not(:focus),
+input[type="number"]:hover:not(:focus),
+input[type="search"]:hover:not(:focus),
+input[data-slot="input"]:hover:not(:focus),
+textarea:hover:not(:focus) {
+  @apply !border-orange-500/50;
 }
 
 /* Universal inline error message styles - make all error messages smaller */
@@ -783,7 +944,7 @@ input[type="button"]:disabled {
     transform: translateY(0px);
   }
   50% {
-    transform: translateY(-12px);
+    transform: translateY(-15px);
   }
 }
 
@@ -1222,5 +1383,20 @@ html[lang="ar"] [data-sonner-toast] button,
 
 .scrollbar-minimal::-webkit-scrollbar-thumb:hover {
   background: #9ca3af !important; /* gray-400 on hover */
+}
+
+/* Comparison table hover effect - mute other rows when one is hovered */
+.comparison-rows {
+  position: relative;
+}
+
+.comparison-rows:hover .comparison-row[style*="opacity"] {
+  opacity: 0.4 !important;
+  transition: opacity 0.3s ease !important;
+}
+
+.comparison-rows .comparison-row[style*="opacity"]:hover {
+  opacity: 1 !important;
+  transition: opacity 0.3s ease !important;
 }
 

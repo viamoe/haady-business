@@ -124,18 +124,15 @@ export function LoadingProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const handleBeforeUnload = () => {
       setIsLoading(true);
-      setLoadingMessage('Refreshing...');
     };
 
     // Check if this is a page refresh (not initial load)
     const navigationEntry = performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming;
     if (navigationEntry?.type === 'reload') {
       setIsLoading(true);
-      setLoadingMessage('Loading...');
       // Hide after a short delay (page should be loaded by then)
       const timer = setTimeout(() => {
         setIsLoading(false);
-        setLoadingMessage(undefined);
       }, 500);
       return () => clearTimeout(timer);
     }
@@ -174,7 +171,7 @@ export function LoadingProvider({ children }: { children: ReactNode }) {
       {children}
       <LoadingBar isLoading={isLoading} duration={loadingDuration} />
       {/* Only show overlay when explicitly enabled (not for dashboard navigation) */}
-      <LoadingOverlay isLoading={isLoading && showOverlay} message={loadingMessage} />
+      <LoadingOverlay isLoading={isLoading && showOverlay} />
     </LoadingContext.Provider>
   );
 }

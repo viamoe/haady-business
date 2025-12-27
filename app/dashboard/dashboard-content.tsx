@@ -567,23 +567,36 @@ export function DashboardContent({
               return
             }
 
-            const { data: storeRecords, count: storeCount, error: storesError } = await supabase
+            // New structure: store_connections.store_id -> stores.id
+            const { data: connectionWithStore } = await supabase
+              .from('store_connections')
+              .select('store_id')
+              .eq('id', selectedConnectionId)
+              .maybeSingle()
+
+            if (!connectionWithStore?.store_id) {
+              console.log('No store linked to connection')
+              return
+            }
+
+            const { data: store, error: storesError } = await supabase
               .from('stores')
-              .select('id', { count: 'exact' })
-              .eq('store_connection_id', selectedConnectionId)
+              .select('id')
+              .eq('id', connectionWithStore.store_id)
               .eq('is_active', true)
+              .maybeSingle()
 
-            if (storesError) {
-              console.error('Error fetching stores:', storesError)
+            if (storesError?.message) {
+              console.error('Error fetching store:', storesError.message)
               return
             }
 
-            if (!storeRecords || storeRecords.length === 0) {
-              console.log('No stores found for connection')
+            if (!store) {
+              console.log('No store found for connection')
               return
             }
 
-            const storeIds = storeRecords.map(s => s.id)
+            const storeIds = [store.id]
             console.log('Store IDs:', storeIds)
 
             // Fetch updated product count

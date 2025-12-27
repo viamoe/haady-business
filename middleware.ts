@@ -79,8 +79,6 @@ export default async function middleware(req: NextRequest) {
   const isLoginPage = pathname.startsWith('/auth/login') || pathname.startsWith('/auth/signup');
   const isLoginCallback = pathname.startsWith('/auth/callback');
   const isDashboard = pathname.startsWith('/dashboard');
-  const isSetupPage = pathname.startsWith('/setup');
-
   // Allow login callback to pass through without checking session
   if (isLoginCallback) {
     if (shouldRewrite) {
@@ -95,64 +93,6 @@ export default async function middleware(req: NextRequest) {
   }
 
   // Protect setup route - require authenticated user
-  if (isSetupPage) {
-    try {
-      const supabase = createServerClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-        {
-          cookies: {
-            getAll() {
-              return req.cookies.getAll().map(cookie => ({
-                name: cookie.name,
-                value: cookie.value,
-              }));
-            },
-            setAll() {
-              // No-op in middleware
-            },
-          },
-        }
-      );
-
-      // Use getUser() instead of getSession() for security - verifies with Supabase Auth server
-      const { data: { user }, error: authError } = await supabase.auth.getUser();
-
-      if (authError || !user) {
-        // Preserve locale-country prefix in redirect
-        const redirectUrl = urlMatch 
-          ? new URL(`/${currentLocale}-${currentCountryCode?.toLowerCase()}/auth/login`, req.url)
-          : new URL('/auth/login', req.url);
-        return NextResponse.redirect(redirectUrl);
-      }
-
-      // Check if user already has a business account with business_name set
-      const { data: businessProfile } = await supabase
-        .from('business_profile')
-        .select('id, business_name')
-        .eq('auth_user_id', user.id)
-        .maybeSingle();
-
-      // If user has business_name (completed setup), redirect to dashboard
-      if (businessProfile?.business_name) {
-        // Preserve locale-country prefix in redirect
-        const redirectUrl = urlMatch 
-          ? new URL(`/${currentLocale}-${currentCountryCode?.toLowerCase()}/dashboard`, req.url)
-          : new URL('/dashboard', req.url);
-        return NextResponse.redirect(redirectUrl);
-      }
-
-      // User is authenticated but no business - allow access to setup
-    } catch (error) {
-      console.error('Middleware error:', error);
-      // Preserve locale-country prefix in redirect
-      const redirectUrl = urlMatch 
-        ? new URL(`/${currentLocale}-${currentCountryCode?.toLowerCase()}/auth/login`, req.url)
-        : new URL('/auth/login', req.url);
-      return NextResponse.redirect(redirectUrl);
-    }
-  }
-
   // Protect dashboard route - require valid user and business account
   if (isDashboard) {
     try {
@@ -185,15 +125,21 @@ export default async function middleware(req: NextRequest) {
         return NextResponse.redirect(redirectUrl);
       }
 
-      // Check if user has a business account with business_name set
+      // Check if user has completed onboarding
       const { data: businessProfile, error: dbError } = await supabase
         .from('business_profile')
-        .select('id, business_name')
+        .select('id, is_onboarded, onboarding_step')
         .eq('auth_user_id', user.id)
         .maybeSingle();
 
-      // If no business account or business_name is null, redirect to onboarding
-      if (dbError || !businessProfile || !businessProfile.business_name) {
+      // Check if onboarding is completed
+      const isOnboardingComplete = businessProfile && (
+        businessProfile.is_onboarded === true || 
+        businessProfile.onboarding_step === null
+      );
+
+      // If no business account or onboarding not completed, redirect to onboarding
+      if (dbError || !businessProfile || !isOnboardingComplete) {
         // Preserve locale-country prefix in redirect
         const redirectUrl = urlMatch 
           ? new URL(`/${currentLocale}-${currentCountryCode?.toLowerCase()}/onboarding/personal-details`, req.url)
@@ -243,14 +189,14 @@ export default async function middleware(req: NextRequest) {
       const { data: { user }, error: authError } = await supabase.auth.getUser();
 
       if (!authError && user) {
-      // Check if user has a business account with business_name set
+      // Check if user has completed onboarding
       const { data: businessProfile } = await supabase
         .from('business_profile')
-        .select('id, business_name')
+        .select('id, is_onboarded, onboarding_step')
         .eq('auth_user_id', user.id)
         .maybeSingle();
 
-      if (businessProfile?.business_name) {
+      if (businessProfile && (businessProfile.is_onboarded || businessProfile.onboarding_step === null)) {
           // Preserve locale-country prefix in redirect
           const redirectUrl = urlMatch 
             ? new URL(`/${currentLocale}-${currentCountryCode?.toLowerCase()}/dashboard`, req.url)

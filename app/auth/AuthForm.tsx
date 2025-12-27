@@ -1,5 +1,5 @@
 'use client';
-import { useState, useRef, useEffect, useMemo } from 'react';
+import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { useLocale } from '@/i18n/context';
@@ -13,9 +13,12 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { Separator } from '@/components/ui/separator';
 import { useLoading } from '@/lib/loading-context';
+import { debounce, DEBOUNCE_DELAYS } from '@/lib/utils/debounce';
+import { OtpInput, type OtpInputRef } from '@/components/auth/OtpInput';
+import { handleError, isNetworkError, isAuthError } from '@/lib/utils/error-handling';
 
 const SUPABASE_STORAGE_URL = 'https://rovphhvuuxwbhgnsifto.supabase.co/storage/v1/object/public/assets';
-const PRODUCTS_STORAGE_URL = `${SUPABASE_STORAGE_URL}/products`;
+const PRODUCTS_STORAGE_URL = `${SUPABASE_STORAGE_URL}/haady/gifts`;
 const ECOMMERCE_STORAGE_URL = `${SUPABASE_STORAGE_URL}/ecommerce`;
 
 // E-commerce platform logos
@@ -116,7 +119,8 @@ export default function AuthForm({ mode, reason }: AuthFormProps) {
   const [showOtp, setShowOtp] = useState(false);
   const [resendTimer, setResendTimer] = useState(0);
   const [canResend, setCanResend] = useState(false);
-  const otpInputRefs = useRef<(HTMLInputElement | null)[]>([]);
+  const otpInputRef = useRef<OtpInputRef>(null);
+  const isVerifyingRef = useRef(false); // Ref-based guard for verification
 
   const isSignupMode = mode === 'signup';
 
@@ -127,7 +131,7 @@ export default function AuthForm({ mode, reason }: AuthFormProps) {
   };
 
   // Check if email exists in the system
-  const checkEmailExists = async (emailToCheck: string) => {
+  const checkEmailExists = useCallback(async (emailToCheck: string) => {
     if (!validateEmail(emailToCheck)) {
       setEmailCheckStatus(null);
       return;
@@ -155,14 +159,23 @@ export default function AuthForm({ mode, reason }: AuthFormProps) {
         setAccountNotFound(false);
       }
     } catch (error) {
-      console.error('Error checking email:', error);
+      // Use standardized error handling
+      handleError(error, 'EmailCheck');
       setEmailCheckStatus(null);
     } finally {
       setIsCheckingEmail(false);
     }
-  };
+  }, [isSignupMode]);
 
-  // Debounced email check
+  // Create debounced version of email check using utility
+  const debouncedCheckEmail = useMemo(
+    () => debounce((emailToCheck: string) => {
+      checkEmailExists(emailToCheck);
+    }, DEBOUNCE_DELAYS.EMAIL_CHECK),
+    [checkEmailExists]
+  );
+
+  // Debounced email check - only check after user stops typing
   useEffect(() => {
     if (!email || !validateEmail(email)) {
       setEmailCheckStatus(null);
@@ -170,13 +183,8 @@ export default function AuthForm({ mode, reason }: AuthFormProps) {
       return;
     }
 
-    const timeoutId = setTimeout(() => {
-      checkEmailExists(email);
-    }, 800); // Wait 800ms after user stops typing
-
-    return () => clearTimeout(timeoutId);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [email]); // checkEmailExists is stable, no need to include it
+    debouncedCheckEmail(email);
+  }, [email, debouncedCheckEmail]);
 
   // Reset accountNotFound when email changes
   useEffect(() => {
@@ -195,6 +203,9 @@ export default function AuthForm({ mode, reason }: AuthFormProps) {
     
     setResendTimer(0);
     setCanResend(false);
+    // Reset verification ref to allow future verification attempts
+    isVerifyingRef.current = false;
+    setIsVerifying(false);
   };
 
   // Pre-fill email from query params if available
@@ -266,65 +277,54 @@ export default function AuthForm({ mode, reason }: AuthFormProps) {
     }
   }, [reason]);
 
-  // Auto-focus first OTP input when shown
+  // Auto-focus OTP input when shown
   useEffect(() => {
     if (showOtp) {
       setTimeout(() => {
-        otpInputRefs.current[0]?.focus();
+        otpInputRef.current?.focus();
       }, 100);
     }
   }, [showOtp]);
 
-  // Handle OTP input change
-  const handleOtpChange = (index: number, value: string) => {
-    const cleanedValue = value.replace(/[^0-9]/g, '');
+  // Handle OTP completion (all digits filled)
+  const handleOtpComplete = (otpCode: string) => {
+    if (otpCode.length === 6) {
+      handleVerifyOtp(otpCode);
+    }
+  };
 
-    if (cleanedValue.length > 1) {
-      const pasteData = cleanedValue.slice(0, 6);
-      const newOtp = [...otp];
-      pasteData.split('').forEach((char, i) => {
-        if (index + i < 6) {
-          newOtp[index + i] = char;
+  // Handle successful auth - redirect to onboarding with email
+  // This catches the SIGNED_IN event that fires when OTP verification succeeds
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_IN' && session && isVerifyingRef.current) {
+        cleanupOtpState();
+        
+        // Pass email to onboarding personal-details for pre-filling the form
+        const localizedPath = getLocalizedUrl('/onboarding/personal-details', pathname);
+        const onboardingUrl = new URL(localizedPath, window.location.origin);
+        if (email) {
+          onboardingUrl.searchParams.set('email', email.trim().toLowerCase());
         }
-      });
-      setOtp(newOtp);
-      const lastFilledIndex = Math.min(index + pasteData.length - 1, 5);
-      otpInputRefs.current[lastFilledIndex]?.focus();
-      if (newOtp.every(digit => digit !== '')) {
-        handleVerifyOtp(newOtp.join(''));
+        window.location.href = onboardingUrl.toString();
       }
-      return;
-    }
+    });
 
-    const newOtp = [...otp];
-    newOtp[index] = cleanedValue;
-    setOtp(newOtp);
-    setOtpError('');
-
-    if (cleanedValue && index < 5) {
-      otpInputRefs.current[index + 1]?.focus();
-    } else if (!cleanedValue && index > 0) {
-      otpInputRefs.current[index - 1]?.focus();
-    }
-
-    if (newOtp.every(digit => digit !== '')) {
-      handleVerifyOtp(newOtp.join(''));
-    }
-  };
-
-  const handleKeyDown = (index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Backspace' && otp[index] === '' && index > 0) {
-      otpInputRefs.current[index - 1]?.focus();
-    }
-  };
+    return () => subscription.unsubscribe();
+  }, [pathname, email]);
 
   const handleVerifyOtp = async (otpCode: string) => {
     if (otpCode.length !== 6) return;
+    if (isVerifyingRef.current) {
+      return;
+    }
 
+    isVerifyingRef.current = true;
     setIsVerifying(true);
     setOtpError('');
 
     try {
+      // Verify OTP
       const { data, error } = await supabase.auth.verifyOtp({
         email: email.trim().toLowerCase(),
         token: otpCode,
@@ -333,59 +333,54 @@ export default function AuthForm({ mode, reason }: AuthFormProps) {
 
       if (error) {
         const errorMessage = error.message || t('auth.verificationFailed');
-        let displayError = errorMessage;
+        const lowerErrorMessage = errorMessage.toLowerCase();
         
-        if (errorMessage.toLowerCase().includes('expired') || errorMessage.toLowerCase().includes('invalid')) {
-          displayError = t('auth.codeExpired');
+        // Handle "signups not allowed" error (user doesn't exist in login mode)
+        if (isAuthError(error) && (lowerErrorMessage.includes('signups not allowed') || lowerErrorMessage.includes('signup not allowed'))) {
+          setShowOtp(false);
+          setOtpSent(false);
+          setOtp(['', '', '', '', '', '']);
+          setAccountNotFound(true);
+          cleanupOtpState();
+        } else {
+          // Handle other errors (expired, invalid, etc.)
+          const displayError = lowerErrorMessage.includes('expired') || lowerErrorMessage.includes('invalid')
+            ? t('auth.codeExpired')
+            : errorMessage;
+          
+          setOtpError(displayError);
+          toast.error(t('auth.verificationFailed'), { description: displayError });
+          setOtp(['', '', '', '', '', '']);
+          otpInputRef.current?.focus();
         }
         
-        setOtpError(displayError);
-        toast.error(t('auth.verificationFailed'), {
-          description: displayError,
-          duration: 5000,
-        });
-        setOtp(['', '', '', '', '', '']);
-        otpInputRefs.current[0]?.focus();
+        isVerifyingRef.current = false;
+        setIsVerifying(false);
         return;
       }
-
-      if (data?.session || data?.user) {
+      
+      // Success - redirect to onboarding
+      if (data?.session) {
         cleanupOtpState();
         
-        toast.success(t('auth.verificationSuccessful'), {
-          description: t('auth.signedIn'),
-          duration: 3000,
-        });
-        
-        setLoading(true, 'Checking your account...');
-        
-        const { data: businessProfile } = await supabase
-          .from('business_profile')
-          .select('id, business_name')
-          .eq('auth_user_id', data.user?.id || data.session?.user.id)
-          .single();
-
-        if (businessProfile?.business_name) {
-          setLoading(true, 'Redirecting to dashboard...');
-          const dashboardUrl = getLocalizedUrl('/dashboard', pathname);
-          router.push(dashboardUrl);
-          router.refresh();
-        } else {
-          setLoading(true, 'Setting up your account...');
-          const onboardingUrl = getLocalizedUrl('/onboarding/personal-details', pathname);
-          router.push(onboardingUrl);
-          router.refresh();
+        // Pass email to onboarding personal-details for pre-filling the form
+        const localizedPath = getLocalizedUrl('/onboarding/personal-details', pathname);
+        const onboardingUrl = new URL(localizedPath, window.location.origin);
+        if (email) {
+          onboardingUrl.searchParams.set('email', email.trim().toLowerCase());
         }
+        window.location.href = onboardingUrl.toString();
       }
-    } catch (err: any) {
-      console.error('Error verifying OTP:', err);
-      setOtpError(t('common.error'));
+    } catch (error: unknown) {
+      // Network errors or unexpected errors - use standardized error handling
+      const errorMessage = handleError(error, 'OTPVerification');
+      setOtpError(isNetworkError(error) ? t('common.networkError') || 'Network error. Please check your connection.' : t('common.error'));
       toast.error(t('common.error'), {
-        description: t('common.error'),
-        duration: 5000,
+        description: isNetworkError(error) ? t('common.networkError') || 'Network error. Please check your connection.' : errorMessage,
       });
-      setLoading(false);
-    } finally {
+      setOtp(['', '', '', '', '', '']);
+      otpInputRef.current?.focus();
+      isVerifyingRef.current = false;
       setIsVerifying(false);
     }
   };
@@ -557,6 +552,37 @@ export default function AuthForm({ mode, reason }: AuthFormProps) {
         }
       }
       
+      // Check rate limit before sending OTP
+      try {
+        const rateLimitResponse = await fetch('/api/auth/send-otp', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email: email.trim().toLowerCase(),
+            isSignupMode,
+          }),
+        });
+        
+        if (!rateLimitResponse.ok) {
+          const rateLimitData = await rateLimitResponse.json();
+          if (rateLimitResponse.status === 429) {
+            const retryAfter = rateLimitData.retryAfter || 60;
+            setEmailError(t('auth.tooManyRequests') || `Too many requests. Please wait ${retryAfter} seconds.`);
+            toast.error(t('auth.tooManyRequests') || 'Too many requests', {
+              description: `Please wait ${retryAfter} seconds before requesting another code.`,
+              duration: 5000,
+            });
+            setIsLoading(false);
+            return;
+          }
+          // If rate limit check fails for other reasons, log but continue
+          console.warn('Rate limit check failed:', rateLimitData);
+        }
+      } catch (rateLimitError) {
+        // If rate limit API fails, log but continue (graceful degradation)
+        console.warn('Rate limit check error:', rateLimitError);
+      }
+      
       // Use signInWithOtp for both login and signup
       // For signups, shouldCreateUser: true will create the user
       // For login, shouldCreateUser: false will only work for existing users
@@ -639,11 +665,12 @@ export default function AuthForm({ mode, reason }: AuthFormProps) {
         description: t('auth.checkEmail'),
         duration: 5000,
       });
-    } catch (err: any) {
-      console.error('Error sending OTP:', err);
-      setEmailError(t('auth.errorOccurred'));
+    } catch (err: unknown) {
+      // Use standardized error handling
+      const errorMessage = handleError(err, 'SendOTP');
+      setEmailError(errorMessage);
       toast.error(t('common.error'), {
-        description: t('auth.errorOccurred'),
+        description: errorMessage,
         duration: 5000,
       });
     } finally {
@@ -659,6 +686,33 @@ export default function AuthForm({ mode, reason }: AuthFormProps) {
     setOtp(['', '', '', '', '', '']);
     
     try {
+      // Check rate limit before resending OTP
+      try {
+        const rateLimitResponse = await fetch('/api/auth/send-otp', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email: email.trim().toLowerCase(),
+            isSignupMode,
+          }),
+        });
+        
+        if (!rateLimitResponse.ok && rateLimitResponse.status === 429) {
+          const rateLimitData = await rateLimitResponse.json();
+          const retryAfter = rateLimitData.retryAfter || 60;
+          setOtpError(t('auth.tooManyRequests') || `Too many requests. Please wait ${retryAfter} seconds.`);
+          toast.error(t('auth.tooManyRequests') || 'Too many requests', {
+            description: `Please wait ${retryAfter} seconds before requesting another code.`,
+            duration: 5000,
+          });
+          setIsLoading(false);
+          return;
+        }
+      } catch (rateLimitError) {
+        // If rate limit API fails, log but continue (graceful degradation)
+        console.warn('Rate limit check error:', rateLimitError);
+      }
+      
       const { error } = await supabase.auth.signInWithOtp({ 
         email: email.trim().toLowerCase(),
         options: {
@@ -689,11 +743,12 @@ export default function AuthForm({ mode, reason }: AuthFormProps) {
         description: t('auth.checkEmail'),
         duration: 5000,
       });
-    } catch (err: any) {
-      console.error('Error resending OTP:', err);
-      setOtpError(t('auth.errorOccurred'));
+    } catch (err: unknown) {
+      // Use standardized error handling
+      const errorMessage = handleError(err, 'ResendOTP');
+      setOtpError(errorMessage);
       toast.error(t('common.error'), {
-        description: t('auth.errorOccurred'),
+        description: errorMessage,
         duration: 5000,
       });
     } finally {
@@ -941,42 +996,38 @@ export default function AuthForm({ mode, reason }: AuthFormProps) {
                     </button>
                   </p>
                   
-                  <div className="flex justify-center gap-2">
-                    {otp.map((digit, index) => (
-                      <Input
-                        key={index}
-                        type="text"
-                        inputMode="numeric"
-                        maxLength={1}
-                        value={digit}
-                        onChange={(e) => handleOtpChange(index, e.target.value)}
-                        onKeyDown={(e) => handleKeyDown(index, e)}
-                        onPaste={(e) => {
-                          e.preventDefault();
-                          const pasteData = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6);
-                          if (pasteData.length === 6) {
-                            const newOtp = pasteData.split('');
-                            setOtp(newOtp);
-                            otpInputRefs.current[5]?.focus();
-                            handleVerifyOtp(pasteData);
-                          }
-                        }}
-                        ref={(el) => { otpInputRefs.current[index] = el; }}
-                        className={`w-12 h-12 text-center text-lg font-semibold ${
-                          otpError ? 'border-red-500' : 'border-gray-300'
-                        }`}
-                        disabled={isVerifying}
-                      />
-                    ))}
-                  </div>
-                  {otpError && (
-                    <p className="text-sm text-red-500 text-center">{otpError}</p>
-                  )}
-                  {isVerifying && (
-                    <div className="flex justify-center">
-                      <Loader2 className="h-5 w-5 animate-spin text-gray-500" />
-                    </div>
-                  )}
+                  <OtpInput
+                    ref={otpInputRef}
+                    length={6}
+                    value={otp}
+                    onChange={setOtp}
+                    onComplete={handleOtpComplete}
+                    error={otpError}
+                    disabled={isVerifying}
+                    autoFocus={true}
+                  />
+                  
+                  {/* Submit Button */}
+                  <Button
+                    type="button"
+                    onClick={() => {
+                      const otpCode = otp.join('')
+                      if (otpCode.length === 6) {
+                        handleVerifyOtp(otpCode)
+                      }
+                    }}
+                    disabled={otp.join('').length !== 6 || isVerifying}
+                    className="w-full h-12 bg-gray-900 hover:bg-gray-800 text-white rounded-md font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isVerifying ? (
+                      <>
+                        <Loader2 className={`h-5 w-5 animate-spin ${isRTL ? 'ml-2' : 'mr-2'}`} />
+                        {t('common.loading')}
+                      </>
+                    ) : (
+                      t('auth.verifyCode') || 'Verify Code'
+                    )}
+                  </Button>
                   
                   {/* Timer and Resend Code */}
                   <div className="flex flex-col items-center gap-2 mt-4">

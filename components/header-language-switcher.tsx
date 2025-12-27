@@ -16,14 +16,11 @@ export function HeaderLanguageSwitcher() {
   const tooltipText = `Switch to ${otherLang === 'en' ? 'English' : 'Arabic'}`
 
   const handleLanguageSwitch = () => {
-    const loadingMessage = locale === 'ar' 
-      ? 'جاري تبديل اللغة...' 
-      : 'Switching language...'
-    setLoading(true, loadingMessage)
+    setLoading(true)
     // Delay to ensure loading overlay is visible before reload
     setTimeout(() => {
       setLocale(otherLang)
-    }, 2000)
+    }, 3000)
   }
 
   return (
@@ -31,8 +28,7 @@ export function HeaderLanguageSwitcher() {
       <TooltipTrigger asChild>
         <Button
           variant="ghost"
-          size="icon"
-          className="size-7 text-gray-500 hover:text-gray-700 flex items-center justify-center"
+          className="h-10 px-3 text-gray-600 hover:text-orange-500 hover:bg-orange-100 transition-colors flex items-center justify-center"
           onClick={handleLanguageSwitch}
           aria-label={tooltipText}
         >

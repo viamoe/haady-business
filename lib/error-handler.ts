@@ -629,24 +629,26 @@ export async function safeFetch(
       })
 
       if (!response.ok) {
-        // Log error response before handling
+        // The actual error handling is done by handleFetchError below
+        // We only log if there's useful debug info in the response body
         const responseClone = response.clone()
         try {
           const errorData = await responseClone.json().catch(() => null)
-          console.error('❌ API Error Response:', {
-            url,
-            status: response.status,
-            statusText: response.statusText,
-            errorData,
-          })
+          // Only log if errorData has actual meaningful content (not empty or all null/undefined)
+          if (errorData) {
+            const jsonStr = JSON.stringify(errorData)
+            // Skip logging for empty objects, empty arrays, or objects with only null/empty values
+            if (jsonStr !== '{}' && jsonStr !== '[]' && jsonStr !== 'null') {
+              console.error('❌ API Error Response:', {
+                url,
+                status: response.status,
+                statusText: response.statusText,
+                errorData,
+              })
+            }
+          }
         } catch (e) {
-          const errorText = await responseClone.text().catch(() => 'Could not read response')
-          console.error('❌ API Error Response (text):', {
-            url,
-            status: response.status,
-            statusText: response.statusText,
-            errorText,
-          })
+          // Silently ignore - error will be handled by handleFetchError
         }
         
         await handleFetchError(response, errorOptions?.context, errorOptions?.locale)

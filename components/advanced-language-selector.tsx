@@ -381,10 +381,7 @@ export function AdvancedLanguageSelector() {
       return;
     }
 
-    const loadingMessage = locale === 'ar' 
-      ? 'جاري تبديل اللغة...' 
-      : 'Switching language...';
-    setLoading(true, loadingMessage);
+    setLoading(true);
 
     // Save preferences with the selected country (preserve country selection)
     await saveUserPreferences(countryToUse.countryCode, language);
@@ -395,16 +392,13 @@ export function AdvancedLanguageSelector() {
     // Delay to ensure loading overlay is visible before reload
     setTimeout(() => {
       setLocale(language);
-    }, 2000);
+    }, 3000);
   };
 
   const confirmCountryChange = async (countryCode: string, language: Locale) => {
     setSelectedCountryCode(countryCode);
     
-    const loadingMessage = locale === 'ar' 
-      ? 'جاري التبديل...' 
-      : 'Switching...';
-    setLoading(true, loadingMessage);
+    setLoading(true);
     
     // Update URL with new country and language
     updateURL(countryCode, language);
@@ -424,7 +418,7 @@ export function AdvancedLanguageSelector() {
     // Delay to ensure loading overlay is visible before reload
     setTimeout(() => {
       setLocale(language);
-    }, 2000);
+    }, 3000);
   };
 
   const revertCountryChange = () => {
@@ -489,10 +483,7 @@ export function AdvancedLanguageSelector() {
     }
 
     // Apply changes immediately
-    const loadingMessage = locale === 'ar' 
-      ? 'جاري التبديل...' 
-      : 'Switching...';
-    setLoading(true, loadingMessage);
+    setLoading(true);
     
     // Save preferences to cookies immediately
     UserPreferencesCookies.setCountry(tempCountryCode);
@@ -514,7 +505,7 @@ export function AdvancedLanguageSelector() {
     // Use window.location.href for a full page reload with the new URL
     setTimeout(() => {
       window.location.href = newPath;
-    }, 500);
+    }, 3000);
   };
 
   const tempCountry = tempCountryCode 

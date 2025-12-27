@@ -29,11 +29,11 @@ export default async function StoresPage() {
   // Check if user has completed setup
   const { data: businessProfile } = await supabase
     .from('business_profile')
-    .select('id, business_name, full_name')
+    .select('id, store_id, is_onboarded, onboarding_step, full_name')
     .eq('auth_user_id', user.id)
     .maybeSingle()
 
-  if (!businessProfile?.business_name) {
+  if (!businessProfile?.is_onboarded && businessProfile?.onboarding_step !== null) {
     const cookieStore = await cookies();
     const onboardingUrl = getLocalizedUrlFromRequest('/onboarding/personal-details', {
       cookies: {
@@ -76,14 +76,14 @@ export default async function StoresPage() {
 
   const stores = storesData || []
 
-  // Transform stores to include store_connection_id from the relationship
+  // Transform stores to include connectionId from the relationship (new structure: store_connections.store_id -> stores.id)
   const transformedStores = stores.map((store: any) => {
     const connection = Array.isArray(store.store_connections) 
       ? store.store_connections[0] 
       : store.store_connections
     return {
       ...store,
-      store_connection_id: connection?.id || null,
+      connectionId: connection?.id || null,
     }
   })
 

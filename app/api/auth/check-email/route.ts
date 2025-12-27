@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { checkRateLimit, getClientIP, EMAIL_CHECK_RATE_LIMIT } from '@/lib/rate-limit';
 
 /**
  * POST /api/auth/check-email
@@ -8,6 +9,32 @@ import { createAdminClient } from '@/lib/supabase/admin';
  */
 export async function POST(request: Request) {
   try {
+    // Rate limiting: Check if client has exceeded rate limit
+    const clientIP = getClientIP(request);
+    const rateLimitResult = checkRateLimit({
+      ...EMAIL_CHECK_RATE_LIMIT,
+      identifier: clientIP,
+    });
+    
+    if (!rateLimitResult.allowed) {
+      return NextResponse.json(
+        {
+          error: 'Too many requests',
+          message: `Please wait ${rateLimitResult.retryAfter} seconds before checking again.`,
+          retryAfter: rateLimitResult.retryAfter,
+        },
+        {
+          status: 429,
+          headers: {
+            'Retry-After': String(rateLimitResult.retryAfter || 60),
+            'X-RateLimit-Limit': String(EMAIL_CHECK_RATE_LIMIT.maxRequests),
+            'X-RateLimit-Remaining': String(rateLimitResult.remaining),
+            'X-RateLimit-Reset': String(rateLimitResult.resetTime),
+          },
+        }
+      );
+    }
+    
     const { email } = await request.json();
 
     if (!email) {
@@ -33,39 +60,49 @@ export async function POST(request: Request) {
     const adminClient = createAdminClient();
     const normalizedEmail = email.toLowerCase().trim();
 
-    // Check if user exists in auth.users (handle pagination)
+    // Check if user exists in auth.users using optimized RPC function
+    // This queries auth.users directly with an index lookup (O(1) performance)
     let authUser = null;
-    let page = 1;
-    const perPage = 1000;
     
-    while (true) {
-      const { data: { users }, error: listError } = await adminClient.auth.admin.listUsers({
-        page,
-        perPage,
+    try {
+      // Try using RPC function first (most efficient)
+      const { data: userData, error: rpcError } = await adminClient.rpc('get_user_by_email', {
+        p_email: normalizedEmail
       });
       
-      if (listError) {
-        console.error('Error listing users:', listError);
-        return NextResponse.json({
-          exists: null,
-          isBusiness: null,
-          message: 'Email check unavailable',
+      if (!rpcError && userData) {
+        authUser = userData;
+      } else if (rpcError && !rpcError.message?.includes('not found') && !rpcError.message?.includes('does not exist')) {
+        // RPC function doesn't exist yet, fall back to admin API
+        // This is a temporary fallback until RPC is deployed
+        console.warn('RPC function not available, using admin API fallback:', rpcError.message);
+        
+        // Fallback: Use admin API listUsers with limited search
+        // Only search first page (100 users) - if not found, assume user doesn't exist
+        // This is much better than the old infinite pagination
+        const { data: { users }, error: listError } = await adminClient.auth.admin.listUsers({
+          page: 1,
+          perPage: 100,
         });
+        
+        if (listError) {
+          console.error('Error listing users:', listError);
+          return NextResponse.json({
+            exists: null,
+            isBusiness: null,
+            message: 'Email check unavailable',
+          });
+        }
+        
+        authUser = users.find(u => u.email?.toLowerCase() === normalizedEmail) || null;
       }
-
-      authUser = users.find(u => u.email?.toLowerCase() === normalizedEmail);
-      
-      // If found or no more users, break
-      if (authUser || users.length === 0) {
-        break;
-      }
-      
-      // If we got less than perPage, we've reached the end
-      if (users.length < perPage) {
-        break;
-      }
-      
-      page++;
+    } catch (error: any) {
+      console.error('Error checking user by email:', error);
+      return NextResponse.json({
+        exists: null,
+        isBusiness: null,
+        message: 'Email check unavailable',
+      });
     }
 
     if (!authUser) {
@@ -81,7 +118,7 @@ export async function POST(request: Request) {
     // Check if user has a business_profile record
     const { data: businessProfile, error: checkError } = await adminClient
       .from('business_profile')
-      .select('id, business_name')
+      .select('id, store_id, is_onboarded')
       .eq('auth_user_id', authUser.id)
       .maybeSingle();
 

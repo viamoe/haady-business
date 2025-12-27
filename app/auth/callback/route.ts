@@ -10,7 +10,7 @@ function validateRedirectUrl(url: string, origin: string): string {
     if (urlObj.origin !== origin) {
       return '/dashboard';
     }
-    const allowedPaths = ['/dashboard', '/setup', '/onboarding'];
+    const allowedPaths = ['/dashboard', '/onboarding'];
     if (allowedPaths.some(path => urlObj.pathname.startsWith(path))) {
       return urlObj.pathname + urlObj.search;
     }
@@ -179,7 +179,7 @@ export async function GET(request: Request) {
 
   let { data: businessProfile, error: businessError } = await supabase
     .from('business_profile')
-    .select('id, business_name, full_name')
+    .select('id, store_id, is_onboarded, onboarding_step, full_name')
     .eq('auth_user_id', session.user.id)
     .maybeSingle();
 
@@ -196,7 +196,7 @@ export async function GET(request: Request) {
         full_name: userFullName,
         is_primary_contact: true,
       })
-      .select('id, business_name, full_name')
+      .select('id, store_id, is_onboarded, onboarding_step, full_name')
       .single();
 
     if (createError) {
@@ -221,8 +221,12 @@ export async function GET(request: Request) {
   }
 
   let redirectPath: string;
-  if (businessProfile && businessProfile.business_name) {
+  // Check if user has completed onboarding
+  if (businessProfile?.is_onboarded || (businessProfile?.store_id && businessProfile?.onboarding_step === null)) {
     redirectPath = validateRedirectUrl(nextParam || '/dashboard', requestUrl.origin);
+  } else if (businessProfile?.onboarding_step) {
+    // User has started onboarding, continue from their current step
+    redirectPath = `/onboarding/${businessProfile.onboarding_step}`;
   } else {
     redirectPath = '/onboarding/personal-details';
   }
