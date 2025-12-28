@@ -144,14 +144,14 @@ export function NotificationDrawer({
               <Button
                 variant="ghost"
                 size="icon"
-                className="size-7 [&_svg]:!h-5 [&_svg]:!w-5 text-gray-500 hover:text-gray-700 flex items-center justify-center relative [&_svg]:pointer-events-auto"
+                className="size-9 [&_svg]:!h-6 [&_svg]:!w-6 text-gray-500 hover:text-[#F4610B] hover:bg-orange-100 flex items-center justify-center relative [&_svg]:pointer-events-auto transition-colors"
                 aria-label={t('notifications.title')}
               >
-                <Bell animateOnHover loop={false} size={20} />
+                <Bell animateOnHover loop={false} size={24} />
                 {totalUnreadCount > 0 && (
                   <span className={cn(
-                    "absolute -top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-[#F4610B] text-[10px] font-bold text-white z-10 min-w-[16px] px-0.5",
-                    isRTL ? "-left-0.5" : "-right-0.5"
+                    "absolute top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-[#F4610B] text-[10px] font-bold text-white z-10 min-w-[16px] px-0.5",
+                    isRTL ? "left-0.5" : "right-0.5"
                   )}>
                     {totalUnreadCount > 99 ? '99+' : totalUnreadCount}
                   </span>

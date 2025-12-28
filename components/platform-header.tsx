@@ -42,6 +42,7 @@ import { AnimateIcon } from '@/components/animate-ui/icons/icon';
 import { Link as AnimatedLink } from '@/components/animate-ui/icons/link';
 import { AdvancedLanguageSelector } from '@/components/advanced-language-selector';
 import { SimpleLanguageSwitcher } from '@/components/simple-language-switcher';
+import { OnboardingStepper } from '@/components/onboarding-stepper';
 import { supabase } from '@/lib/supabase/client';
 import { useState, useEffect } from 'react';
 import * as React from 'react';
@@ -49,6 +50,12 @@ import * as React from 'react';
 const HAADY_LOGO_URL = 'https://rovphhvuuxwbhgnsifto.supabase.co/storage/v1/object/public/assets/haady-icon.svg';
 
 export type HeaderVariant = 'default' | 'landing' | 'onboarding';
+
+interface OnboardingStep {
+  id: string;
+  title: string;
+  titleAr?: string;
+}
 
 interface PlatformHeaderProps {
   variant?: HeaderVariant;
@@ -62,6 +69,9 @@ interface PlatformHeaderProps {
     flag_url?: string;
   } | null;
   onLanguageToggle?: () => void;
+  // Onboarding specific props
+  onboardingSteps?: OnboardingStep[];
+  currentOnboardingStep?: number;
 }
 
 export function PlatformHeader({
@@ -72,6 +82,8 @@ export function PlatformHeader({
   homeUrl,
   currentCountry,
   onLanguageToggle,
+  onboardingSteps,
+  currentOnboardingStep,
 }: PlatformHeaderProps) {
   const t = useTranslations();
   const { isRTL, locale, setLocale } = useLocale();
@@ -192,32 +204,57 @@ export function PlatformHeader({
       }
 
       try {
+        // First try to get from store_connections
         const { data, error } = await supabase
           .from('store_connections')
           .select('id, store_name, platform, store_logo_url, logo_zoom')
           .eq('user_id', user.id)
           .order('created_at', { ascending: false });
 
-        if (error || !data?.length) {
-          setSelectedStoreLabel(null);
-          setSelectedStoreLogo(null);
-          setSelectedStoreLogoZoom(null);
+        if (!error && data?.length) {
+          const savedConnectionId = typeof window !== 'undefined'
+            ? localStorage.getItem('selectedStoreConnectionId')
+            : null;
+
+          const targetConnection = savedConnectionId
+            ? data.find((conn) => conn.id === savedConnectionId) || data[0]
+            : data[0];
+
+          setSelectedStoreLabel(targetConnection?.store_name || targetConnection?.platform || null);
+          setSelectedStoreLogo(targetConnection?.store_logo_url || null);
+          setSelectedStoreLogoZoom(targetConnection?.logo_zoom || null);
           return;
         }
 
-        const savedConnectionId = typeof window !== 'undefined'
-          ? localStorage.getItem('selectedStoreConnectionId')
-          : null;
+        // If no store_connections, try to get from stores table via business_profile
+        const { data: businessProfile } = await supabase
+          .from('business_profile')
+          .select('id, store_id')
+          .eq('auth_user_id', user.id)
+          .maybeSingle();
 
-        const targetConnection = savedConnectionId
-          ? data.find((conn) => conn.id === savedConnectionId) || data[0]
-          : data[0];
+        if (businessProfile?.store_id) {
+          const { data: store } = await supabase
+            .from('stores')
+            .select('id, name, logo_url')
+            .eq('id', businessProfile.store_id)
+            .maybeSingle();
 
-        setSelectedStoreLabel(targetConnection?.store_name || targetConnection?.platform || null);
-        setSelectedStoreLogo(targetConnection?.store_logo_url || null);
-        setSelectedStoreLogoZoom(targetConnection?.logo_zoom || null);
+          if (store) {
+            setSelectedStoreLabel(store.name || null);
+            setSelectedStoreLogo(store.logo_url || null);
+            setSelectedStoreLogoZoom(null);
+            return;
+          }
+        }
+
+        // No store data found - but don't set to null, let businessName be used as fallback
+        setSelectedStoreLabel(null);
+        setSelectedStoreLogo(null);
+        setSelectedStoreLogoZoom(null);
       } catch (error) {
         console.error('Error fetching selected store:', error);
+        // Don't set to null on error, let businessName be used as fallback
         setSelectedStoreLabel(null);
         setSelectedStoreLogo(null);
         setSelectedStoreLogoZoom(null);
@@ -347,150 +384,125 @@ export function PlatformHeader({
 
             {/* Right side actions - Right aligned */}
             <div className="flex items-center gap-3 flex-shrink-0 z-10">
-              {/* User avatar dropdown - Show when logged in */}
-              {user && !loading && (
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <button
-                      className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-800 text-white text-sm font-medium hover:ring-2 hover:ring-orange-500 hover:ring-offset-2 transition-all focus:outline-none cursor-pointer shrink-0 overflow-hidden"
-                      aria-label="User menu"
+              {/* Landing page CTA buttons - Contextual based on user state */}
+              {loading || isLoadingBusinessName ? (
+                // Auth state or business name is loading - show skeleton
+                <>
+                  <div className="flex items-center gap-3">
+                    {/* Store logo skeleton */}
+                    <Skeleton className="h-10 w-10 rounded-lg shrink-0" />
+                    {/* Store name and dashboard text skeleton */}
+                    <div className="flex flex-col gap-1.5">
+                      <Skeleton className="h-4 w-24 rounded" />
+                      <Skeleton className="h-3 w-16 rounded" />
+                    </div>
+                  </div>
+                  {/* Language switcher skeleton */}
+                  <Skeleton className="h-10 w-24 rounded-md" />
+                  {/* Mobile menu skeleton */}
+                  <Skeleton className="h-10 w-10 rounded-md lg:hidden" />
+                </>
+              ) : (
+                <>
+                  {user ? (
+                // User is logged in
+                hasCompletedOnboarding ? (
+                  // User completed onboarding - Show store logo, name, and Dashboard link
+                  <Link
+                    href={localizedUrl('/dashboard')}
+                    suppressHydrationWarning
+                    className="group flex items-center gap-3 p-2 pr-4 rounded-lg hover:bg-[#F4610B]/5 transition-colors cursor-pointer"
+                  >
+                    {/* Store Logo */}
+                    <div
+                      className={`flex h-10 w-10 items-center justify-center rounded-lg shrink-0 overflow-hidden relative ${
+                        selectedStoreLogo ? '' : 'bg-[#F4610B]/10'
+                      }`}
                     >
-                      {user?.user_metadata?.avatar_url ? (
+                      {selectedStoreLogo ? (
                         <img
-                          src={user.user_metadata.avatar_url}
-                          alt={user.user_metadata?.full_name || 'User avatar'}
-                          className="h-full w-full object-cover"
+                          src={selectedStoreLogo}
+                          alt="Store Logo"
+                          className="absolute inset-0 h-full w-full object-cover"
+                          style={{
+                            transform: `scale(${(selectedStoreLogoZoom || 100) / 100})`,
+                            transition: 'transform 0.2s ease-out',
+                          }}
                         />
                       ) : (
-                        userInitials
+                        <Store className="h-5 w-5 text-[#F4610B] relative z-10" />
                       )}
-                    </button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent
-                    align="end"
-                    side="bottom"
-                    sideOffset={8}
-                    className="w-56 rounded-2xl p-0 shadow-[0_20px_60px_rgba(15,23,42,0.15)] bg-white overflow-hidden border-0"
-                  >
-                    {/* User info header */}
-                    <div className="px-4 py-3 bg-gray-50 border-b border-gray-100">
-                      <p className="text-sm font-semibold text-gray-900 truncate">
-                        {user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'User'}
-                      </p>
-                      <p className="text-xs text-gray-500 truncate">{user?.email}</p>
                     </div>
-                    <div className="p-2 space-y-1">
-                      {hasCompletedOnboarding && (
-                        <>
-                          <DropdownMenuItem
-                            onSelect={(e) => {
-                              e.preventDefault();
-                              router.push(localizedUrl('/dashboard'));
-                            }}
-                            className="cursor-pointer rounded-xl flex items-center gap-2 text-sm font-medium text-gray-900 hover:bg-gray-100"
-                          >
-                            <LayoutDashboard className="h-4 w-4 text-gray-400" />
-                            {locale === 'ar' ? 'لوحة التحكم' : 'Dashboard'}
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onSelect={(e) => {
-                              e.preventDefault();
-                              router.push(localizedUrl('/dashboard/settings/account'));
-                            }}
-                            className="cursor-pointer rounded-xl flex items-center gap-2 text-sm font-medium text-gray-900 hover:bg-gray-100"
-                          >
-                            <Settings className="h-4 w-4 text-gray-400" />
-                            {locale === 'ar' ? 'إعدادات الحساب' : 'Account Settings'}
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator className="my-2 bg-gray-100" />
-                        </>
-                      )}
-                      <DropdownMenuItem
-                        onSelect={(e) => {
-                          e.preventDefault();
-                          handleSignOut();
-                        }}
-                        className="cursor-pointer rounded-xl flex items-center gap-2 text-sm font-medium text-red-600 hover:bg-red-50 focus:bg-red-50 focus:text-red-600"
-                      >
-                        <LogOut className="h-4 w-4 text-red-600" />
-                        {locale === 'ar' ? 'تسجيل الخروج' : 'Sign Out'}
-                      </DropdownMenuItem>
+                    {/* Store Name and Dashboard Link */}
+                    <div className="flex flex-col items-start text-left min-w-0">
+                      <span className="text-sm font-medium text-gray-900 group-hover:text-[#F4610B] leading-tight truncate max-w-[200px] transition-colors">
+                        {selectedStoreLabel || businessName || 'Store'}
+                      </span>
+                      <span className="text-xs text-gray-600 group-hover:text-[#F4610B] transition-colors">
+                        Dashboard
+                      </span>
                     </div>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              )}
-
-              {/* Landing page CTA buttons - Contextual based on user state */}
-              {loading ? (
-                // Auth state is loading - show skeleton
-                <Skeleton className="h-10 w-36 rounded-md" />
-              ) : user ? (
-                // User is logged in
-                isLoadingBusinessName ? (
-                  <Skeleton className="h-10 w-32 rounded-md" />
-                ) : hasCompletedOnboarding ? (
-                  // User completed onboarding - Go to Dashboard
-                  <Button
-                    asChild
-                    className="text-sm bg-black text-white hover:bg-orange-500 transition-colors font-medium px-6"
-                  >
-                    <Link href={localizedUrl('/dashboard')} suppressHydrationWarning className="flex items-center gap-2">
-                      <LayoutDashboard className="h-4 w-4" />
-                      <span>{locale === 'ar' ? 'لوحة التحكم' : 'Dashboard'}</span>
-                    </Link>
-                  </Button>
-                ) : (
-                  // User not completed onboarding - Complete Setup
-                  <Button
-                    asChild
-                    className="text-sm bg-[#F46100] hover:bg-black text-white font-medium px-6 transition-colors"
-                  >
-                    <Link href={localizedUrl('/onboarding')} suppressHydrationWarning className="flex items-center gap-2">
-                      <span>{t('landing.header.completeSetup')}</span>
-                      <ArrowRight className={`h-4 w-4 ${isRTL ? 'rotate-180' : ''}`} />
-                    </Link>
-                  </Button>
-                )
-              ) : (
-                // Not logged in - Connect Your Store
-                <Button
-                  asChild
-                  className="text-sm bg-[#F46100] hover:bg-black text-white font-medium px-6 group transition-colors duration-0"
-                >
-                  <Link href={localizedUrl('/auth/signup')} suppressHydrationWarning className="flex items-center gap-2">
-                    <AnimateIcon animateOnHover className="group-hover:animate-in">
-                      <AnimatedLink className="h-4 w-4" />
-                    </AnimateIcon>
-                    {t('landing.integrations.cta')}
                   </Link>
-                </Button>
-              )}
-
-              {/* Language switcher */}
-              <Button
-                variant="ghost"
-                onClick={handleLanguageToggle}
-                className="flex items-center gap-2 text-sm h-10 text-gray-600 hover:text-orange-500 hover:bg-orange-100 transition-colors"
-              >
-                {currentCountry && currentCountry.flag_url ? (
-                  <Flag
-                    countryName={currentCountry.name}
-                    flagUrl={currentCountry.flag_url}
-                    size="m"
-                    className="shrink-0"
-                  />
+                  ) : (
+                    // User not completed onboarding - Complete Setup
+                    <Button
+                      asChild
+                      className="text-sm bg-[#F46100] hover:bg-black text-white font-medium px-6 transition-colors"
+                    >
+                      <Link href={localizedUrl('/onboarding')} suppressHydrationWarning className="flex items-center gap-2">
+                        <span>{t('landing.header.completeSetup')}</span>
+                        <ArrowRight className={`h-4 w-4 ${isRTL ? 'rotate-180' : ''}`} />
+                      </Link>
+                    </Button>
+                  )
                 ) : (
-                  <Globe className="h-4 w-4" />
+                  // Not logged in - Join Haady and Login buttons
+                  <>
+                    <Button
+                      asChild
+                      variant="ghost"
+                      className="text-sm text-gray-700 hover:text-[#F4610B] hover:bg-orange-50 font-medium px-4 transition-colors"
+                    >
+                      <Link href={localizedUrl('/auth/login')} suppressHydrationWarning>
+                        {t('common.login')}
+                      </Link>
+                    </Button>
+                    <Button
+                      asChild
+                      className="text-sm bg-[#F46100] hover:bg-black text-white font-medium px-6 transition-colors"
+                    >
+                      <Link href={localizedUrl('/auth/signup')} suppressHydrationWarning>
+                        Join Haady
+                      </Link>
+                    </Button>
+                  </>
                 )}
-                <span
-                  style={locale === 'en' ? { fontFamily: 'var(--font-ibm-plex-arabic), sans-serif' } : undefined}
-                >
-                  {locale === 'en' ? 'العربية' : 'English'}
-                </span>
-              </Button>
 
-              {/* Mobile menu */}
-              <Sheet>
+                {/* Language switcher */}
+                <Button
+                  variant="ghost"
+                  onClick={handleLanguageToggle}
+                  className="flex items-center gap-2 text-sm h-10 text-gray-600 hover:text-orange-500 hover:bg-orange-100 transition-colors"
+                >
+                  {currentCountry && currentCountry.flag_url ? (
+                    <Flag
+                      countryName={currentCountry.name}
+                      flagUrl={currentCountry.flag_url}
+                      size="m"
+                      className="shrink-0"
+                    />
+                  ) : (
+                    <Globe className="h-4 w-4" />
+                  )}
+                  <span
+                    style={locale === 'en' ? { fontFamily: 'var(--font-ibm-plex-arabic), sans-serif' } : undefined}
+                  >
+                    {locale === 'en' ? 'العربية' : 'English'}
+                  </span>
+                </Button>
+
+                {/* Mobile menu */}
+                <Sheet>
                 <SheetTrigger asChild>
                   <Button variant="ghost" className="lg:hidden" size="icon" aria-label={t('landing.header.mobileMenu')}>
                     <Menu className="h-5 w-5" />
@@ -554,21 +566,33 @@ export function PlatformHeader({
                         </Button>
                       )
                     ) : (
-                      <Button
-                        asChild
-                        className="w-full bg-[#F46100] hover:bg-black text-white font-medium group transition-colors duration-0"
-                      >
-                        <Link
-                          href={localizedUrl('/auth/signup')}
-                          suppressHydrationWarning
-                          className="flex items-center justify-center gap-2"
+                      <div className="flex flex-col gap-2 w-full">
+                        <Button
+                          asChild
+                          variant="outline"
+                          className="w-full border-gray-300 text-gray-700 hover:text-[#F4610B] hover:bg-orange-50 hover:border-orange-200 font-medium transition-colors"
                         >
-                          <AnimateIcon animateOnHover className="group-hover:animate-in">
-                            <AnimatedLink className="h-4 w-4" />
-                          </AnimateIcon>
-                          {t('landing.integrations.cta')}
-                        </Link>
-                      </Button>
+                          <Link
+                            href={localizedUrl('/auth/login')}
+                            suppressHydrationWarning
+                            className="flex items-center justify-center"
+                          >
+                            {t('common.login')}
+                          </Link>
+                        </Button>
+                        <Button
+                          asChild
+                          className="w-full bg-[#F46100] hover:bg-black text-white font-medium transition-colors"
+                        >
+                          <Link
+                            href={localizedUrl('/auth/signup')}
+                            suppressHydrationWarning
+                            className="flex items-center justify-center"
+                          >
+                            Join Haady
+                          </Link>
+                        </Button>
+                      </div>
                     )}
                     <div className="flex items-center justify-between rounded-lg border border-border px-3 py-2">
                       <span className="text-sm text-muted-foreground">{t('landing.header.mobileLanguage')}</span>
@@ -615,15 +639,106 @@ export function PlatformHeader({
                   </div>
                 </SheetContent>
               </Sheet>
+                </>
+              )}
             </div>
           </div>
         </div>
       ) : (
         // Default and onboarding variants: Standard layout
         <div className="container mx-auto px-4">
-          <div className={`flex items-center justify-between ${variant !== 'onboarding' ? 'h-[100px]' : ''}`}>
-            {/* Logo */}
-            {variant !== 'onboarding' && (
+          {variant === 'onboarding' ? (
+            // Onboarding variant: Logo, stepper, and actions all in one row
+            <div className="flex items-center justify-between gap-4 py-6">
+              {/* Logo */}
+              <Link
+                href={logoUrl}
+                className="flex items-center gap-3 hover:opacity-80 transition-opacity flex-shrink-0"
+                suppressHydrationWarning
+              >
+                <Image
+                  src={HAADY_LOGO_URL}
+                  alt="Haady"
+                  width={48}
+                  height={48}
+                  className="w-12 h-12"
+                />
+                <span className="text-xl font-light tracking-tight text-foreground">
+                  {locale === 'ar' ? 'الأعمال' : 'Business'}
+                </span>
+                {process.env.NEXT_PUBLIC_VERCEL_ENV === 'preview' && (
+                  <span className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-medium">
+                    Preview
+                  </span>
+                )}
+              </Link>
+
+              {/* Stepper - Centered */}
+              {onboardingSteps && typeof currentOnboardingStep === 'number' && (
+                <div className="flex-1 flex justify-center">
+                  <OnboardingStepper
+                    steps={onboardingSteps}
+                    currentStep={currentOnboardingStep}
+                    locale={locale}
+                  />
+                </div>
+              )}
+
+              {/* Right side actions */}
+              <div className="flex items-center gap-3 flex-shrink-0">
+                {/* Language switcher */}
+                <Button
+                  variant="ghost"
+                  onClick={handleLanguageToggle}
+                  className="flex items-center gap-2 text-sm h-10 text-gray-700 hover:bg-gray-100 hover:text-gray-900 transition-colors"
+                >
+                  <Globe className="h-4 w-4 text-gray-600" />
+                  <span 
+                    style={locale === 'en' ? { fontFamily: 'var(--font-ibm-plex-arabic), sans-serif' } : undefined} 
+                    className="text-gray-700"
+                  >
+                    {locale === 'en' ? 'العربية' : 'English'}
+                  </span>
+                </Button>
+
+                {/* User avatar */}
+                {showUserInfo && user && (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button
+                        className="flex h-9 w-9 items-center justify-center rounded-full bg-gray-800 text-white text-sm font-medium hover:bg-orange-500 transition-colors focus:outline-none cursor-pointer shrink-0"
+                        aria-label="User menu"
+                      >
+                        {userInitials}
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent
+                      align="end"
+                      side="bottom"
+                      sideOffset={8}
+                      className="w-48 rounded-2xl p-0 shadow-[0_20px_60px_rgba(15,23,42,0.15)] bg-white overflow-hidden border-0"
+                    >
+                      <div className="p-2 space-y-1">
+                        <DropdownMenuItem
+                          onSelect={(e) => {
+                            e.preventDefault();
+                            handleSignOut();
+                          }}
+                          className="cursor-pointer rounded-md flex items-center gap-2 text-sm font-medium text-red-600 hover:bg-red-50 focus:bg-red-50 focus:text-red-600"
+                        >
+                          <LogOut className="h-4 w-4 text-red-600" />
+                          Sign Out
+                        </DropdownMenuItem>
+                      </div>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                )}
+              </div>
+            </div>
+          ) : (
+            <div className="flex items-center justify-between h-[100px]">
+              {/* Logo */}
+              {(
               <div className="flex items-center gap-4">
                 <Link
                   href={logoUrl}
@@ -732,19 +847,8 @@ export function PlatformHeader({
                 </DropdownMenu>
               )}
 
-              {/* Language switcher for onboarding */}
-              {variant === 'onboarding' ? (
-                <Button
-                  variant="ghost"
-                  onClick={handleLanguageToggle}
-                  className="flex items-center gap-2 text-sm h-10 text-gray-600 hover:text-orange-500 hover:bg-orange-100 transition-colors"
-                >
-                  <Globe className="h-4 w-4" />
-                  <span>{locale === 'en' ? 'AR' : 'EN'}</span>
-                </Button>
-              ) : (
-                // Default variant - show full user menu for completed onboarding
-                showUserInfo && hasCompletedOnboarding && !isLoadingBusinessName && (
+              {/* Default variant - show full user menu for completed onboarding */}
+              {variant === 'default' && showUserInfo && hasCompletedOnboarding && !isLoadingBusinessName && (
                 <>
                   {locale === 'ar' && <AdvancedLanguageSelector />}
                   <DropdownMenu>
@@ -925,10 +1029,10 @@ export function PlatformHeader({
                   </Button>
                   {locale !== 'ar' && <AdvancedLanguageSelector />}
                 </>
-              )
               )}
             </div>
           </div>
+          )}
         </div>
       )}
     </header>

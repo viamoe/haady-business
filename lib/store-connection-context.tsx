@@ -4,108 +4,159 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import { useAuth } from '@/lib/auth/auth-context'
 import { supabase } from '@/lib/supabase/client'
 
+// Native Haady store - the primary entity
+interface Store {
+  id: string
+  name: string
+  name_ar?: string | null
+  logo_url?: string | null
+  platform: string
+  is_active: boolean
+}
+
+// External store connection - optional, for connecting to Salla/Zid/Shopify
 interface StoreConnection {
   id: string
   platform: string
   store_external_id: string | null
+  external_store_name?: string | null
   connection_status?: string
   sync_status?: string
 }
 
-interface StoreConnectionContextType {
+interface StoreContextType {
+  // Primary store (native Haady store)
+  store: Store | null
+  storeId: string | null
+  isLoadingStore: boolean
+  
+  // Optional external connections
+  storeConnections: StoreConnection[]
   selectedConnection: StoreConnection | null
-  setSelectedConnection: (connection: StoreConnection | null) => void
   selectedConnectionId: string | null
   setSelectedConnectionId: (id: string | null) => void
   isAnyStoreSyncing: boolean
   isChangingStore: boolean
+  
+  // Refresh function
+  refreshStore: () => Promise<void>
 }
 
-const StoreConnectionContext = createContext<StoreConnectionContextType | undefined>(undefined)
+const StoreContext = createContext<StoreContextType | undefined>(undefined)
 
 export function StoreConnectionProvider({ children }: { children: ReactNode }) {
+  // Primary store state
+  const [store, setStore] = useState<Store | null>(null)
+  const [storeId, setStoreId] = useState<string | null>(null)
+  const [isLoadingStore, setIsLoadingStore] = useState(true)
+  
+  // External connections state (optional)
+  const [storeConnections, setStoreConnections] = useState<StoreConnection[]>([])
   const [selectedConnectionId, setSelectedConnectionIdState] = useState<string | null>(null)
-  const [selectedConnection, setSelectedConnectionState] = useState<StoreConnection | null>(null)
+  const [selectedConnection, setSelectedConnection] = useState<StoreConnection | null>(null)
   const [isAnyStoreSyncing, setIsAnyStoreSyncing] = useState(false)
   const [isChangingStore, setIsChangingStore] = useState(false)
+  
   const { user } = useAuth()
-  const hasAutoSelectedRef = React.useRef(false)
   const userId = user?.id ?? null
   const syncCheckIntervalRef = React.useRef<NodeJS.Timeout | null>(null)
   const changingStoreTimeoutRef = React.useRef<NodeJS.Timeout | null>(null)
-  const selectedConnectionIdRef = React.useRef<string | null>(null)
 
-  // Load from localStorage on mount
-  useEffect(() => {
-    const savedId = localStorage.getItem('selectedStoreConnectionId')
-    if (savedId) {
-      setSelectedConnectionIdState(savedId)
+  // Fetch the user's primary store from business_profile -> stores
+  const fetchStore = async () => {
+    if (!userId) {
+      setStore(null)
+      setStoreId(null)
+      setIsLoadingStore(false)
+      return
     }
-  }, [])
 
-  // Auto-select latest store if no selection exists and user is logged in
-  useEffect(() => {
-    if (!userId || hasAutoSelectedRef.current) return
+    setIsLoadingStore(true)
     
-    // Wait a bit for localStorage to be checked first
-    const checkAndAutoSelect = async () => {
-      // Small delay to ensure localStorage check has completed
-      await new Promise(resolve => setTimeout(resolve, 100))
+    try {
+      // Get user's store_id from business_profile
+      const { data: profile, error: profileError } = await supabase
+        .from('business_profile')
+        .select('store_id')
+        .eq('auth_user_id', userId)
+        .maybeSingle()
       
-      // Check if we already have a selection (from localStorage or current state)
-      const savedSelection = localStorage.getItem('selectedStoreConnectionId')
-      const currentSelection = selectedConnectionId || savedSelection
+      if (profileError) {
+        console.error('Error fetching business profile:', profileError)
+        setStore(null)
+        setStoreId(null)
+        setIsLoadingStore(false)
+        return
+      }
       
-      if (currentSelection) {
-        // Verify the saved connection still exists
-        try {
-          const { data: connection } = await supabase
-            .from('store_connections')
-            .select('id')
-            .eq('id', currentSelection)
-            .eq('user_id', userId)
-            .maybeSingle()
-
-          if (connection) {
-            // Valid selection exists, ensure it's set in state
-            if (!selectedConnectionId) {
-              setSelectedConnectionIdState(currentSelection)
-            }
-            hasAutoSelectedRef.current = true
-            return
-          }
-        } catch (error) {
-          console.error('Error verifying saved connection:', error)
+      if (!profile?.store_id) {
+        // User doesn't have a store yet (might still be in onboarding)
+        setStore(null)
+        setStoreId(null)
+        setIsLoadingStore(false)
+        return
+      }
+      
+      // Fetch the store details
+      const { data: storeData, error: storeError } = await supabase
+        .from('stores')
+        .select('id, name, name_ar, logo_url, platform, is_active')
+        .eq('id', profile.store_id)
+        .maybeSingle()
+      
+      if (storeError) {
+        console.error('Error fetching store:', storeError)
+        setStore(null)
+        setStoreId(profile.store_id) // Keep the ID even if fetch failed
+        setIsLoadingStore(false)
+        return
+      }
+      
+      setStore(storeData)
+      setStoreId(storeData?.id || profile.store_id)
+      
+      // Also fetch any external connections for this store (optional)
+      const { data: connections } = await supabase
+        .from('store_connections')
+        .select('id, platform, store_external_id, external_store_name, connection_status, sync_status')
+        .eq('store_id', profile.store_id)
+        .order('created_at', { ascending: false })
+      
+      setStoreConnections(connections || [])
+      
+      // Auto-select first connection if none selected
+      if (connections && connections.length > 0 && !selectedConnectionId) {
+        const savedId = localStorage.getItem('selectedStoreConnectionId')
+        const validSavedConnection = connections.find(c => c.id === savedId)
+        
+        if (validSavedConnection) {
+          setSelectedConnectionIdState(savedId)
+          setSelectedConnection(validSavedConnection)
+        } else {
+          // Select the first one
+          setSelectedConnectionIdState(connections[0].id)
+          setSelectedConnection(connections[0])
+          localStorage.setItem('selectedStoreConnectionId', connections[0].id)
         }
       }
-
-      // No valid selection exists, get latest store connection
-      try {
-        const { data: connections } = await supabase
-          .from('store_connections')
-          .select('id, platform, store_external_id')
-          .eq('user_id', userId)
-          .order('created_at', { ascending: false })
-          .limit(1)
-
-        if (connections && connections.length > 0) {
-          const latestConnection = connections[0]
-          setSelectedConnectionIdState(latestConnection.id)
-          localStorage.setItem('selectedStoreConnectionId', latestConnection.id)
-          window.dispatchEvent(new CustomEvent('storeConnectionChanged', { detail: latestConnection.id }))
-          hasAutoSelectedRef.current = true
-        }
-      } catch (error) {
-        console.error('Error auto-selecting store:', error)
-      }
+      
+    } catch (error) {
+      console.error('Exception fetching store:', error)
+      setStore(null)
+      setStoreId(null)
+    } finally {
+      setIsLoadingStore(false)
     }
+  }
 
-    checkAndAutoSelect()
+  // Load store on mount and when user changes
+  useEffect(() => {
+    fetchStore()
   }, [userId])
 
-  // Check if any store is syncing
-  React.useEffect(() => {
-    if (!userId) {
+  // Check if any external store is syncing (optional feature)
+  useEffect(() => {
+    if (!storeId) {
       setIsAnyStoreSyncing(false)
       return
     }
@@ -115,7 +166,7 @@ export function StoreConnectionProvider({ children }: { children: ReactNode }) {
         const { data: connections } = await supabase
           .from('store_connections')
           .select('id, sync_status')
-          .eq('user_id', userId)
+          .eq('store_id', storeId)
 
         const isSyncing = connections?.some(conn => conn.sync_status === 'syncing') || false
         setIsAnyStoreSyncing(isSyncing)
@@ -127,61 +178,45 @@ export function StoreConnectionProvider({ children }: { children: ReactNode }) {
     // Check immediately
     checkSyncingStatus()
 
-    // Poll every 2 seconds to check sync status
-    syncCheckIntervalRef.current = setInterval(checkSyncingStatus, 2000)
+    // Poll every 5 seconds to check sync status (reduced frequency since it's optional)
+    syncCheckIntervalRef.current = setInterval(checkSyncingStatus, 5000)
 
     return () => {
       if (syncCheckIntervalRef.current) {
         clearInterval(syncCheckIntervalRef.current)
       }
     }
-  }, [userId])
+  }, [storeId])
 
-  // Listen for store connection changes
+  // Update selected connection when storeConnections or selectedConnectionId changes
   useEffect(() => {
-    const handleConnectionChange = (event: CustomEvent) => {
-      const connectionId = event.detail
-      // Update state directly - don't trigger loading here since setSelectedConnectionId already handles it
-      setSelectedConnectionIdState(connectionId)
-      localStorage.setItem('selectedStoreConnectionId', connectionId)
+    if (selectedConnectionId && storeConnections.length > 0) {
+      const connection = storeConnections.find(c => c.id === selectedConnectionId)
+      setSelectedConnection(connection || null)
+    } else {
+      setSelectedConnection(null)
     }
-
-    window.addEventListener('storeConnectionChanged', handleConnectionChange as EventListener)
-    return () => {
-      window.removeEventListener('storeConnectionChanged', handleConnectionChange as EventListener)
-      // Don't clear timeout here - it should complete naturally
-      // Only clear on unmount (handled by separate cleanup effect)
-    }
-  }, []) // Empty deps - listener should persist, don't recreate on state changes
-
-  // Keep ref in sync with state
-  useEffect(() => {
-    selectedConnectionIdRef.current = selectedConnectionId
-  }, [selectedConnectionId])
+  }, [selectedConnectionId, storeConnections])
 
   const setSelectedConnectionId = (id: string | null) => {
     const previousId = selectedConnectionId
     
-    // Only show loading if it's a different store (not initial load)
+    // Only show loading if it's a different connection
     if (previousId && previousId !== id) {
-      // Clear any existing timeout
       if (changingStoreTimeoutRef.current) {
         clearTimeout(changingStoreTimeoutRef.current)
         changingStoreTimeoutRef.current = null
       }
       
-      // Show loading immediately when store changes
       setIsChangingStore(true)
       
-      // Hide loading after transition completes
       const timeoutId = setTimeout(() => {
-        // Check if this timeout was cleared (another timeout replaced it)
         if (changingStoreTimeoutRef.current !== timeoutId) {
           return
         }
         setIsChangingStore(false)
         changingStoreTimeoutRef.current = null
-      }, 800) // Display for 800ms
+      }, 800)
       changingStoreTimeoutRef.current = timeoutId
     }
     
@@ -192,15 +227,6 @@ export function StoreConnectionProvider({ children }: { children: ReactNode }) {
       localStorage.removeItem('selectedStoreConnectionId')
     }
     window.dispatchEvent(new CustomEvent('storeConnectionChanged', { detail: id }))
-  }
-
-  const setSelectedConnection = (connection: StoreConnection | null) => {
-    setSelectedConnectionState(connection)
-    if (connection) {
-      setSelectedConnectionId(connection.id)
-    } else {
-      setSelectedConnectionId(null)
-    }
   }
 
   // Cleanup on unmount
@@ -215,26 +241,37 @@ export function StoreConnectionProvider({ children }: { children: ReactNode }) {
   }, [])
 
   return (
-    <StoreConnectionContext.Provider
+    <StoreContext.Provider
       value={{
+        // Primary store
+        store,
+        storeId,
+        isLoadingStore,
+        
+        // External connections (optional)
+        storeConnections,
         selectedConnection,
-        setSelectedConnection,
         selectedConnectionId,
         setSelectedConnectionId,
         isAnyStoreSyncing,
         isChangingStore,
+        
+        // Refresh
+        refreshStore: fetchStore,
       }}
     >
       {children}
-    </StoreConnectionContext.Provider>
+    </StoreContext.Provider>
   )
 }
 
 export function useStoreConnection() {
-  const context = useContext(StoreConnectionContext)
+  const context = useContext(StoreContext)
   if (context === undefined) {
     throw new Error('useStoreConnection must be used within a StoreConnectionProvider')
   }
   return context
 }
 
+// Alias for clearer naming
+export const useStore = useStoreConnection

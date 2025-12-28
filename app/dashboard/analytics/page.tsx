@@ -2,11 +2,11 @@ import { redirect } from 'next/navigation'
 import { createServerSupabase } from '@/lib/supabase/server'
 import { cookies } from 'next/headers'
 import { getLocalizedUrlFromRequest } from '@/lib/localized-url'
-import { StoreSettingsContent } from './store-settings-content'
+import { AnalyticsContent } from './analytics-content'
 
 export const dynamic = 'force-dynamic'
 
-export default async function StoreSettingsPage() {
+export default async function AnalyticsPage() {
   const supabase = await createServerSupabase()
   const {
     data: { user },
@@ -47,7 +47,7 @@ export default async function StoreSettingsPage() {
   }
 
   return (
-    <StoreSettingsContent />
+    <AnalyticsContent />
   )
 }
 

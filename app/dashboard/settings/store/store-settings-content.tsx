@@ -1,81 +1,40 @@
 'use client'
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { Store } from 'lucide-react'
-import { useStoreConnection } from '@/lib/store-connection-context'
 import { useLocale } from '@/i18n/context'
-import { useState, useEffect, useRef, useMemo, useCallback, memo } from 'react'
-import { usePathname } from 'next/navigation'
-import { useTranslations } from 'next-intl'
-import { toast } from '@/lib/toast'
-import { handleError, safeFetch } from '@/lib/error-handler'
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog'
-import { ProductApprovalModal, ProductPreview } from '@/components/product-approval-modal'
-import { Button } from '@/components/ui/button'
+import { useState, useEffect, useRef } from 'react'
 import { Skeleton } from '@/components/ui/skeleton'
-import Image from 'next/image'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import {
-  RefreshCw,
-  X,
-  AlertCircle,
-  Clock,
-  Loader2,
-  CheckCircle2,
-  Link2,
-  ArrowRight,
-} from 'lucide-react'
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbList,
+  BreadcrumbLink,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from '@/components/ui/breadcrumb'
+import { Store, User, Bell, Shield, Globe } from 'lucide-react'
 import Link from 'next/link'
+import { useTranslations } from 'next-intl'
+import { usePathname } from 'next/navigation'
 
-interface StoreConnection {
-  id: string
-  platform: string
-  store_external_id: string | null
-  store_name?: string | null
-  store_domain?: string | null
-  store_logo_url?: string | null
-  logo_zoom?: number | null
-  connection_status?: string
-  sync_status?: string
-  last_sync_at?: string
-  last_error?: string | null
-  expires_at?: string | null
-  created_at?: string
-}
-
-interface SettingsContentProps {
-  storeConnections?: StoreConnection[]
-}
-
-const ECOMMERCE_STORAGE_URL = 'https://rovphhvuuxwbhgnsifto.supabase.co/storage/v1/object/public/assets/ecommerce';
-
-export function StoreSettingsContent({ storeConnections = [] }: SettingsContentProps) {
-  const pathname = usePathname()
-  const t = useTranslations()
-  const { selectedConnectionId } = useStoreConnection()
+export function StoreSettingsContent() {
   const { locale, isRTL } = useLocale()
+  const t = useTranslations()
+  const pathname = usePathname()
   const [isLoading, setIsLoading] = useState(true)
   const hasLoadedRef = useRef(false)
-  
-  // Helper function to detect if text contains Arabic characters
-  const containsArabic = (text: string | null | undefined): boolean => {
-    if (!text) return false
-    const arabicPattern = /[\u0600-\u06FF]/
-    return arabicPattern.test(text)
-  }
-  
-  // Get page name from pathname
-  const pageName = pathname.split('/').filter(Boolean).pop() || 'Settings'
-  const capitalizedPageName = pageName.charAt(0).toUpperCase() + pageName.slice(1)
+
+  // Get sub-page name from pathname for breadcrumb
+  const pathSegments = pathname.split('/').filter(Boolean)
+  const isSubPage = pathSegments.length > 2 && pathSegments[1] === 'settings' && pathSegments[2] !== undefined
+  const subPageName = isSubPage ? pathSegments[2] : null
+  const subPageTitle = subPageName === 'store' 
+    ? (locale === 'ar' ? 'المتجر' : 'Store')
+    : subPageName === 'account'
+    ? (locale === 'ar' ? 'الحساب' : 'Account')
+    : subPageName 
+    ? subPageName.charAt(0).toUpperCase() + subPageName.slice(1)
+    : null
 
   useEffect(() => {
     // Only show skeleton on initial mount, not on subsequent renders
@@ -93,823 +52,162 @@ export function StoreSettingsContent({ storeConnections = [] }: SettingsContentP
     return () => clearTimeout(timer)
   }, [])
 
+  const settingsSections = [
+    {
+      id: 'store',
+      title: locale === 'ar' ? 'إعدادات المتجر' : 'Store Settings',
+      description: locale === 'ar' ? 'إدارة معلومات المتجر والإعدادات' : 'Manage your store information and settings',
+      icon: Store,
+      href: '/dashboard/settings/store',
+      iconColor: 'text-blue-600',
+      iconBg: 'bg-blue-100',
+    },
+    {
+      id: 'account',
+      title: locale === 'ar' ? 'إعدادات الحساب' : 'Account Settings',
+      description: locale === 'ar' ? 'إدارة معلومات حسابك الشخصي' : 'Manage your personal account information',
+      icon: User,
+      href: '/dashboard/settings/account',
+      iconColor: 'text-green-600',
+      iconBg: 'bg-green-100',
+    },
+    {
+      id: 'notifications',
+      title: locale === 'ar' ? 'الإشعارات' : 'Notifications',
+      description: locale === 'ar' ? 'إدارة تفضيلات الإشعارات' : 'Manage your notification preferences',
+      icon: Bell,
+      href: '/dashboard/settings/notifications',
+      iconColor: 'text-yellow-600',
+      iconBg: 'bg-yellow-100',
+    },
+    {
+      id: 'security',
+      title: locale === 'ar' ? 'الأمان' : 'Security',
+      description: locale === 'ar' ? 'إعدادات الأمان وكلمة المرور' : 'Security and password settings',
+      icon: Shield,
+      href: '/dashboard/settings/security',
+      iconColor: 'text-red-600',
+      iconBg: 'bg-red-100',
+    },
+    {
+      id: 'language',
+      title: locale === 'ar' ? 'اللغة' : 'Language & Region',
+      description: locale === 'ar' ? 'إعدادات اللغة والمنطقة' : 'Language and regional settings',
+      icon: Globe,
+      href: '/dashboard/settings/language',
+      iconColor: 'text-purple-600',
+      iconBg: 'bg-purple-100',
+    },
+  ]
+
   return (
     <div className="h-full" lang={locale} dir={isRTL ? 'rtl' : 'ltr'}>
       {isLoading ? (
         // Skeleton
-        <div className="space-y-4">
-          <Skeleton className="h-32 w-full" />
-          <Skeleton className="h-32 w-full" />
+        <div className="space-y-6 max-w-7xl mx-auto w-full">
+          {/* Breadcrumb Skeleton */}
+          <Breadcrumb>
+            <BreadcrumbList>
+              <BreadcrumbItem>
+                <Skeleton className="h-5 w-20" />
+              </BreadcrumbItem>
+              {isSubPage && (
+                <>
+                  <BreadcrumbSeparator />
+                  <BreadcrumbItem>
+                    <Skeleton className="h-5 w-16" />
+                  </BreadcrumbItem>
+                </>
+              )}
+            </BreadcrumbList>
+          </Breadcrumb>
+
+          <div className="space-y-2 mt-2">
+            <Skeleton className="h-8 w-48" />
+            <Skeleton className="h-4 w-96" />
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {[1, 2, 3, 4, 5].map((i) => (
+              <Skeleton key={i} className="h-32 rounded-3xl" />
+            ))}
+          </div>
         </div>
       ) : (
         // Content with fade-in animation
-        <div className="fade-in-content space-y-6">
+        <div className="fade-in-content space-y-6 max-w-7xl mx-auto w-full">
+          {/* Breadcrumb */}
+          <Breadcrumb>
+            <BreadcrumbList>
+              <BreadcrumbItem>
+                {isSubPage ? (
+                  <BreadcrumbLink asChild>
+                    <Link href="/dashboard/settings" className="text-md font-medium hover:text-foreground">
+                      {locale === 'ar' ? 'الإعدادات' : 'Settings'}
+                    </Link>
+                  </BreadcrumbLink>
+                ) : (
+                  <BreadcrumbPage className="text-md font-medium">
+                    {locale === 'ar' ? 'الإعدادات' : 'Settings'}
+                  </BreadcrumbPage>
+                )}
+              </BreadcrumbItem>
+              {isSubPage && subPageTitle && (
+                <>
+                  <BreadcrumbSeparator />
+                  <BreadcrumbItem>
+                    <BreadcrumbPage className="text-md font-medium">{subPageTitle}</BreadcrumbPage>
+                  </BreadcrumbItem>
+                </>
+              )}
+            </BreadcrumbList>
+          </Breadcrumb>
+
           {/* Page Header */}
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mt-2">
             <div>
               <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">
-                {locale === 'ar' ? 'إعدادات المتجر' : 'Store Settings'}
+                {locale === 'ar' ? 'الإعدادات' : 'Settings'}
               </h1>
               <p className="text-muted-foreground mt-1">
                 {locale === 'ar' 
-                  ? 'إدارة اتصالات المتجر وإعداداته'
-                  : 'Manage your store connections and settings'}
+                  ? 'إدارة إعدادات حسابك ومتجرك'
+                  : 'Manage your account and store settings'}
               </p>
             </div>
-            <Link href="/dashboard/stores">
-              <Button variant="outline" className="gap-2">
-                {locale === 'ar' ? 'إدارة المتاجر' : 'Manage Stores'}
-                <ArrowRight className={`h-4 w-4 ${isRTL ? 'rotate-180' : ''}`} />
-              </Button>
-            </Link>
           </div>
 
-          {/* Store Connections Section */}
-          <div className="space-y-4">
-            <div>
-              <h2 className="text-lg font-semibold mb-4">
-                {locale === 'ar' ? 'اتصالات المتجر' : 'Store Connections'}
-              </h2>
-              {storeConnections.length > 0 ? (
-                <div className="space-y-4">
-                  {(() => {
-                    // Filter to show only the selected store connection, or all if none selected
-                    const connectionsToShow = selectedConnectionId
-                      ? storeConnections.filter(conn => conn.id === selectedConnectionId)
-                      : storeConnections
-
-                    if (connectionsToShow.length === 0) {
-                      return (
-                        <Card className="border-2 border-blue-100 bg-blue-50/50">
-                          <CardHeader>
-                            <div className="flex items-center gap-2">
-                              <Store className="h-5 w-5 text-blue-600" />
-                              <CardTitle className="text-lg">
-                                {locale === 'ar' ? 'لا يوجد متجر محدد' : 'No Store Selected'}
-                              </CardTitle>
-                            </div>
-                            <CardDescription>
-                              {locale === 'ar' 
-                                ? 'يرجى تحديد متجر من قائمة المتاجر في القائمة الجانبية لعرض إعداداته'
-                                : 'Please select a store from the sidebar menu to view its settings'}
-                            </CardDescription>
-                          </CardHeader>
-                        </Card>
-                      )
-                    }
-
-                    return connectionsToShow.map((connection) => {
-                      if (!connection.id) {
-                        if (process.env.NODE_ENV === 'development') {
-                          console.error('Connection missing ID:', connection)
-                        }
-                        return null
-                      }
-                      const isSelected = connection.id === selectedConnectionId
-                      return (
-                        <Card 
-                          key={connection.id}
-                          className={isSelected ? "border-2 border-emerald-100 bg-emerald-50/50" : "border border-gray-200"}
-                        >
-                          <CardHeader>
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-2">
-                                <Link2 className="h-5 w-5 text-emerald-600" />
-                                <CardTitle 
-                                  className="text-lg"
-                                  lang={containsArabic(connection.store_name) ? 'ar' : undefined}
-                                >
-                                  {connection.store_name || `${connection.platform.charAt(0).toUpperCase() + connection.platform.slice(1)} Store`}
-                                </CardTitle>
-                              </div>
-                              {isSelected && (
-                                <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200">
-                                  {locale === 'ar' ? 'نشط' : 'Active'}
-                                </Badge>
-                              )}
-                            </div>
-                            <CardDescription>
-                              {isSelected 
-                                ? (locale === 'ar' ? 'عرض لوحة التحكم لهذا المتجر حالياً' : 'Currently viewing dashboard for this store')
-                                : (locale === 'ar' ? 'انقر لعرض لوحة تحكم هذا المتجر' : 'Click to view this store\'s dashboard')}
-                            </CardDescription>
-                          </CardHeader>
-                          <CardContent>
-                            <StoreConnectionCard
-                              connection={connection}
-                              onDisconnect={() => window.location.reload()}
-                            />
-                          </CardContent>
-                        </Card>
-                      )
-                    })
-                  })()}
-                </div>
-              ) : (
-                <Card className="border-2 border-amber-100 bg-amber-50/50">
-                  <CardHeader>
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <Store className="h-5 w-5 text-amber-600" />
-                        <CardTitle className="text-lg">
-                          {locale === 'ar' ? 'لا توجد متاجر متصلة' : 'No Stores Connected'}
+          {/* Settings Sections Grid */}
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {settingsSections.map((section) => {
+              const Icon = section.icon
+              return (
+                <Link
+                  key={section.id}
+                  href={section.href}
+                  className="group"
+                >
+                  <Card className="group relative min-h-[200px] overflow-hidden rounded-3xl shadow-[0_18px_35px_rgba(15,23,42,0.04)] hover:shadow-[0_0_80px_rgba(15,23,42,0.12)] border-0 flex flex-col transition-all duration-200 hover:-translate-y-1">
+                    <CardHeader>
+                      <div className="flex items-center gap-3 mb-2">
+                        <div className={`h-12 w-12 rounded-xl ${section.iconBg} flex items-center justify-center group-hover:scale-110 transition-transform`}>
+                          <Icon className={`h-6 w-6 ${section.iconColor}`} />
+                        </div>
+                        <CardTitle className="text-lg font-bold">
+                          {section.title}
                         </CardTitle>
                       </div>
-                    </div>
-                    <CardDescription>
-                      {locale === 'ar' ? 'قم بتوصيل متجرك الأول للبدء' : 'Connect your first store to get started'}
-                    </CardDescription>
-                  </CardHeader>
-                </Card>
-              )}
-            </div>
+                      <CardDescription className="text-sm">
+                        {section.description}
+                      </CardDescription>
+                    </CardHeader>
+                  </Card>
+                </Link>
+              )
+            })}
           </div>
         </div>
       )}
     </div>
   )
 }
-
-// Store Connection Card Component - Memoized to prevent unnecessary re-renders
-const StoreConnectionCard = memo(function StoreConnectionCard({
-  connection,
-  onDisconnect,
-}: {
-  connection: StoreConnection
-  onDisconnect: () => void
-}) {
-  const t = useTranslations()
-  const { locale, isRTL } = useLocale()
-  const [isDisconnecting, setIsDisconnecting] = useState(false)
-  const [isSyncing, setIsSyncing] = useState(false)
-  const [isRefreshing, setIsRefreshing] = useState(false)
-  const [isRefreshingStoreInfo, setIsRefreshingStoreInfo] = useState(false)
-  const [showDisconnectDialog, setShowDisconnectDialog] = useState(false)
-  const [localConnection, setLocalConnection] = useState(connection)
-  const [showApprovalModal, setShowApprovalModal] = useState(false)
-  const [previewProducts, setPreviewProducts] = useState<ProductPreview[]>([])
-  const [isLoadingPreview, setIsLoadingPreview] = useState(false)
-  
-  // Helper function to detect if text contains Arabic characters
-  const containsArabic = (text: string | null | undefined): boolean => {
-    if (!text) return false
-    const arabicPattern = /[\u0600-\u06FF]/
-    return arabicPattern.test(text)
-  }
-
-  // Memoize callback functions to prevent unnecessary re-renders
-  const handleRefreshStoreInfo = useCallback(async () => {
-    if (!connection.id) return
-
-    setIsRefreshingStoreInfo(true)
-    try {
-      const response = await safeFetch(
-        `/api/store-connections/${connection.id}/refresh-store-info`,
-        { method: 'POST' },
-        { context: 'Refresh store info', showToast: false }
-      )
-
-      const data = await response.json()
-      toast.success(t('toast.success.storeInfoRefreshed', { 
-        storeName: data.store_name || t('toast.success.updated')
-      }))
-      
-      setLocalConnection(prev => ({
-        ...prev,
-        store_name: data.store_name || prev.store_name,
-        store_domain: data.store_domain || prev.store_domain,
-        store_external_id: data.store_external_id || prev.store_external_id,
-      }))
-      
-      onDisconnect()
-    } catch (error: any) {
-      if (error?.type !== 'NETWORK') {
-        handleError(error, {
-          context: 'Refresh store information',
-          showToast: true,
-        })
-      } else {
-        if (process.env.NODE_ENV === 'development') {
-          console.debug('Auto-fetch store info failed (network unavailable):', error)
-        }
-      }
-    } finally {
-      setIsRefreshingStoreInfo(false)
-    }
-  }, [connection.id, onDisconnect])
-
-  useEffect(() => {
-    if (connection.id && (!connection.store_name || !connection.store_external_id)) {
-      if (process.env.NODE_ENV === 'development') {
-        console.log('🔄 Auto-fetching store info for connection:', connection.id)
-      }
-      const timer = setTimeout(() => {
-        handleRefreshStoreInfo().catch((error) => {
-          if (process.env.NODE_ENV === 'development') {
-            console.debug('Auto-fetch store info failed:', error)
-          }
-        })
-      }, 1000)
-      return () => clearTimeout(timer)
-    }
-  }, [connection.id, connection.store_name, connection.store_external_id, handleRefreshStoreInfo])
-
-  // Platform logos mapping (matching other components)
-  const PLATFORM_LOGOS: Record<string, string> = {
-    salla: `${ECOMMERCE_STORAGE_URL}/salla-icon.png`,
-    zid: `${ECOMMERCE_STORAGE_URL}/zid.svg`,
-    shopify: `${ECOMMERCE_STORAGE_URL}/shopify-icon.png`,
-  }
-
-  // Unified logo logic: prioritize uploaded logo, then platform logo, then Store icon
-  const storeLogo = useMemo(() => {
-    const uploadedLogoUrl = localConnection.store_logo_url
-    const platform = localConnection.platform?.toLowerCase()
-    const platformLogoUrl = platform ? PLATFORM_LOGOS[platform] : null
-    
-    return {
-      uploadedLogoUrl,
-      platformLogoUrl,
-      hasLogo: !!(uploadedLogoUrl || platformLogoUrl)
-    }
-  }, [localConnection.store_logo_url, localConnection.platform])
-
-  const { isExpired, healthStatus, syncStatus } = useMemo(() => {
-    const isExpired = localConnection.expires_at 
-      ? new Date(localConnection.expires_at) < new Date()
-      : false
-
-    const healthStatus = isExpired 
-      ? 'expired' 
-      : localConnection.connection_status === 'error' || localConnection.last_error
-      ? 'error'
-      : localConnection.connection_status === 'disconnected'
-      ? 'disconnected'
-      : 'connected'
-
-    const syncStatus = localConnection.sync_status || 'idle'
-
-    return { isExpired, healthStatus, syncStatus }
-  }, [localConnection.expires_at, localConnection.connection_status, localConnection.last_error, localConnection.sync_status])
-
-  const lastSyncTime = useMemo(() => {
-    if (!localConnection.last_sync_at) return null
-    return new Date(localConnection.last_sync_at).toLocaleString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    })
-  }, [localConnection.last_sync_at])
-
-  const connectedDate = useMemo(() => {
-    if (!localConnection.created_at) return 'Recently'
-    return new Date(localConnection.created_at).toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-    })
-  }, [localConnection.created_at])
-
-  const StatusIndicator = () => {
-    if (healthStatus === 'expired') {
-      return (
-        <div className="flex items-center gap-1.5">
-          <AlertCircle className="h-3.5 w-3.5 text-amber-500" />
-          <span className="text-xs text-amber-600 font-medium">Expired</span>
-        </div>
-      )
-    }
-    if (healthStatus === 'error') {
-      return (
-        <div className="flex items-center gap-1.5">
-          <AlertCircle className="h-3.5 w-3.5 text-red-500" />
-          <span className="text-xs text-red-600 font-medium">Error</span>
-        </div>
-      )
-    }
-    if (syncStatus === 'syncing') {
-      return (
-        <div className="flex items-center gap-1.5">
-          <Loader2 className="h-3.5 w-3.5 text-blue-500 animate-spin" />
-          <span className="text-xs text-blue-600 font-medium">Syncing</span>
-        </div>
-      )
-    }
-    if (healthStatus === 'connected') {
-      return (
-        <div className="flex items-center gap-1.5">
-          <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
-          <span className="text-xs text-emerald-600 font-medium">Connected</span>
-        </div>
-      )
-    }
-    return null
-  }
-
-  const handleDisconnect = useCallback(async () => {
-    if (!connection.id) {
-      handleError(new Error('Connection ID is missing'), {
-        context: 'Disconnect store',
-        showToast: true,
-        fallbackMessage: 'Connection ID is missing. Please refresh the page.',
-      })
-      if (process.env.NODE_ENV === 'development') {
-        console.error('❌ Connection missing ID:', connection)
-      }
-      return
-    }
-
-    setIsDisconnecting(true)
-    try {
-      if (process.env.NODE_ENV === 'development') {
-        console.log('🔌 Disconnecting connection:', connection.id, connection.platform)
-      }
-      const response = await safeFetch(
-        `/api/store-connections/${connection.id}`,
-        { method: 'DELETE' },
-        { context: 'Disconnect store' }
-      )
-
-      toast.success(t('toast.success.storeDisconnected', { 
-        platform: localConnection.platform 
-      }))
-      setShowDisconnectDialog(false)
-      onDisconnect()
-    } catch (error: any) {
-      handleError(error, {
-        context: 'Disconnect store',
-        showToast: true,
-      })
-    } finally {
-      setIsDisconnecting(false)
-    }
-  }, [connection.id, localConnection.platform, onDisconnect])
-
-  const handleSync = useCallback(async () => {
-    if (!connection.id) {
-      handleError(new Error('Connection ID is missing'), {
-        context: 'Sync store',
-        showToast: true,
-        fallbackMessage: 'Connection ID is missing. Please refresh the page.',
-      })
-      if (process.env.NODE_ENV === 'development') {
-        console.error('Connection object:', connection)
-      }
-      return
-    }
-
-    setIsLoadingPreview(true)
-    try {
-      if (process.env.NODE_ENV === 'development') {
-        console.log('Fetching product preview for connection:', connection.id, connection.platform)
-      }
-      const previewResponse = await safeFetch(
-        `/api/store-connections/${connection.id}/sync/preview`,
-        { method: 'GET' },
-        { context: 'Preview products' }
-      )
-
-      const previewData = await previewResponse.json()
-      
-      if (!previewData.success || !previewData.products) {
-        throw new Error(previewData.error || 'Failed to preview products')
-      }
-
-      setPreviewProducts(previewData.products)
-      setShowApprovalModal(true)
-    } catch (error: any) {
-      if (error?.message?.includes('not yet implemented')) {
-        await performDirectSync()
-      } else {
-        handleError(error, {
-          context: 'Preview products',
-          showToast: true,
-        })
-      }
-    } finally {
-      setIsLoadingPreview(false)
-    }
-  }, [connection.id, connection.platform])
-
-  const performDirectSync = useCallback(async () => {
-    if (!connection.id) return
-
-    setIsSyncing(true)
-    try {
-      if (process.env.NODE_ENV === 'development') {
-        console.log('Syncing connection:', connection.id, connection.platform)
-      }
-      const response = await safeFetch(
-        `/api/store-connections/${connection.id}/sync`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ type: 'all' }),
-        },
-        { context: 'Sync store' }
-      )
-
-      const data = await response.json()
-      
-      if (data.comingSoon) {
-        toast.info(t('toast.info.featureComingSoon'), {
-          description: data.message || t('toast.info.featureComingSoonDesc'),
-        })
-        return
-      }
-      
-      if (data.details) {
-        const { productsCreated, productsUpdated } = data.details
-        let title = t('toast.success.syncCompleted')
-        let description = t('toast.success.productsSynchronized')
-        
-        if (productsCreated > 0 && productsUpdated > 0) {
-          description = t('toast.success.productsCreatedAndUpdated', { 
-            created: productsCreated, 
-            updated: productsUpdated 
-          })
-        } else if (productsCreated > 0) {
-          description = t('toast.success.productsCreated', { count: productsCreated })
-        } else if (productsUpdated > 0) {
-          description = t('toast.success.productsUpdated', { count: productsUpdated })
-        }
-        
-        toast.success(title, { description })
-      } else {
-        toast.success(t('toast.success.syncCompleted'), { 
-          description: t('toast.success.productsSynchronized')
-        })
-      }
-      
-      setLocalConnection(prev => ({
-        ...prev,
-        sync_status: 'success',
-        last_sync_at: data.syncedAt,
-        last_error: null,
-      }))
-    } catch (error: any) {
-      if (error?.originalError?.requiresReauth) {
-        handleError(error, {
-          context: 'Sync store',
-          showToast: true,
-          fallbackMessage: 'Token expired. Please reconnect your store.',
-        })
-      } else {
-        handleError(error, {
-          context: 'Sync store',
-          showToast: true,
-        })
-      }
-      
-      setLocalConnection(prev => ({
-        ...prev,
-        sync_status: 'error',
-        last_error: error?.message || 'Unknown error',
-      }))
-    } finally {
-      setIsSyncing(false)
-    }
-  }, [connection.id, connection.platform])
-
-  const handleApproveProducts = useCallback(async (selectedProductIds: string[]) => {
-    if (!connection.id) return
-
-    setIsSyncing(true)
-    try {
-      if (process.env.NODE_ENV === 'development') {
-        console.log('🔄 Starting product sync:', {
-          connectionId: connection.id,
-          platform: connection.platform,
-          productCount: selectedProductIds.length,
-          selectedProductIds: selectedProductIds.slice(0, 5),
-        })
-      }
-      
-      const requestBody = { 
-        type: 'all',
-        selectedProductIds: selectedProductIds,
-      }
-      
-      if (process.env.NODE_ENV === 'development') {
-        console.log('📤 Sync request body:', requestBody)
-      }
-      
-      const response = await safeFetch(
-        `/api/store-connections/${connection.id}/sync`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(requestBody),
-        },
-        { context: 'Sync selected products' }
-      )
-
-      const data = await response.json()
-      if (process.env.NODE_ENV === 'development') {
-        console.log('📥 Sync response status:', response.status, response.statusText)
-        console.log('📥 Sync response data:', data)
-      }
-      
-      if (!data.success) {
-        const errorMessage = data.error || data.message || 'Sync failed'
-        const errorDetails = data.details ? ` Details: ${JSON.stringify(data.details)}` : ''
-        throw new Error(`${errorMessage}${errorDetails}`)
-      }
-      
-      if (data.details) {
-        const { productsCreated, productsUpdated } = data.details
-        let title = 'Sync completed successfully!'
-        let description = `${selectedProductIds.length} products synchronized`
-        
-        if (productsCreated > 0 && productsUpdated > 0) {
-          description = `${productsCreated} new products created, ${productsUpdated} products updated`
-        } else if (productsCreated > 0) {
-          description = `${productsCreated} new products added to your store`
-        } else if (productsUpdated > 0) {
-          description = `${productsUpdated} products updated successfully`
-        }
-        
-        toast.success(title, { description })
-      } else {
-        toast.success('Sync completed successfully!', { 
-          description: `${selectedProductIds.length} products synchronized` 
-        })
-      }
-      
-      setLocalConnection(prev => ({
-        ...prev,
-        sync_status: 'success',
-        last_sync_at: data.syncedAt,
-        last_error: null,
-      }))
-    } catch (error: any) {
-      const errorInfo: any = {}
-      
-      try {
-        errorInfo.message = error?.message
-        errorInfo.error = error?.error
-        errorInfo.details = error?.details
-        errorInfo.originalError = error?.originalError
-        errorInfo.type = error?.type
-        errorInfo.statusCode = error?.statusCode
-        errorInfo.status = error?.status
-        errorInfo.name = error?.name
-        errorInfo.code = error?.code
-        errorInfo.context = error?.context
-        errorInfo.retryable = error?.retryable
-        
-        try {
-          errorInfo.fullErrorString = JSON.stringify(error, Object.getOwnPropertyNames(error))
-        } catch (e) {
-          errorInfo.fullErrorString = 'Could not stringify error'
-        }
-        
-        errorInfo.errorString = String(error)
-        errorInfo.errorToString = error?.toString?.()
-      } catch (extractError) {
-        errorInfo.extractionError = String(extractError)
-      }
-      
-      if (process.env.NODE_ENV === 'development') {
-        console.error('❌ Sync error details:', errorInfo)
-        console.error('❌ Raw error object:', error)
-      }
-      
-      const errorMessage = 
-        error?.message || 
-        error?.error || 
-        error?.details?.message || 
-        error?.details?.error ||
-        error?.originalError?.message ||
-        error?.originalError?.error ||
-        'Failed to sync products'
-      
-      if (error?.originalError?.requiresReauth || error?.details?.requiresReauth || error?.requiresReauth) {
-        handleError(error, {
-          context: 'Sync selected products',
-          showToast: true,
-          fallbackMessage: 'Token expired. Please reconnect your store.',
-        })
-      } else {
-        handleError(error, {
-          context: 'Sync selected products',
-          showToast: true,
-          fallbackMessage: errorMessage,
-        })
-      }
-      
-      setLocalConnection(prev => ({
-        ...prev,
-        sync_status: 'error',
-        last_error: error?.message || error?.error || 'Unknown error',
-      }))
-      throw error
-    } finally {
-      setIsSyncing(false)
-    }
-  }, [connection.id, connection.platform])
-
-  const handleRefreshToken = useCallback(async () => {
-    setIsRefreshing(true)
-    try {
-      const response = await safeFetch(
-        `/api/store-connections/${connection.id}/refresh`,
-        { method: 'POST' },
-        { context: 'Refresh token' }
-      )
-
-      toast.success(t('toast.success.tokenRefreshed'))
-      setLocalConnection(prev => ({
-        ...prev,
-        connection_status: 'connected',
-        last_error: null,
-      }))
-    } catch (error: any) {
-      if (error?.originalError?.requiresReauth) {
-        handleError(error, {
-          context: 'Refresh token',
-          showToast: true,
-          fallbackMessage: 'Token refresh failed. Please reconnect your store.',
-        })
-      } else {
-        handleError(error, {
-          context: 'Refresh token',
-          showToast: true,
-        })
-      }
-    } finally {
-      setIsRefreshing(false)
-    }
-  }, [connection.id])
-
-  return (
-    <>
-      <div 
-        className="flex items-start gap-4 p-4 bg-white rounded-lg border border-gray-200 hover:border-gray-300 transition-colors"
-        lang={locale}
-        dir={isRTL ? 'rtl' : 'ltr'}
-      >
-        {storeLogo.uploadedLogoUrl ? (
-          <div className="flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden bg-white border border-gray-200 flex items-center justify-center">
-            <Image
-              key={storeLogo.uploadedLogoUrl}
-              src={storeLogo.uploadedLogoUrl}
-              alt="Store logo"
-              width={64}
-              height={64}
-              className="w-full h-full object-cover"
-              style={{
-                transform: `scale(${(connection.logo_zoom || 100) / 100})`,
-                transition: 'transform 0.2s ease-out'
-              }}
-              priority={false}
-              loading="lazy"
-            />
-          </div>
-        ) : (
-          <div className="flex-shrink-0 w-16 h-16 rounded-lg bg-[#F4610B]/10 border border-gray-200 flex items-center justify-center">
-            <Store className="h-6 w-6 text-[#F4610B]" />
-          </div>
-        )}
-        <div className="flex-1 min-w-0">
-          <div className="flex items-start justify-between gap-2">
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 mb-1">
-                <h3 
-                  className="font-semibold text-gray-900 capitalize"
-                  lang={containsArabic(localConnection.store_name) ? 'ar' : locale}
-                >
-                  {localConnection.platform}
-                </h3>
-                <StatusIndicator />
-              </div>
-              {localConnection.store_external_id && (
-                <p 
-                  className="text-sm text-gray-600 mt-0.5"
-                  lang={containsArabic(localConnection.store_name) ? 'ar' : locale}
-                >
-                  Store ID: {localConnection.store_external_id}
-                </p>
-              )}
-              <div className="flex items-center gap-4 mt-2 text-xs text-gray-500">
-                {lastSyncTime && (
-                  <div className="flex items-center gap-1">
-                    <Clock className="h-3 w-3" />
-                    <span>Last sync: {lastSyncTime}</span>
-                  </div>
-                )}
-                <span>Connected: {connectedDate}</span>
-              </div>
-              {localConnection.last_error && (
-                <p className="text-xs text-red-600 mt-1 flex items-center gap-1">
-                  <AlertCircle className="h-3 w-3" />
-                  {localConnection.last_error}
-                </p>
-              )}
-            </div>
-            <div className="flex items-center gap-2 flex-shrink-0">
-              {healthStatus === 'expired' && (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={handleRefreshToken}
-                  disabled={isRefreshing}
-                  className="h-8 text-xs"
-                >
-                  {isRefreshing ? (
-                    <Loader2 className="h-3 w-3 animate-spin me-1" />
-                  ) : (
-                    <RefreshCw className="h-3 w-3 me-1" />
-                  )}
-                  Refresh
-                </Button>
-              )}
-              {(!localConnection.store_name || !localConnection.store_external_id) && (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={handleRefreshStoreInfo}
-                  disabled={isRefreshingStoreInfo}
-                  className="h-8 text-xs"
-                  title="Refresh store information from platform"
-                >
-                  {isRefreshingStoreInfo ? (
-                    <Loader2 className="h-3 w-3 animate-spin me-1" />
-                  ) : (
-                    <Link2 className="h-3 w-3 me-1" />
-                  )}
-                  Fetch Store Info
-                </Button>
-              )}
-              {syncStatus !== 'syncing' && healthStatus !== 'expired' && (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={handleSync}
-                  disabled={isSyncing || isLoadingPreview}
-                  className="h-8 text-xs"
-                >
-                  {(isSyncing || isLoadingPreview) ? (
-                    <Loader2 className="h-3 w-3 animate-spin me-1" />
-                  ) : (
-                    <RefreshCw className="h-3 w-3 me-1" />
-                  )}
-                  Sync
-                </Button>
-              )}
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={() => setShowDisconnectDialog(true)}
-                disabled={isDisconnecting}
-                className="h-8 w-8 p-0 text-gray-400 hover:text-red-600"
-              >
-                <X className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <AlertDialog open={showDisconnectDialog} onOpenChange={setShowDisconnectDialog}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Disconnect {localConnection.platform}?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This will remove the connection to your {localConnection.platform} store. 
-              You can reconnect it later, but syncing will stop until you do.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={isDisconnecting}>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleDisconnect}
-              disabled={isDisconnecting}
-              className="bg-red-600 hover:bg-red-700"
-            >
-              {isDisconnecting ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin me-2" />
-                  Disconnecting...
-                </>
-              ) : (
-                'Disconnect'
-              )}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      <ProductApprovalModal
-        open={showApprovalModal}
-        onOpenChange={setShowApprovalModal}
-        products={previewProducts}
-        platform={localConnection.platform}
-        onApprove={handleApproveProducts}
-        isLoading={isSyncing}
-      />
-    </>
-  )
-})
 

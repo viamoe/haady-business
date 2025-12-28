@@ -108,7 +108,7 @@ export function ProductsContent({
             .eq('id', selectedConnectionId)
             .maybeSingle()
 
-          if (connectionError?.message) {
+          if (connectionError?.message && process.env.NODE_ENV === 'development') {
             console.error('Error fetching connection:', connectionError.message)
           }
 
@@ -121,7 +121,7 @@ export function ProductsContent({
               .eq('is_active', true)
               .maybeSingle()
 
-            if (storeError?.message) {
+            if (storeError?.message && process.env.NODE_ENV === 'development') {
               console.error('Error fetching store:', storeError.message)
             }
 
@@ -145,7 +145,9 @@ export function ProductsContent({
             .eq('is_active', true)
 
           if (storesError?.message) {
-            console.error('Error fetching all stores:', storesError.message)
+            if (process.env.NODE_ENV === 'development') {
+              console.error('Error fetching all stores:', storesError.message)
+            }
             setProducts([])
             setTotalCount(0)
             setStoreMap(new Map())
@@ -174,10 +176,14 @@ export function ProductsContent({
           .limit(100)
 
         if (productsError) {
-          console.error('Error fetching products:', productsError)
+          if (process.env.NODE_ENV === 'development') {
+            console.error('Error fetching products:', productsError)
+          }
           // If error is related to deleted_at or column doesn't exist, try without it
           if (productsError.message?.includes('deleted_at') || productsError.code === '42703' || productsError.code === 'PGRST116') {
-            console.log('Retrying query without deleted_at filter')
+            if (process.env.NODE_ENV === 'development') {
+              console.log('Retrying query without deleted_at filter')
+            }
             const { data: retryData, error: retryError, count: retryCount } = await supabase
               .from('products')
               .select('id, name_en, name_ar, description_en, description_ar, price, sku, image_url, is_available, is_active, created_at, store_id', { count: 'exact' })
@@ -187,7 +193,9 @@ export function ProductsContent({
               .limit(100)
             
             if (retryError) {
-              console.error('Error fetching products (retry):', retryError)
+              if (process.env.NODE_ENV === 'development') {
+                console.error('Error fetching products (retry):', retryError)
+              }
               setProducts([])
               setTotalCount(0)
             } else {
@@ -199,17 +207,21 @@ export function ProductsContent({
             setTotalCount(0)
           }
         } else {
-          console.log('Fetched products:', {
-            count: productsData?.length || 0,
-            totalCount: count || 0,
-            storeIds,
-            selectedConnectionId
-          })
+          if (process.env.NODE_ENV === 'development') {
+            console.log('Fetched products:', {
+              count: productsData?.length || 0,
+              totalCount: count || 0,
+              storeIds,
+              selectedConnectionId
+            })
+          }
           setProducts(productsData || [])
           setTotalCount(count || 0)
         }
       } catch (error) {
-        console.error('Error fetching products:', error)
+        if (process.env.NODE_ENV === 'development') {
+          console.error('Error fetching products:', error)
+        }
         setProducts([])
         setTotalCount(0)
       } finally {
@@ -266,13 +278,17 @@ export function ProductsContent({
         .limit(100)
 
       if (productsError) {
-        console.error('Error refetching products:', productsError)
+        if (process.env.NODE_ENV === 'development') {
+          console.error('Error refetching products:', productsError)
+        }
       } else if (productsData) {
         setProducts(productsData)
         setTotalCount(count || 0)
       }
     } catch (error) {
-      console.error('Error refetching products:', error)
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Error refetching products:', error)
+      }
     }
   }, [selectedConnectionId])
 
@@ -457,7 +473,7 @@ export function ProductsContent({
           {/* TODO: Sync button removed - will be reimplemented with new architecture */}
         </div>
       ) : (
-        <div className="flex-1 min-h-0 overflow-hidden">
+        <div className="flex-1 min-h-0 overflow-hidden pb-8">
           <DataTable
             columns={columns}
             data={products}

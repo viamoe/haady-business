@@ -31,11 +31,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const isRefreshTokenError = useCallback((error: any): boolean => {
     if (!error) return false;
     const errorMessage = (error.message || String(error) || '').toLowerCase();
+    const errorCode = error.status || error.code || '';
     return (
       errorMessage.includes('refresh token') ||
       errorMessage.includes('refresh_token') ||
       errorMessage.includes('invalid refresh token') ||
-      (error.name === 'AuthApiError' && errorMessage.includes('not found'))
+      errorMessage.includes('refresh token not found') ||
+      (error.name === 'AuthApiError' && errorMessage.includes('not found')) ||
+      (error.name === 'AuthApiError' && errorCode === 'invalid_grant')
     );
   }, []);
 
@@ -138,6 +141,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const handleUnhandledError = (event: ErrorEvent) => {
       if (isRefreshTokenError(event.error)) {
         event.preventDefault();
+        event.stopPropagation();
+        // Silently handle refresh token errors - don't log to console
+        supabase.auth.signOut().catch(() => {});
+        return true;
+      }
+      return false;
+    };
+    
+    // Also handle unhandled promise rejections (Supabase may throw refresh token errors as promises)
+    const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
+      if (isRefreshTokenError(event.reason)) {
+        event.preventDefault();
+        // Silently handle refresh token errors
         supabase.auth.signOut().catch(() => {});
         return true;
       }
@@ -145,6 +161,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
     
     window.addEventListener('error', handleUnhandledError);
+    window.addEventListener('unhandledrejection', handleUnhandledRejection);
 
     // Get initial session synchronously from storage
     const initializeAuth = async () => {
@@ -193,11 +210,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } = supabase.auth.onAuthStateChange(async (event, newSession) => {
       if (!mounted) return;
 
-      console.log('Auth state change:', event, newSession ? 'has session' : 'no session');
+      // Suppress console logs for refresh token errors - they're handled gracefully
+      if (process.env.NODE_ENV === 'development') {
+        console.log('Auth state change:', event, newSession ? 'has session' : 'no session');
+      }
 
       // Handle token refresh errors
       if (event === 'TOKEN_REFRESHED' && !newSession) {
-        await supabase.auth.signOut().catch(() => {});
+        // Refresh token is invalid - silently sign out
+        try {
+          await supabase.auth.signOut();
+        } catch (error) {
+          // Ignore sign out errors - we're already handling the invalid token
+        }
         setSession(null);
         setUser(null);
         setLoading(false);
@@ -230,6 +255,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       mounted = false;
       subscription.unsubscribe();
       window.removeEventListener('error', handleUnhandledError);
+      window.removeEventListener('unhandledrejection', handleUnhandledRejection);
     };
   }, [isRefreshTokenError]);
 

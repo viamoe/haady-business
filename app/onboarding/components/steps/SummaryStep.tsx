@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
@@ -10,7 +10,13 @@ import { useAuth } from '@/lib/auth/auth-context'
 import { toast } from '@/lib/toast'
 import { OnboardingStepProps } from '../OnboardingWizard'
 import { CheckCircle2, Store, User, Link as LinkIcon, Loader2, ChevronRight, Edit2, Package } from 'lucide-react'
-import { ProductsPreviewModal } from '../ProductsPreviewModal'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
+import { ONBOARDING_STEPS, getOnboardingStepPath } from '@/lib/constants/onboarding'
 
 // Translations
 const translations = {
@@ -37,6 +43,7 @@ const translations = {
     platform: 'Platform',
     connected: 'Connected',
     viewProducts: 'View Products',
+    editPersonalInfo: 'Edit details',
   },
   ar: {
     title: 'أنت على وشك الانتهاء!',
@@ -61,6 +68,7 @@ const translations = {
     platform: 'المنصة',
     connected: 'متصل',
     viewProducts: 'عرض المنتجات',
+    editPersonalInfo: 'تعديل التفاصيل',
   },
 }
 
@@ -100,7 +108,6 @@ function SummaryStepContent({ onNext, currentStep, totalSteps }: OnboardingStepP
   const [isCompleting, setIsCompleting] = useState(false)
   const [summaryData, setSummaryData] = useState<SummaryData | null>(null)
   const [isLoading, setIsLoading] = useState(true)
-  const [isProductsModalOpen, setIsProductsModalOpen] = useState(false)
   // Debug log removed - check browser console if issues persist
 
   // Handle success/error messages from OAuth callback - only runs once
@@ -329,7 +336,14 @@ function SummaryStepContent({ onNext, currentStep, totalSteps }: OnboardingStepP
               types: storeInfo?.store_type || null,
               categories: storeInfo?.store_categories ? (storeInfo.store_categories as any[]).length : 0,
             },
-            connectionInfo,
+            connectionInfo: {
+              platform: null,
+              connected: false,
+              storeDomain: null,
+              externalStoreName: null,
+              email: null,
+              connectionId: null,
+            },
           }
           setSummaryData(finalData)
           setIsLoading(false)
@@ -426,6 +440,14 @@ function SummaryStepContent({ onNext, currentStep, totalSteps }: OnboardingStepP
     return types.map(t => t.charAt(0).toUpperCase() + t.slice(1).replace(/_/g, ' ')).join(', ')
   }
 
+  // Navigation handlers for edit buttons - using direct paths
+  const handleEditPersonalInfo = useCallback(() => {
+    const url = localizedUrl('/onboarding/personal-details')
+    console.log('🔧 PERSONAL INFO button clicked - navigating to:', url)
+    router.push(url)
+  }, [router, localizedUrl])
+
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -458,6 +480,25 @@ function SummaryStepContent({ onNext, currentStep, totalSteps }: OnboardingStepP
               </div>
               <h3 className="font-semibold text-gray-900">{t.personalInfo}</h3>
             </div>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleEditPersonalInfo}
+                    className="h-8 w-8 p-0 hover:bg-gray-200"
+                    aria-label={t.editPersonalInfo}
+                  >
+                    <Edit2 className="w-4 h-4 text-gray-600" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="right" sideOffset={8} className="text-xs">
+                  <p>{t.editPersonalInfo}</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           </div>
           <div className="p-5">
             <div className="grid grid-cols-2 gap-4">
@@ -483,7 +524,7 @@ function SummaryStepContent({ onNext, currentStep, totalSteps }: OnboardingStepP
 
         {/* Store Details */}
         <div className="border border-gray-200 rounded-xl overflow-hidden">
-          <div className="px-5 py-4 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
+          <div className="px-5 py-4 bg-gray-50 border-b border-gray-200 flex items-center">
             <div className="flex items-center gap-3">
               <div className="w-8 h-8 rounded-lg bg-orange-100 flex items-center justify-center">
                 <Store className="w-4 h-4 text-orange-600" />
@@ -510,19 +551,6 @@ function SummaryStepContent({ onNext, currentStep, totalSteps }: OnboardingStepP
                       </p>
                     )}
                   </div>
-                  {summaryData?.connectionInfo.connected && summaryData.connectionInfo.storeDomain && (
-                    <div className="flex flex-col gap-1 items-end flex-shrink-0">
-                      <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">{t.platform}</p>
-                      {summaryData.connectionInfo.externalStoreName && (
-                        <p className="text-sm text-gray-900 font-medium" dir="ltr">
-                          {summaryData.connectionInfo.externalStoreName}
-                        </p>
-                      )}
-                      <p className="text-sm text-gray-600" dir="ltr">
-                        {summaryData.connectionInfo.storeDomain}
-                      </p>
-                    </div>
-                  )}
                 </div>
               </div>
               <div>
@@ -539,81 +567,6 @@ function SummaryStepContent({ onNext, currentStep, totalSteps }: OnboardingStepP
           </div>
         </div>
 
-        {/* Store Connection */}
-        <div className="border border-gray-200 rounded-xl overflow-hidden">
-          <div className="px-5 py-4 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-lg bg-purple-100 flex items-center justify-center">
-                <LinkIcon className="w-4 h-4 text-purple-600" />
-              </div>
-              <h3 className="font-semibold text-gray-900">{t.storeConnection}</h3>
-            </div>
-          </div>
-          <div className="p-5">
-            {summaryData?.connectionInfo.connected ? (
-              <div className="space-y-3">
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center">
-                    <CheckCircle2 className="w-4 h-4 text-green-600" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-gray-900">
-                      {summaryData.connectionInfo.platform?.charAt(0).toUpperCase()}{summaryData.connectionInfo.platform?.slice(1)}
-                    </p>
-                    <p className="text-xs text-green-600">{t.connected}</p>
-                  </div>
-                </div>
-                {summaryData.connectionInfo.externalStoreName && (
-                  <div>
-                    <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">{t.storeName}</p>
-                    <p className="text-sm text-gray-900 font-medium" dir="ltr">
-                      {summaryData.connectionInfo.externalStoreName}
-                    </p>
-                  </div>
-                )}
-                {summaryData.connectionInfo.storeDomain && (
-                  <div>
-                    <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">{t.platform} URL</p>
-                    <p className="text-sm text-gray-600" dir="ltr">
-                      {summaryData.connectionInfo.storeDomain}
-                    </p>
-                  </div>
-                )}
-                {summaryData.connectionInfo.email && (
-                  <div>
-                    <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Email</p>
-                    <p className="text-sm text-gray-600" dir="ltr">
-                      {summaryData.connectionInfo.email}
-                    </p>
-                  </div>
-                )}
-                {summaryData.connectionInfo.connectionId && (
-                  <div className="pt-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setIsProductsModalOpen(true)}
-                      className="w-full"
-                    >
-                      <Package className="w-4 h-4 mr-2" />
-                      {t.viewProducts}
-                    </Button>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center">
-                  <LinkIcon className="w-4 h-4 text-gray-400" />
-                </div>
-                <div>
-                  <p className="text-sm text-gray-500">{t.skipped}</p>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
       </div>
 
       {/* Complete Button */}
@@ -635,15 +588,6 @@ function SummaryStepContent({ onNext, currentStep, totalSteps }: OnboardingStepP
         )}
       </Button>
 
-      {/* Products Preview Modal */}
-      {summaryData?.connectionInfo.connected && summaryData.connectionInfo.connectionId && (
-        <ProductsPreviewModal
-          open={isProductsModalOpen}
-          onOpenChange={setIsProductsModalOpen}
-          connectionId={summaryData.connectionInfo.connectionId}
-          platform={summaryData.connectionInfo.platform}
-        />
-      )}
     </div>
   )
 }

@@ -96,29 +96,59 @@ export function ProductsPreviewModal({
   }, [open, connectionId])
 
   const fetchProducts = async () => {
-    if (!connectionId) return
+    if (!connectionId) {
+      setError('Connection ID is missing')
+      return
+    }
 
     setIsLoading(true)
     setError(null)
 
     try {
-      // Get the connection to verify access
+      // Get the connection to verify it exists and get platform info
       const { data: connection, error: connError } = await supabase
         .from('store_connections')
-        .select('id')
+        .select('id, platform, access_token, store_id')
         .eq('id', connectionId)
         .maybeSingle()
 
-      if (connError || !connection) {
-        throw new Error('Connection not found')
+      if (connError) {
+        console.error('Error fetching connection:', connError)
+        throw new Error(`Failed to verify connection: ${connError.message}`)
       }
+
+      if (!connection) {
+        console.error('Connection not found for ID:', connectionId)
+        throw new Error('Connection not found. Please try refreshing the page.')
+      }
+
+      if (!connection.access_token) {
+        throw new Error('Access token not found. Please reconnect your store.')
+      }
+
+      console.log('Fetching products for connection:', {
+        id: connection.id,
+        platform: connection.platform,
+        hasToken: !!connection.access_token,
+        storeId: connection.store_id
+      })
 
       // Call the preview API
       const response = await fetch(`/api/store-connections/${connectionId}/sync/preview`)
+      
+      // Check content type to ensure we got JSON, not HTML
+      const contentType = response.headers.get('content-type')
+      if (!contentType || !contentType.includes('application/json')) {
+        const text = await response.text()
+        console.error('API returned non-JSON response:', text.substring(0, 200))
+        throw new Error('API returned invalid response. Please check if the endpoint exists.')
+      }
+
       const data = await response.json()
 
       if (!response.ok) {
-        throw new Error(data.error || 'Failed to fetch products')
+        console.error('API error response:', data)
+        throw new Error(data.error || `Failed to fetch products: ${response.status} ${response.statusText}`)
       }
 
       if (data.success && data.products) {

@@ -14,6 +14,8 @@ import { getLocale, getMessages } from 'next-intl/server';
 import { LocaleProvider } from '@/i18n/context';
 import { OnboardingProvider } from '@/lib/onboarding-context';
 import { Toaster } from '@/components/ui/sonner';
+import { SolidToastProvider } from '@/components/ui/solid-toast';
+import { SolidToastConnector } from '@/components/ui/solid-toast-connector';
 import type { Metadata } from 'next';
 import type { Locale } from '@/i18n/request';
 import { Inter } from 'next/font/google';
@@ -47,27 +49,30 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <NextIntlClientProvider messages={messages}>
           <LocaleProvider initialLocale={locale}>
             <ThemeProvider defaultTheme="light" storageKey="haady-theme">
-              <NetworkStatusProvider>
-                <AnnouncementProvider>
-                  <StickyAnnouncementProvider>
-                    <LoadingProvider>
-                      <AuthProvider>
-                        <OnboardingProvider>
-                          <OfflineGuard>
-                            {children}
-                          <Toaster />
-                          <NetworkStatusOverlay />
-                          <SlowConnectionBanner />
-                          <AnnouncementModal />
-                          <StickyAnnouncementBanner />
-                          <CookieConsent />
-                        </OfflineGuard>
-                        </OnboardingProvider>
-                      </AuthProvider>
-                    </LoadingProvider>
-                  </StickyAnnouncementProvider>
-                </AnnouncementProvider>
-              </NetworkStatusProvider>
+              <SolidToastProvider>
+                <NetworkStatusProvider>
+                  <AnnouncementProvider>
+                    <StickyAnnouncementProvider>
+                      <LoadingProvider>
+                        <AuthProvider>
+                          <OnboardingProvider>
+                            <OfflineGuard>
+                              {children}
+                            <Toaster />
+                            <SolidToastConnector />
+                            <NetworkStatusOverlay />
+                            <SlowConnectionBanner />
+                            <AnnouncementModal />
+                            <StickyAnnouncementBanner />
+                            <CookieConsent />
+                          </OfflineGuard>
+                          </OnboardingProvider>
+                        </AuthProvider>
+                      </LoadingProvider>
+                    </StickyAnnouncementProvider>
+                  </AnnouncementProvider>
+                </NetworkStatusProvider>
+              </SolidToastProvider>
             </ThemeProvider>
           </LocaleProvider>
         </NextIntlClientProvider>

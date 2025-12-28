@@ -19,16 +19,21 @@ export function LoadingProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(false);
   const [loadingMessage, setLoadingMessage] = useState<string | undefined>(undefined);
   const [loadingDuration, setLoadingDuration] = useState<number | undefined>(undefined);
-  const [showOverlay, setShowOverlay] = useState(true); // Default to showing overlay
   const pathname = usePathname();
+  // Disable overlay for dashboard pages by default
+  const [showOverlay, setShowOverlay] = useState(!pathname.startsWith('/dashboard'));
   const prevPathnameRef = useRef<string | null>(null);
   const navigationTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Automatically show loading bar on navigation
   useEffect(() => {
-    // Skip on initial mount
+    // On initial mount, set overlay state based on pathname
     if (prevPathnameRef.current === null) {
       prevPathnameRef.current = pathname;
+      // Disable overlay for dashboard pages
+      if (pathname.startsWith('/dashboard')) {
+        setShowOverlay(false);
+      }
       return;
     }
 
@@ -129,7 +134,17 @@ export function LoadingProvider({ children }: { children: ReactNode }) {
     // Check if this is a page refresh (not initial load)
     const navigationEntry = performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming;
     if (navigationEntry?.type === 'reload') {
+      // Check if we're on a dashboard page
+      const isDashboardPage = pathname.startsWith('/dashboard');
+      
       setIsLoading(true);
+      // Disable overlay for dashboard pages on refresh
+      if (isDashboardPage) {
+        setShowOverlay(false);
+      } else {
+        setShowOverlay(true);
+      }
+      
       // Hide after a short delay (page should be loaded by then)
       const timer = setTimeout(() => {
         setIsLoading(false);
@@ -139,7 +154,7 @@ export function LoadingProvider({ children }: { children: ReactNode }) {
 
     window.addEventListener('beforeunload', handleBeforeUnload);
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-  }, []);
+  }, [pathname]);
 
   // Safety timeout: automatically clear loading if it's been active for too long
   // Use longer timeout for sync operations (60s) vs normal operations (10s)

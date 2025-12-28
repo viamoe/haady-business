@@ -235,7 +235,7 @@ BEGIN
   UPDATE public.business_profile
   SET 
     store_id = v_store_id,
-    onboarding_step = 'connect-store', -- Move to next step
+    onboarding_step = 'summary', -- Move to summary step (connect-store step removed)
     updated_at = NOW()
   WHERE id = v_business_profile_id;
   
@@ -247,7 +247,7 @@ BEGIN
     'timezone', v_country_timezone,
     'categories_count', array_length(v_final_categories, 1),
     'store_types', v_store_types_array,
-    'onboarding_step', 'connect-store'
+    'onboarding_step', 'summary'
   );
   
 EXCEPTION

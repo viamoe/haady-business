@@ -6,7 +6,6 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { PersonalDetailsStep } from './steps/PersonalDetailsStep'
 import { BusinessSetupStep } from './steps/BusinessSetupStep'
-import { ConnectStoreStep } from './steps/ConnectStoreStep'
 import { SummaryStep } from './steps/SummaryStep'
 import { useLocale } from '@/i18n/context'
 import { useOnboarding } from '@/lib/onboarding-context'
@@ -15,6 +14,7 @@ import { useAuth } from '@/lib/auth/auth-context'
 import { useLoading } from '@/lib/loading-context'
 import { getStepIndex, isValidStep, type OnboardingStepId } from '@/lib/constants/onboarding'
 import { Button } from '@/components/ui/button'
+import { PlatformHeader } from '@/components/platform-header'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -22,7 +22,6 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { LogOut, Globe, CheckCircle2, Pause } from 'lucide-react'
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import dynamic from 'next/dynamic'
 
 const OnboardingStorySlider = dynamic(
@@ -58,6 +57,8 @@ export type OnboardingStep = {
   id: string
   title: string
   titleAr?: string
+  subtitle?: string
+  subtitleAr?: string
   description?: string
   descriptionAr?: string
   component: React.ComponentType<OnboardingStepProps>
@@ -73,8 +74,10 @@ export interface OnboardingStepProps {
 const steps: OnboardingStep[] = [
   {
     id: 'personal-details',
-    title: "Let's get to know you",
-    titleAr: 'دعنا نتعرف عليك',
+    title: 'Personal details',
+    titleAr: 'البيانات الشخصية',
+    subtitle: "Let's get to know you",
+    subtitleAr: 'دعنا نتعرف عليك',
     description: 'Add your info to create your Haady Business profile.',
     descriptionAr: 'أضف معلوماتك لإنشاء ملف هادي للأعمال الخاص بك.',
     component: PersonalDetailsStep,
@@ -83,22 +86,18 @@ const steps: OnboardingStep[] = [
     id: 'business-setup' as OnboardingStepId,
     title: 'Set up your store',
     titleAr: 'قم بإعداد متجرك',
+    subtitle: 'Tell us about your store',
+    subtitleAr: 'أخبرنا عن متجرك',
     description: 'These details help customers discover and trust your brand.',
     descriptionAr: 'هذه التفاصيل تساعد العملاء على اكتشاف علامتك التجارية والثقة بها.',
     component: BusinessSetupStep,
   },
   {
-    id: 'connect-store' as OnboardingStepId,
-    title: 'Connect your store',
-    titleAr: 'اربط متجرك',
-    description: 'Import products from your existing store',
-    descriptionAr: 'استورد المنتجات من متجرك الحالي',
-    component: ConnectStoreStep,
-  },
-  {
     id: 'summary' as OnboardingStepId,
     title: 'Review & Complete',
     titleAr: 'مراجعة وإكمال',
+    subtitle: 'Finalize your setup',
+    subtitleAr: 'أكمل إعدادك',
     description: 'Review your information and finalize setup',
     descriptionAr: 'راجع معلوماتك وأكمل الإعداد',
     component: SummaryStep,
@@ -193,11 +192,6 @@ export function OnboardingWizard() {
     [locale, step.description, step.descriptionAr]
   )
 
-  // Memoize progress percentage
-  const progressPercentage = useMemo(
-    () => ((currentStep + 1) / totalSteps) * 100,
-    [currentStep, totalSteps]
-  )
 
   // Memoize user initials
   const userInitials = useMemo(
@@ -334,88 +328,20 @@ export function OnboardingWizard() {
 
   return (
     <div className="h-screen bg-gray-50 overflow-hidden" dir={isRTL ? 'rtl' : 'ltr'}>
+      <PlatformHeader
+        variant="onboarding"
+        onboardingSteps={steps.map(step => ({
+          id: step.id,
+          title: step.title,
+          titleAr: step.titleAr,
+          subtitle: step.subtitle,
+          subtitleAr: step.subtitleAr,
+        }))}
+        currentOnboardingStep={currentStep}
+      />
       <div className="flex h-full overflow-hidden">
         {/* Main Content */}
-        <div className="w-full lg:w-1/2 flex flex-col overflow-hidden">
-          {/* Header with Logo */}
-          <header className="flex items-center justify-between px-3 sm:px-4 md:px-5 lg:px-6 xl:px-8 2xl:px-10 py-6 bg-white">
-            <Link 
-              href={localizedUrl('/')} 
-              className="flex items-center gap-3 hover:opacity-80 transition-opacity" 
-              suppressHydrationWarning
-            >
-              <Image
-                src={HAADY_LOGO_URL}
-                alt="Haady"
-                width={32}
-                height={32}
-                className="w-8 h-8"
-                priority
-              />
-              <span className="text-xl font-light tracking-tight text-foreground">
-                {locale === 'ar' ? 'الأعمال' : 'Business'}
-              </span>
-              {process.env.NEXT_PUBLIC_VERCEL_ENV === 'preview' && (
-                <span className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-medium">
-                  Preview
-                </span>
-              )}
-            </Link>
-            
-            {/* Step Indicator */}
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg cursor-pointer hover:bg-gray-100/50 transition-colors">
-                  <span className="text-xs font-medium text-gray-400">
-                    Step {currentStep + 1}/{totalSteps}
-                  </span>
-                  <div className="w-10 h-1.5 bg-gray-200 rounded-full overflow-hidden">
-                    <div 
-                      className="h-full bg-green-500 transition-all duration-300 ease-out"
-                      style={{ width: `${progressPercentage}%` }}
-                    />
-                  </div>
-                </div>
-              </TooltipTrigger>
-              <TooltipContent 
-                side="bottom" 
-                className="bg-white text-gray-900 border border-gray-200 shadow-lg p-3 min-w-[200px]"
-                sideOffset={8}
-              >
-                <div className="space-y-2">
-                  {steps.map((stepItem, index) => {
-                    const isCompleted = index < currentStep
-                    const isCurrent = index === currentStep
-                    const itemTitle = locale === 'ar' && stepItem.titleAr ? stepItem.titleAr : stepItem.title
-                    
-                    return (
-                      <div 
-                        key={stepItem.id} 
-                        className={`flex items-center gap-2 text-sm ${
-                          isCompleted ? 'text-gray-500' : isCurrent ? 'text-gray-900 font-medium' : 'text-gray-600'
-                        }`}
-                      >
-                        {isCompleted ? (
-                          <>
-                            <CheckCircle2 className="h-4 w-4 text-green-500 flex-shrink-0" />
-                            <span className="line-through">{itemTitle}</span>
-                          </>
-                        ) : (
-                          <>
-                            <div className="h-4 w-4 rounded-full border-2 border-gray-300 flex items-center justify-center flex-shrink-0">
-                              {isCurrent && <div className="h-2 w-2 rounded-full bg-gray-900" />}
-                            </div>
-                            <span>{itemTitle}</span>
-                          </>
-                        )}
-                      </div>
-                    )
-                  })}
-                </div>
-              </TooltipContent>
-            </Tooltip>
-          </header>
-          
+        <div className="w-full flex flex-col overflow-hidden">
           {/* Step Content */}
           <main className="flex-1 overflow-y-auto bg-white relative">
             {/* Loading Overlay */}
@@ -459,78 +385,6 @@ export function OnboardingWizard() {
           </main>
         </div>
 
-        {/* Graphics/Content Area */}
-        <aside className="hidden lg:flex w-full lg:w-1/2 flex-col relative group/slider">
-          <div className="flex-1 overflow-hidden bg-orange-50 relative">
-            <OnboardingStorySlider />
-          
-            {/* Pause Button */}
-            <div 
-              className={`absolute top-20 ${rtlPositionClasses.topLeft} flex items-center ${rtlPositionClasses.justifyReverse} ${isRTL ? 'pr-12' : 'pl-12'} z-30 opacity-0 group-hover/slider:opacity-100 transition-opacity duration-300`}
-            >
-              <button
-                onClick={handleTogglePause}
-                className="flex items-center justify-center w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 transition-colors cursor-pointer"
-                aria-label="Toggle pause"
-              >
-                <Pause className="w-5 h-5 text-white" fill="white" />
-              </button>
-            </div>
-          
-            {/* Language Switcher and Avatar */}
-            <div 
-              className={`absolute top-20 ${rtlPositionClasses.topRight} flex items-center ${rtlPositionClasses.justify} ${isRTL ? 'pl-12' : 'pr-12'} z-30`}
-            >
-              <div className="flex items-center gap-3">
-                <Button
-                  variant="ghost"
-                  onClick={handleLanguageToggle}
-                  className="flex items-center gap-2 text-sm h-10 text-white hover:bg-white/20 hover:text-white transition-colors"
-                >
-                  <Globe className="h-4 w-4 text-white" />
-                  <span 
-                    style={locale === 'en' ? { fontFamily: 'var(--font-ibm-plex-arabic), sans-serif' } : undefined} 
-                    className="text-white"
-                  >
-                    {locale === 'en' ? 'العربية' : 'English'}
-                  </span>
-                </Button>
-              
-                {user && !authLoading && (
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <button
-                        className="flex h-9 w-9 items-center justify-center rounded-full bg-gray-800 text-white text-sm font-medium hover:bg-orange-500 transition-colors focus:outline-none cursor-pointer shrink-0"
-                        aria-label="User menu"
-                      >
-                        {userInitials}
-                      </button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent
-                      align="end"
-                      side="bottom"
-                      sideOffset={8}
-                      className="w-48 rounded-2xl p-0 shadow-[0_20px_60px_rgba(15,23,42,0.15)] bg-white overflow-hidden border-0"
-                    >
-                      <div className="p-2 space-y-1">
-                        <DropdownMenuItem
-                          onSelect={(e) => {
-                            e.preventDefault()
-                            handleSignOut()
-                          }}
-                          className="cursor-pointer rounded-md flex items-center gap-2 text-sm font-medium text-red-600 hover:bg-red-50 focus:bg-red-50 focus:text-red-600"
-                        >
-                          <LogOut className="h-4 w-4 text-red-600" />
-                          Sign Out
-                        </DropdownMenuItem>
-                      </div>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                )}
-              </div>
-            </div>
-          </div>
-        </aside>
       </div>
     </div>
   )

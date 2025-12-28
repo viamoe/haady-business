@@ -16,6 +16,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Loader2, ChevronDown } from 'lucide-react'
+import { Skeleton } from '@/components/ui/skeleton'
 import { toast } from '@/lib/toast'
 import { useLoading } from '@/lib/loading-context'
 import { Flag } from '@/components/flag'
@@ -172,6 +173,7 @@ export function PersonalDetailsStep({ onNext }: OnboardingStepProps) {
   const { user } = useAuth()
   const t = translations[locale] || translations.en
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isLoadingData, setIsLoadingData] = useState(true)
   const [countries, setCountries] = useState<Country[]>([])
   const [isLoadingCountries, setIsLoadingCountries] = useState(true)
   const [focusedField, setFocusedField] = useState<string | null>(null)
@@ -179,6 +181,7 @@ export function PersonalDetailsStep({ onNext }: OnboardingStepProps) {
   const [roleOptions, setRoleOptions] = useState<Array<{ value: string; label: { en: string; ar: string } }>>([])
   const [isLoadingRoles, setIsLoadingRoles] = useState(true)
   const [isCountryOpen, setIsCountryOpen] = useState(false)
+  const [savedPhoneData, setSavedPhoneData] = useState<{ phone: string; countryId: string } | null>(null)
   
   // Role label mappings (since enum only has values)
   const roleLabelMap: Record<string, { en: string; ar: string }> = {
@@ -199,6 +202,7 @@ export function PersonalDetailsStep({ onNext }: OnboardingStepProps) {
     formState: { errors, isValid, isSubmitting: formIsSubmitting },
     setValue,
     watch,
+    trigger,
   } = useForm<PersonalDetailsFormData>({
     resolver: zodResolver(personalDetailsSchema),
     mode: 'onChange',
@@ -271,6 +275,55 @@ export function PersonalDetailsStep({ onNext }: OnboardingStepProps) {
       if (fullName) {
         console.log('👤 Loading full name from auth:', fullName)
         setValue('fullName', fullName.trim(), { shouldValidate: false })
+      }
+
+      // Fetch previously saved data from business_profile
+      try {
+        const { data: businessProfile, error: profileError } = await supabase
+          .from('business_profile')
+          .select('full_name, phone, business_country, role')
+          .eq('auth_user_id', user.id)
+          .maybeSingle()
+
+        if (profileError) {
+          console.error('❌ Error fetching business profile:', profileError)
+          return
+        }
+
+        if (businessProfile) {
+          console.log('📋 Loading saved personal details from database:', businessProfile)
+          
+          // Populate form with saved data (only if not already set from auth)
+          if (businessProfile.full_name && !fullName) {
+            setValue('fullName', businessProfile.full_name, { shouldValidate: true })
+          }
+          
+          // Set country first (needed for phone extraction)
+          if (businessProfile.business_country) {
+            setValue('country', businessProfile.business_country, { shouldValidate: true })
+          }
+          
+          // Store phone for extraction after countries load
+          if (businessProfile.phone && businessProfile.business_country) {
+            setSavedPhoneData({
+              phone: businessProfile.phone,
+              countryId: businessProfile.business_country
+            })
+          }
+          
+          if (businessProfile.role) {
+            setValue('role', businessProfile.role, { shouldValidate: true })
+          }
+          
+          // Trigger validation after setting all values to enable the button
+          setTimeout(() => {
+            trigger()
+          }, 100)
+        }
+      } catch (error) {
+        console.error('❌ Error loading saved personal details:', error)
+      } finally {
+        setIsLoadingData(false)
       }
     }
     
@@ -455,6 +508,33 @@ export function PersonalDetailsStep({ onNext }: OnboardingStepProps) {
     fetchRoles()
   }, [])
 
+  // Extract phone number from saved data once countries are loaded
+  useEffect(() => {
+    if (savedPhoneData && countries.length > 0 && savedPhoneData.countryId) {
+      const savedCountry = countries.find(c => c.id === savedPhoneData.countryId)
+      if (savedCountry?.phone_code) {
+        const phoneCode = savedCountry.phone_code.replace(/^\+/, '')
+        // Escape special regex characters in phone code
+        const escapedPhoneCode = phoneCode.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+        // Remove country code prefix (with or without +)
+        const phoneCodePattern = new RegExp(`^\\+?${escapedPhoneCode}`)
+        let phoneWithoutCode = savedPhoneData.phone.replace(phoneCodePattern, '')
+        // Remove any non-digit characters
+        phoneWithoutCode = phoneWithoutCode.replace(/\D/g, '')
+        
+        if (phoneWithoutCode) {
+          console.log('📱 Extracted phone number:', phoneWithoutCode, 'from:', savedPhoneData.phone, 'country code:', phoneCode)
+          setValue('mobilePhone', phoneWithoutCode, { shouldValidate: true })
+          setSavedPhoneData(null) // Clear after extraction
+          // Trigger validation to update button state
+          setTimeout(() => {
+            trigger()
+          }, 50)
+        }
+      }
+    }
+  }, [savedPhoneData, countries, setValue])
+
   const onSubmit = async (values: PersonalDetailsFormData) => {
     console.log('🚀 Form submission started')
     setIsSubmitting(true)
@@ -546,6 +626,9 @@ export function PersonalDetailsStep({ onNext }: OnboardingStepProps) {
         businessProfileId,
       })
 
+      // Show success toast
+      toast.solid.success(locale === 'ar' ? 'تم الحفظ بنجاح' : 'Saved successfully')
+
       // Proceed to the next step with timeout protection
       console.log('🔄 Navigating to next step...')
       try {
@@ -608,6 +691,41 @@ export function PersonalDetailsStep({ onNext }: OnboardingStepProps) {
       console.log('🔄 Resetting isSubmitting state')
       setIsSubmitting(false)
     }
+  }
+
+  // Loading skeleton while fetching data
+  if (isLoadingData) {
+    return (
+      <div className="space-y-6 w-full">
+        {/* Full Name skeleton */}
+        <div className="space-y-2">
+          <Skeleton className="h-4 w-20" />
+          <Skeleton className="h-10 w-full" />
+        </div>
+        {/* Email skeleton */}
+        <div className="space-y-2">
+          <Skeleton className="h-4 w-16" />
+          <Skeleton className="h-10 w-full" />
+        </div>
+        {/* Role skeleton */}
+        <div className="space-y-2">
+          <Skeleton className="h-4 w-24" />
+          <Skeleton className="h-10 w-full" />
+        </div>
+        {/* Country skeleton */}
+        <div className="space-y-2">
+          <Skeleton className="h-4 w-20" />
+          <Skeleton className="h-10 w-full" />
+        </div>
+        {/* Mobile Phone skeleton */}
+        <div className="space-y-2">
+          <Skeleton className="h-4 w-28" />
+          <Skeleton className="h-10 w-full" />
+        </div>
+        {/* Button skeleton */}
+        <Skeleton className="h-12 w-full" />
+      </div>
+    )
   }
 
   return (

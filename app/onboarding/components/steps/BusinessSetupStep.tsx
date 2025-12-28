@@ -27,6 +27,7 @@ import { Slider } from '@/components/ui/slider'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Switch } from '@/components/ui/switch'
 import { Loader2, ChevronDown, Upload, X, Plus, Minus, Camera, Store, Link as LinkIcon, Search, Clock, CheckCircle2 } from 'lucide-react'
+import { Skeleton } from '@/components/ui/skeleton'
 import { toast } from '@/lib/toast'
 import { useLoading } from '@/lib/loading-context'
 import { Flag } from '@/components/flag'
@@ -293,6 +294,7 @@ export function BusinessSetupStep({ onNext }: OnboardingStepProps) {
   const { user } = useAuth()
   const t = translations[locale] || translations.en
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isLoadingData, setIsLoadingData] = useState(true)
   const [countries, setCountries] = useState<Country[]>([])
   const [isLoadingCountries, setIsLoadingCountries] = useState(true)
   const [businessTypes, setBusinessTypes] = useState<BusinessType[]>([])
@@ -665,6 +667,484 @@ export function BusinessSetupStep({ onNext }: OnboardingStepProps) {
     }
   }, [countries, storeCountry, setValue])
 
+  // Fetch previously saved store data from database
+  useEffect(() => {
+    const loadSavedStoreData = async () => {
+      // Wait for countries and storeCategories to be loaded
+      if (!user?.id || countries.length === 0 || storeCategories.length === 0) {
+        console.log('⏳ Waiting for dependencies:', {
+          hasUser: !!user?.id,
+          countriesCount: countries.length,
+          storeCategoriesCount: storeCategories.length
+        })
+        return
+      }
+      
+      // Also wait for cities if country is already set (for when navigating back)
+      const currentCountry = watch('storeCountry')
+      if (currentCountry && cities.length === 0) {
+        console.log('⏳ Waiting for cities to load for country:', currentCountry)
+        // Wait a bit for cities to load
+        let attempts = 0
+        while (cities.length === 0 && attempts < 20) {
+          await new Promise(resolve => setTimeout(resolve, 100))
+          attempts++
+        }
+      }
+
+      try {
+        // Get business_profile to find store_id
+        const { data: businessProfile, error: profileError } = await supabase
+          .from('business_profile')
+          .select('store_id')
+          .eq('auth_user_id', user.id)
+          .maybeSingle()
+
+        if (profileError) {
+          console.error('❌ Error fetching business profile:', profileError)
+          return
+        }
+
+        if (!businessProfile?.store_id) {
+          console.log('ℹ️ No store_id in business_profile yet')
+          return // No store created yet
+        }
+
+        // Verify store_id is valid UUID format
+        const storeId = businessProfile.store_id
+        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+        if (!uuidRegex.test(storeId)) {
+          console.warn('⚠️ Invalid store_id format:', storeId)
+          return
+        }
+
+        console.log('🔍 Fetching store data for store_id:', storeId)
+
+        // Fetch store data
+        // Note: stores table uses 'country' (UUID) and 'city' (TEXT) columns, not country_id/city_id
+        const { data: store, error: storeError } = await supabase
+          .from('stores')
+          .select(`
+            name,
+            name_ar,
+            country,
+            city,
+            address,
+            store_type,
+            opening_hours,
+            logo_url
+          `)
+          .eq('id', storeId)
+          .maybeSingle()
+
+        // Debug logging
+        console.log('📊 Store query result:', {
+          hasStore: !!store,
+          hasError: !!storeError,
+          errorType: storeError ? typeof storeError : 'none',
+          errorString: storeError ? JSON.stringify(storeError) : 'none',
+          storeId: storeId
+        })
+
+        // Check if we got store data first - if yes, use it regardless of error
+        if (store) {
+          console.log('✅ Store data fetched successfully:', store)
+          // Continue to populate form below - ignore any error if we have data
+        } else {
+          // No store data - check if there's a meaningful error
+          // Check if error is an empty object {} by stringifying it
+          const errorString = storeError ? JSON.stringify(storeError) : ''
+          const isEmptyError = errorString === '{}' || errorString === ''
+          
+          // Only check for real error if it's not empty
+          // Explicitly check each property exists and has non-empty value
+          if (!isEmptyError && storeError) {
+            const message = storeError.message
+            const code = storeError.code
+            const details = storeError.details
+            const hint = storeError.hint
+            
+            // Only consider it a real error if at least one property exists and is not empty
+            const hasMessage = message !== undefined && message !== null && String(message).trim() !== ''
+            const hasCode = code !== undefined && code !== null && String(code).trim() !== ''
+            const hasDetails = details !== undefined && details !== null && String(details).trim() !== ''
+            const hasHint = hint !== undefined && hint !== null && String(hint).trim() !== ''
+            const hasRealError = hasMessage || hasCode || hasDetails || hasHint
+
+            if (hasRealError) {
+              // Real error with actual content - log it
+              console.error('❌ Error fetching store:', {
+                message: message,
+                code: code,
+                details: details,
+                hint: hint,
+                storeId: storeId,
+                userId: user.id
+              })
+              return
+            }
+          }
+          
+          // If we reach here, it's an empty error object - don't log as error
+          
+          // Empty error or no error - store doesn't exist yet (normal for new users)
+          console.log('ℹ️ No store data found (store might not exist yet):', {
+            storeId: storeId,
+            userId: user.id,
+            isEmptyError: isEmptyError,
+            errorString: errorString
+          })
+          return
+        }
+
+
+        // Fetch store categories separately from junction table
+        let categoryIds: string[] = []
+        if (businessProfile.store_id) {
+          console.log('🔍 Fetching store categories for store_id:', businessProfile.store_id)
+          const { data: storeCategoriesData, error: categoriesError } = await supabase
+            .from('store_categories')
+            .select('category_id')
+            .eq('store_id', businessProfile.store_id)
+
+          console.log('📊 Store categories query result:', {
+            hasData: !!storeCategoriesData,
+            count: storeCategoriesData?.length || 0,
+            hasError: !!categoriesError,
+            errorString: categoriesError ? JSON.stringify(categoriesError) : 'none'
+          })
+
+          if (categoriesError) {
+            // Only log if it's a meaningful error
+            const errorString = categoriesError ? JSON.stringify(categoriesError) : ''
+            const isEmptyError = errorString === '{}' || errorString === ''
+            if (!isEmptyError && (categoriesError.message || categoriesError.code)) {
+              console.error('❌ Error fetching store categories:', categoriesError)
+            } else {
+              console.log('ℹ️ No store categories found or empty error (store might not have categories yet)')
+            }
+          } else if (storeCategoriesData && storeCategoriesData.length > 0) {
+            categoryIds = storeCategoriesData.map((sc: any) => sc.category_id).filter((id: string) => id) // Filter out any null/undefined
+            console.log('✅ Found store categories:', categoryIds, 'from', storeCategoriesData.length, 'records')
+            
+            // Verify these category IDs exist in the storeCategories list
+            const validCategoryIds = categoryIds.filter(id => 
+              storeCategories.some(cat => cat.id === id)
+            )
+            if (validCategoryIds.length !== categoryIds.length) {
+              console.warn('⚠️ Some category IDs from database are not in the available categories list:', {
+                found: categoryIds,
+                valid: validCategoryIds,
+                available: storeCategories.map(c => c.id).slice(0, 5)
+              })
+            }
+            // Use only valid category IDs
+            categoryIds = validCategoryIds
+          } else {
+            console.log('ℹ️ No store categories found for this store')
+          }
+        } else {
+          console.log('ℹ️ No store_id in business_profile, skipping category fetch')
+        }
+
+        if (store) {
+          console.log('📋 Loading saved store data from database:', store)
+          
+          // Populate form with saved data
+          if (store.name) {
+            setValue('storeName', store.name, { shouldValidate: true })
+          }
+          
+          if (store.name_ar) {
+            setValue('storeNameAr', store.name_ar, { shouldValidate: true })
+          }
+          
+          // Note: stores table uses 'country' (UUID) and 'city' (TEXT/UUID as text)
+          if (store.country) {
+            console.log('🌍 Setting country:', store.country)
+            setValue('storeCountry', store.country, { shouldValidate: true })
+            
+            // Wait for cities to load after country is set
+            // The cities useEffect will trigger when storeCountry changes
+            // Poll for cities to be loaded (max 3 seconds)
+            let attempts = 0
+            const maxAttempts = 30 // 30 attempts * 100ms = 3 seconds max
+            while (cities.length === 0 && attempts < maxAttempts) {
+              await new Promise(resolve => setTimeout(resolve, 100))
+              attempts++
+            }
+            
+            if (cities.length > 0) {
+              console.log('✅ Cities loaded:', cities.length, 'cities')
+            } else {
+              console.warn('⚠️ Cities did not load after setting country')
+            }
+          }
+          
+          // City might be stored as UUID string or city name - need to find matching city
+          if (store.city) {
+            console.log('🏙️ Looking for city:', store.city, 'in cities list (length:', cities.length, ')')
+            console.log('📋 Available cities:', cities.slice(0, 5).map(c => ({ id: c.id, name: c.name, name_ar: c.name_ar })))
+            
+            // Try multiple matching strategies
+            let cityToUse = null
+            
+            // Strategy 1: Match by exact ID
+            cityToUse = cities.find(c => c.id === store.city)
+            if (cityToUse) {
+              console.log('✅ Found city by ID:', cityToUse.name)
+            }
+            
+            // Strategy 2: Match by name (case-insensitive)
+            if (!cityToUse) {
+              cityToUse = cities.find(c => 
+                c.name?.toLowerCase().trim() === store.city?.toLowerCase().trim()
+              )
+              if (cityToUse) {
+                console.log('✅ Found city by English name:', cityToUse.name)
+              }
+            }
+            
+            // Strategy 3: Match by Arabic name
+            if (!cityToUse) {
+              cityToUse = cities.find(c => c.name_ar === store.city)
+              if (cityToUse) {
+                console.log('✅ Found city by Arabic name:', cityToUse.name_ar)
+              }
+            }
+            
+            // Strategy 4: Partial match (contains)
+            if (!cityToUse) {
+              cityToUse = cities.find(c => 
+                c.name?.toLowerCase().includes(store.city?.toLowerCase()) ||
+                store.city?.toLowerCase().includes(c.name?.toLowerCase())
+              )
+              if (cityToUse) {
+                console.log('✅ Found city by partial match:', cityToUse.name)
+              }
+            }
+            
+            if (cityToUse) {
+              console.log('✅ Setting city:', cityToUse.name, 'ID:', cityToUse.id)
+              setTimeout(() => {
+                setValue('storeCity', cityToUse!.id, { shouldValidate: true })
+                trigger('storeCity')
+                console.log('✅ City set and validated')
+              }, 100)
+            } else {
+              // If city is stored as name but not found in cities list, log a warning
+              console.warn('⚠️ City not found in cities list:', {
+                storedCity: store.city,
+                storedCityType: typeof store.city,
+                citiesCount: cities.length,
+                countryId: store.country,
+                availableCities: cities.slice(0, 10).map(c => ({ id: c.id, name: c.name, name_ar: c.name_ar, country_id: c.country_id }))
+              })
+              
+              // Try multiple retry strategies with increasing delays
+              const retryCityMatch = () => {
+                // Strategy 1: Check if cities list has grown
+                if (cities.length === 0) {
+                  console.log('⏳ Cities list is still empty, will retry...')
+                  return null
+                }
+                
+                // Strategy 2: Try all matching strategies again
+                let retryCity = cities.find(c => c.id === store.city)
+                if (retryCity) {
+                  console.log('✅ Found city on retry by ID:', retryCity.name)
+                  return retryCity
+                }
+                
+                retryCity = cities.find(c => 
+                  c.name?.toLowerCase().trim() === store.city?.toLowerCase().trim()
+                )
+                if (retryCity) {
+                  console.log('✅ Found city on retry by exact name:', retryCity.name)
+                  return retryCity
+                }
+                
+                retryCity = cities.find(c => c.name_ar === store.city)
+                if (retryCity) {
+                  console.log('✅ Found city on retry by Arabic name:', retryCity.name_ar)
+                  return retryCity
+                }
+                
+                // Strategy 3: Try partial matches (more lenient)
+                retryCity = cities.find(c => 
+                  c.name?.toLowerCase().includes(store.city?.toLowerCase()) ||
+                  store.city?.toLowerCase().includes(c.name?.toLowerCase()) ||
+                  (c.name_ar && c.name_ar.includes(store.city)) ||
+                  (store.city && c.name_ar && store.city.includes(c.name_ar))
+                )
+                if (retryCity) {
+                  console.log('✅ Found city on retry by partial match:', retryCity.name)
+                  return retryCity
+                }
+                
+                // Strategy 4: Try removing common prefixes/suffixes
+                const cleanCityName = store.city?.replace(/^(city of|مدينة)\s*/i, '').trim()
+                if (cleanCityName && cleanCityName !== store.city) {
+                  retryCity = cities.find(c => 
+                    c.name?.toLowerCase().trim() === cleanCityName.toLowerCase() ||
+                    c.name_ar === cleanCityName
+                  )
+                  if (retryCity) {
+                    console.log('✅ Found city on retry after cleaning name:', retryCity.name)
+                    return retryCity
+                  }
+                }
+                
+                return null
+              }
+              
+              // First retry after 1.5 seconds
+              setTimeout(() => {
+                const retryCity = retryCityMatch()
+                if (retryCity) {
+                  setValue('storeCity', retryCity.id, { shouldValidate: true })
+                  trigger('storeCity')
+                } else if (cities.length > 0) {
+                  // If cities are loaded but still no match, log detailed info
+                  console.error('❌ City still not found after retry. Details:', {
+                    storedCity: store.city,
+                    storedCityLength: store.city?.length,
+                    citiesSample: cities.slice(0, 5).map(c => ({
+                      id: c.id,
+                      name: c.name,
+                      name_ar: c.name_ar,
+                      nameLower: c.name?.toLowerCase(),
+                      storedCityLower: store.city?.toLowerCase()
+                    })),
+                    allCityNames: cities.map(c => c.name).slice(0, 10),
+                    allCityNamesAr: cities.map(c => c.name_ar).filter(Boolean).slice(0, 10)
+                  })
+                } else {
+                  console.warn('⚠️ Cities list is still empty after retry')
+                }
+              }, 1500)
+              
+              // Second retry after 3 seconds (in case cities are loading very slowly)
+              setTimeout(() => {
+                const retryCity = retryCityMatch()
+                if (retryCity) {
+                  console.log('✅ Found city on second retry:', retryCity.name)
+                  setValue('storeCity', retryCity.id, { shouldValidate: true })
+                  trigger('storeCity')
+                }
+              }, 3000)
+            }
+          }
+          
+          if (store.address) {
+            setValue('storeAddress', store.address, { shouldValidate: true })
+          }
+          
+          // Note: stores table uses 'store_type' (array), not 'store_types'
+          // Handle both array format (new) and single value format (old)
+          if (store.store_type) {
+            if (Array.isArray(store.store_type)) {
+              console.log('✅ Setting store type (array):', store.store_type)
+              setValue('storeType', store.store_type as ('online' | 'retail' | 'hybrid' | 'pop_up')[], { shouldValidate: true })
+            } else if (typeof store.store_type === 'string') {
+              // Single value - convert to array
+              console.log('✅ Setting store type (single value, converting to array):', store.store_type)
+              setValue('storeType', [store.store_type] as ('online' | 'retail' | 'hybrid' | 'pop_up')[], { shouldValidate: true })
+            }
+          }
+          
+          if (store.opening_hours) {
+            setValue('openingHours', store.opening_hours as Record<string, { open: string; close: string; closed: boolean }>, { shouldValidate: true })
+          }
+          
+          // Handle logo URL - set preview if logo exists
+          if (store.logo_url) {
+            console.log('🖼️ Setting logo preview from URL:', store.logo_url)
+            setLogoPreview(store.logo_url)
+            // Note: We don't set logoFile here because it's a File object, not a URL
+            // The preview will show the existing logo from the URL
+          }
+          
+          // Handle categories from junction table
+          // Make sure categories are set after a small delay to ensure form state is ready
+          if (categoryIds.length > 0) {
+            console.log('📦 Category IDs from database:', categoryIds)
+            console.log('📋 Available store categories count:', storeCategories.length)
+            console.log('📋 Available store category IDs:', storeCategories.map(c => c.id).slice(0, 10))
+            console.log('📋 Available store category names:', storeCategories.map(c => ({ id: c.id, name: c.name })).slice(0, 5))
+            
+            // Double-check that all category IDs exist in storeCategories
+            const finalCategoryIds = categoryIds.filter(id => {
+              const exists = storeCategories.some(cat => cat.id === id)
+              if (!exists) {
+                console.warn('⚠️ Category ID not found in available categories:', id)
+              }
+              return exists
+            })
+            
+            console.log('✅ Valid category IDs after filtering:', finalCategoryIds)
+            console.log('📊 Filtering result:', {
+              originalCount: categoryIds.length,
+              validCount: finalCategoryIds.length,
+              removed: categoryIds.filter(id => !finalCategoryIds.includes(id))
+            })
+            
+            if (finalCategoryIds.length > 0) {
+              console.log('✅ Setting categories to form:', finalCategoryIds)
+              // Set immediately first
+              setValue('storeCategory', finalCategoryIds, { shouldValidate: true })
+              
+              // Also set after a delay to ensure form state is ready
+              setTimeout(() => {
+                setValue('storeCategory', finalCategoryIds, { shouldValidate: true })
+                trigger('storeCategory')
+                
+                // Verify it was set
+                const currentValue = watch('storeCategory')
+                console.log('✅ Categories set, current form value:', currentValue)
+                console.log('✅ Validation triggered for storeCategory')
+              }, 300)
+              
+              // One more retry after longer delay
+              setTimeout(() => {
+                const currentValue = watch('storeCategory')
+                if (!currentValue || currentValue.length === 0) {
+                  console.warn('⚠️ Categories not set, retrying...')
+                  setValue('storeCategory', finalCategoryIds, { shouldValidate: true })
+                  trigger('storeCategory')
+                } else {
+                  console.log('✅ Categories confirmed set:', currentValue)
+                }
+              }, 800)
+            } else {
+              console.error('❌ No valid categories found after filtering:', {
+                original: categoryIds,
+                available: storeCategories.map(c => c.id).slice(0, 10),
+                availableNames: storeCategories.map(c => ({ id: c.id, name: c.name })).slice(0, 10)
+              })
+            }
+          } else {
+            console.log('ℹ️ No categories to set (categoryIds is empty)')
+          }
+          
+          // Trigger validation after setting all values to enable the button
+          // Use a longer timeout to ensure all async operations complete
+          setTimeout(() => {
+            console.log('🔍 Triggering form validation...')
+            trigger()
+          }, 500)
+        }
+      } catch (error) {
+        console.error('❌ Error loading saved store data:', error)
+      } finally {
+        setIsLoadingData(false)
+      }
+    }
+
+    loadSavedStoreData()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, countries.length, storeCategories.length, cities.length])
+
   // Fetch business types
   useEffect(() => {
     const fetchBusinessTypes = async () => {
@@ -882,6 +1362,9 @@ export function BusinessSetupStep({ onNext }: OnboardingStepProps) {
       UserPreferencesCookies.setCountry(preferredCountry)
       UserPreferencesCookies.setLocale(preferredLanguage)
 
+      // Show success toast
+      toast.solid.success(locale === 'ar' ? 'تم الحفظ بنجاح' : 'Saved successfully')
+
       // Proceed to next step with timeout protection
       try {
         const nextStepPromise = onNext()
@@ -897,7 +1380,7 @@ export function BusinessSetupStep({ onNext }: OnboardingStepProps) {
         
         // Try to navigate manually if onNext fails
         const currentPath = pathname
-        const nextStepPath = currentPath.replace(/\/[^/]+$/, '/connect-store')
+        const nextStepPath = currentPath.replace(/\/[^/]+$/, '/summary')
         router.push(nextStepPath)
       }
       
@@ -962,6 +1445,66 @@ export function BusinessSetupStep({ onNext }: OnboardingStepProps) {
     if (fileInput) {
       fileInput.value = ''
     }
+  }
+
+  // Loading skeleton while fetching data
+  if (isLoadingData) {
+    return (
+      <div className="space-y-6" dir={isRTL ? 'rtl' : 'ltr'}>
+        {/* Logo skeleton */}
+        <div className="space-y-2">
+          <div className="flex items-center gap-4">
+            <Skeleton className="w-24 h-24 rounded-xl" />
+            <div className="space-y-2">
+              <Skeleton className="h-4 w-32" />
+              <Skeleton className="h-3 w-48" />
+            </div>
+          </div>
+        </div>
+        {/* Store Name skeleton */}
+        <div className="space-y-2">
+          <Skeleton className="h-4 w-24" />
+          <Skeleton className="h-10 w-full" />
+        </div>
+        {/* Store Name Arabic skeleton */}
+        <div className="space-y-2">
+          <Skeleton className="h-4 w-32" />
+          <Skeleton className="h-10 w-full" />
+        </div>
+        {/* Store Category skeleton */}
+        <div className="space-y-2">
+          <Skeleton className="h-4 w-28" />
+          <Skeleton className="h-10 w-full" />
+        </div>
+        {/* Store Type skeleton */}
+        <div className="space-y-2">
+          <Skeleton className="h-4 w-24" />
+          <Skeleton className="h-10 w-full" />
+        </div>
+        {/* Country skeleton */}
+        <div className="space-y-2">
+          <Skeleton className="h-4 w-20" />
+          <Skeleton className="h-10 w-full" />
+        </div>
+        {/* City skeleton */}
+        <div className="space-y-2">
+          <Skeleton className="h-4 w-16" />
+          <Skeleton className="h-10 w-full" />
+        </div>
+        {/* Address skeleton */}
+        <div className="space-y-2">
+          <Skeleton className="h-4 w-24" />
+          <Skeleton className="h-10 w-full" />
+        </div>
+        {/* Opening Hours skeleton */}
+        <div className="space-y-2">
+          <Skeleton className="h-4 w-28" />
+          <Skeleton className="h-10 w-full" />
+        </div>
+        {/* Button skeleton */}
+        <Skeleton className="h-12 w-full" />
+      </div>
+    )
   }
 
   return (

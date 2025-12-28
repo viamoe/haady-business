@@ -1,6 +1,7 @@
 'use client'
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -32,6 +33,8 @@ import {
   Truck,
   ExternalLink,
   ChevronDown,
+  Clock,
+  XCircle,
 } from 'lucide-react'
 import Image from 'next/image'
 import Link from 'next/link'
@@ -218,17 +221,17 @@ function StatsCard({
           <div>
             <CardTitle className="text-sm font-medium text-gray-500">{title}</CardTitle>
             <div className="text-3xl font-bold mt-1 flex items-center gap-2">
-              {displayValue}
               {isCurrencyUrl && currencyIconUrl && (
                 <Image
                   src={currencyIconUrl}
                   alt="Currency"
-                  width={32}
-                  height={32}
+                  width={24}
+                  height={24}
                   className="inline-block"
                   unoptimized
                 />
               )}
+              {displayValue}
             </div>
           </div>
           <Icon className="h-7 w-7 text-gray-300 group-hover:text-gray-500 transition-colors duration-200" />
@@ -466,7 +469,7 @@ export function DashboardContent({
           storesError = result.error
         }
 
-        if (storesError) {
+        if (storesError && process.env.NODE_ENV === 'development') {
           console.error('Error fetching stores:', storesError)
           // If error, fall back to showing all data
           setStoreCount(initialStoreCount)
@@ -498,8 +501,10 @@ export function DashboardContent({
           .eq('is_active', true)
 
         // If error is related to deleted_at column not existing, retry without it
-        if (productsError && (productsError.message?.includes('deleted_at') || productsError.code === '42703' || productsError.code === 'PGRST116')) {
-          console.log('Retrying product count query without deleted_at filter')
+            if (productsError && (productsError.message?.includes('deleted_at') || productsError.code === '42703' || productsError.code === 'PGRST116')) {
+              if (process.env.NODE_ENV === 'development') {
+                console.log('Retrying product count query without deleted_at filter')
+              }
           const retryResult = await supabase
             .from('products')
             .select('id', { count: 'exact', head: true })
@@ -511,7 +516,9 @@ export function DashboardContent({
         }
 
         if (productsError) {
-          console.error('Error fetching products:', productsError)
+          if (process.env.NODE_ENV === 'development') {
+            console.error('Error fetching products:', productsError)
+          }
           // If products query fails, still set store count but set products to 0
           setStoreCount(storeCountForConnection)
           setProductCount(0)
@@ -529,7 +536,9 @@ export function DashboardContent({
         setHasProducts(productCountForConnection > 0)
         setIsSetupComplete(storeCountForConnection > 0 && productCountForConnection > 0 && hasPaymentConfigured && hasShippingConfigured)
       } catch (error) {
-        console.error('Error fetching store data:', error)
+        if (process.env.NODE_ENV === 'development') {
+          console.error('Error fetching store data:', error)
+        }
         // Fall back to showing all data on error
         setStoreCount(initialStoreCount)
         setProductCount(initialProductCount)
@@ -546,7 +555,9 @@ export function DashboardContent({
   useEffect(() => {
     const handleSyncCompleted = (event: CustomEvent) => {
       const { connectionId, success } = event.detail || {}
-      console.log('Sync completed event received:', { connectionId, success, selectedConnectionId })
+      if (process.env.NODE_ENV === 'development') {
+        console.log('Sync completed event received:', { connectionId, success, selectedConnectionId })
+      }
       
       // Refresh if sync was successful and matches selected connection, or if no connection is selected (show all)
       if (success && (connectionId === selectedConnectionId || !selectedConnectionId)) {
@@ -555,7 +566,9 @@ export function DashboardContent({
           if (!selectedConnectionId) return
 
           try {
-            console.log('Refreshing product count for connection:', selectedConnectionId)
+            if (process.env.NODE_ENV === 'development') {
+              console.log('Refreshing product count for connection:', selectedConnectionId)
+            }
             const { data: connection } = await supabase
               .from('store_connections')
               .select('id')
@@ -563,7 +576,9 @@ export function DashboardContent({
               .maybeSingle()
 
             if (!connection) {
-              console.log('No connection found')
+              if (process.env.NODE_ENV === 'development') {
+                console.log('No connection found')
+              }
               return
             }
 
@@ -575,7 +590,9 @@ export function DashboardContent({
               .maybeSingle()
 
             if (!connectionWithStore?.store_id) {
-              console.log('No store linked to connection')
+              if (process.env.NODE_ENV === 'development') {
+                console.log('No store linked to connection')
+              }
               return
             }
 
@@ -587,17 +604,23 @@ export function DashboardContent({
               .maybeSingle()
 
             if (storesError?.message) {
-              console.error('Error fetching store:', storesError.message)
+              if (process.env.NODE_ENV === 'development') {
+                console.error('Error fetching store:', storesError.message)
+              }
               return
             }
 
             if (!store) {
-              console.log('No store found for connection')
+              if (process.env.NODE_ENV === 'development') {
+                console.log('No store found for connection')
+              }
               return
             }
 
             const storeIds = [store.id]
-            console.log('Store IDs:', storeIds)
+            if (process.env.NODE_ENV === 'development') {
+              console.log('Store IDs:', storeIds)
+            }
 
             // Fetch updated product count
             let { count: productCount, error: productsError } = await supabase
@@ -608,7 +631,9 @@ export function DashboardContent({
 
             // If error is related to deleted_at column not existing, retry without it
             if (productsError && (productsError.message?.includes('deleted_at') || productsError.code === '42703' || productsError.code === 'PGRST116')) {
+              if (process.env.NODE_ENV === 'development') {
               console.log('Retrying product count query without deleted_at filter')
+            }
               const retryResult = await supabase
                 .from('products')
                 .select('id', { count: 'exact', head: true })
@@ -620,18 +645,24 @@ export function DashboardContent({
             }
 
             if (productsError) {
-              console.error('Error fetching product count:', productsError)
+              if (process.env.NODE_ENV === 'development') {
+                console.error('Error fetching product count:', productsError)
+              }
               return
             }
 
-            console.log('Updated product count:', productCount)
+            if (process.env.NODE_ENV === 'development') {
+              console.log('Updated product count:', productCount)
+            }
             if (productCount !== null) {
               setProductCount(productCount)
               setHasProducts(productCount > 0)
               setIsSetupComplete(productCount > 0 && hasPaymentConfigured && hasShippingConfigured)
             }
           } catch (error) {
-            console.error('Error refreshing product count after sync:', error)
+            if (process.env.NODE_ENV === 'development') {
+              console.error('Error refreshing product count after sync:', error)
+            }
           }
         }
 
@@ -671,7 +702,7 @@ export function DashboardContent({
       title: 'Create your first store',
       description: 'Set up your online storefront',
       completed: hasStore,
-      href: '/dashboard/stores',
+      href: '/dashboard/settings/store',
       icon: Store,
     },
     {
@@ -745,30 +776,115 @@ const insightCards = useMemo(() => {
         // Skeleton matching dashboard structure
         <div className="space-y-6">
           {/* Breadcrumb Skeleton */}
-          <div className="flex items-center gap-2">
-            <Skeleton className="h-4 w-24" />
-          </div>
+          <Breadcrumb>
+            <BreadcrumbList>
+              <BreadcrumbItem>
+                <Skeleton className="h-5 w-24" />
+              </BreadcrumbItem>
+            </BreadcrumbList>
+          </Breadcrumb>
 
           {/* Greeting Section Skeleton */}
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mt-2">
             <div className="space-y-2">
               <Skeleton className="h-9 w-64" />
-              <Skeleton className="h-5 w-96" />
+              <Skeleton className="h-5 w-96 max-w-full" />
+            </div>
+            <div className="flex-shrink-0">
+              <Skeleton className="h-10 w-[280px]" />
             </div>
           </div>
+
+          {/* Stats Cards Skeleton */}
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
             {[1, 2, 3].map((item) => (
-              <Card key={`insight-skeleton-${item}`} className="border-0 shadow-sm rounded-3xl">
-                <CardHeader className="space-y-2">
-                  <Skeleton className="h-4 w-24" />
-                  <Skeleton className="h-6 w-20" />
+              <Card key={`insight-skeleton-${item}`} className="group relative min-h-[200px] overflow-hidden rounded-3xl border-0 shadow-none flex flex-col">
+                <CardHeader className="pb-0 space-y-4">
+                  <div className="flex items-start justify-between">
+                    <div className="space-y-2">
+                      <Skeleton className="h-4 w-16" />
+                      <Skeleton className="h-8 w-32" />
+                    </div>
+                    <Skeleton className="h-7 w-7 rounded" />
+                  </div>
                 </CardHeader>
-                <CardContent>
-                  <Skeleton className="h-3 w-32" />
+                <CardContent className="pt-2 flex flex-col gap-2">
+                  {/* Chart Skeleton */}
+                  <div className="flex items-center justify-center w-full py-2">
+                    <div className="h-[80px] w-full">
+                      <Skeleton className="h-full w-full rounded" />
+                    </div>
+                  </div>
+                  <Skeleton className="h-3 w-40" />
+                  <Skeleton className="h-4 w-20 mt-1" />
                 </CardContent>
               </Card>
             ))}
           </div>
+
+          {/* Recent Orders Card Skeleton */}
+          <Card className="rounded-3xl shadow-[0_18px_35px_rgba(15,23,42,0.04)] border-0">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div className="space-y-2">
+                  <Skeleton className="h-6 w-32" />
+                  <Skeleton className="h-4 w-48" />
+                </div>
+                <Skeleton className="h-4 w-16" />
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="flex items-center justify-between p-4 rounded-lg">
+                    <div className="flex items-center gap-4 flex-1">
+                      <Skeleton className="h-10 w-10 rounded-full" />
+                      <div className="flex-1 space-y-2">
+                        <Skeleton className="h-4 w-32" />
+                        <Skeleton className="h-3 w-48" />
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-4">
+                      <Skeleton className="h-4 w-20" />
+                      <Skeleton className="h-6 w-16 rounded-full" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Best Selling Products Card Skeleton */}
+          <Card className="rounded-3xl shadow-[0_18px_35px_rgba(15,23,42,0.04)] border-0 mb-8">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div className="space-y-2">
+                  <Skeleton className="h-6 w-40" />
+                  <Skeleton className="h-4 w-56" />
+                </div>
+                <Skeleton className="h-4 w-16" />
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {[1, 2, 3, 4, 5].map((i) => (
+                  <div key={i} className="flex items-center justify-between p-4 rounded-lg">
+                    <div className="flex items-center gap-4 flex-1">
+                      <Skeleton className="h-12 w-12 rounded-lg" />
+                      <div className="flex-1 space-y-2">
+                        <Skeleton className="h-4 w-40" />
+                        <Skeleton className="h-3 w-24" />
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-4">
+                      <Skeleton className="h-4 w-16" />
+                      <Skeleton className="h-4 w-20" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
         </div>
       ) : (
         // Content with fade-in animation
@@ -827,6 +943,204 @@ const insightCards = useMemo(() => {
               />
             ))}
           </div>
+
+          {/* Recent Orders Section */}
+          <Card className="rounded-3xl shadow-[0_18px_35px_rgba(15,23,42,0.04)] border-0">
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="text-xl font-bold">Recent Orders</CardTitle>
+                    <CardDescription className="mt-1">
+                      Latest orders from your store
+                    </CardDescription>
+                  </div>
+                  <Link
+                    href="/dashboard/orders"
+                    className="text-sm font-medium text-[#F4610B] hover:text-[#E05500] flex items-center gap-1 transition-colors"
+                  >
+                    View all
+                    <ArrowRight className="h-4 w-4" />
+                  </Link>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {isLoading ? (
+                  <div className="space-y-3">
+                    {[1, 2, 3].map((i) => (
+                      <div key={i} className="flex items-center justify-between p-4 border rounded-lg">
+                        <div className="flex items-center gap-4 flex-1">
+                          <Skeleton className="h-10 w-10 rounded-full" />
+                          <div className="flex-1 space-y-2">
+                            <Skeleton className="h-4 w-32" />
+                            <Skeleton className="h-3 w-48" />
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-4">
+                          <Skeleton className="h-4 w-20" />
+                          <Skeleton className="h-6 w-16 rounded-full" />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : recentOrders.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-12">
+                    <ShoppingBag className="h-12 w-12 text-gray-300 mb-4" />
+                    <p className="text-muted-foreground font-medium">No recent orders</p>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Orders will appear here once customers place them
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {recentOrders.slice(0, 5).map((order: any) => (
+                      <Link
+                        key={order.id}
+                        href={`/dashboard/orders/${order.id}`}
+                        className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50 transition-colors group"
+                      >
+                        <div className="flex items-center gap-4 flex-1 min-w-0">
+                          <div className="h-10 w-10 rounded-full bg-[#F4610B]/10 flex items-center justify-center shrink-0">
+                            <ShoppingBag className="h-5 w-5 text-[#F4610B]" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <p className="font-medium text-gray-900 truncate">
+                                {order.order_number || `#${order.id.slice(0, 8)}`}
+                              </p>
+                            </div>
+                            <p className="text-sm text-muted-foreground truncate">
+                              {order.customer_name || 'Guest'} • {new Date(order.created_at).toLocaleDateString()}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-4 shrink-0">
+                          <div className="text-right">
+                            <p className="font-medium text-gray-900">
+                              {order.total_amount?.toLocaleString() || '0'} {countryCurrency}
+                            </p>
+                          </div>
+                          <Badge
+                            variant={
+                              order.status === 'completed' || order.status === 'fulfilled'
+                                ? 'default'
+                                : order.status === 'cancelled' || order.status === 'canceled'
+                                ? 'destructive'
+                                : 'secondary'
+                            }
+                            className={
+                              order.status === 'completed' || order.status === 'fulfilled'
+                                ? 'bg-green-100 text-green-800 hover:bg-green-100'
+                                : order.status === 'cancelled' || order.status === 'canceled'
+                                ? ''
+                                : 'bg-yellow-100 text-yellow-800 hover:bg-yellow-100'
+                            }
+                          >
+                            {order.status || 'Pending'}
+                          </Badge>
+                          <ArrowRight className="h-4 w-4 text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+                        </div>
+                      </Link>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+          </Card>
+
+          {/* Best Selling Products Section */}
+          <Card className="rounded-3xl shadow-[0_18px_35px_rgba(15,23,42,0.04)] border-0 mb-8">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-xl font-bold">Best Selling Products</CardTitle>
+                  <CardDescription className="mt-1">
+                    Top performing products by sales
+                  </CardDescription>
+                </div>
+                <Link
+                  href="/dashboard/products"
+                  className="text-sm font-medium text-[#F4610B] hover:text-[#E05500] flex items-center gap-1 transition-colors"
+                >
+                  View all
+                  <ArrowRight className="h-4 w-4" />
+                </Link>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {isLoading ? (
+                <div className="space-y-3">
+                  {[1, 2, 3, 4, 5].map((i) => (
+                    <div key={i} className="flex items-center justify-between p-4 border rounded-lg">
+                      <div className="flex items-center gap-4 flex-1">
+                        <Skeleton className="h-12 w-12 rounded-lg" />
+                        <div className="flex-1 space-y-2">
+                          <Skeleton className="h-4 w-40" />
+                          <Skeleton className="h-3 w-24" />
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-4">
+                        <Skeleton className="h-4 w-16" />
+                        <Skeleton className="h-4 w-20" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : recentProducts.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-12">
+                  <Package className="h-12 w-12 text-gray-300 mb-4" />
+                  <p className="text-muted-foreground font-medium">No products yet</p>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Products will appear here once you add them to your store
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {recentProducts.slice(0, 5).map((product: any, index: number) => (
+                    <Link
+                      key={product.id}
+                      href={`/dashboard/products/${product.id}`}
+                      className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50 transition-colors group"
+                    >
+                      <div className="flex items-center gap-4 flex-1 min-w-0">
+                        <div className="h-12 w-12 rounded-lg bg-gray-100 flex items-center justify-center shrink-0 overflow-hidden">
+                          {product.image_url ? (
+                            <img
+                              src={product.image_url}
+                              alt={product.name || 'Product'}
+                              className="h-full w-full object-cover"
+                            />
+                          ) : (
+                            <Package className="h-6 w-6 text-gray-400" />
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-medium text-gray-500">#{index + 1}</span>
+                            <p className="font-medium text-gray-900 truncate">
+                              {product.name || 'Unnamed Product'}
+                            </p>
+                          </div>
+                          <p className="text-sm text-muted-foreground">
+                            {product.total_sold || 0} sold
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-4 shrink-0">
+                        <div className="text-right">
+                          <p className="font-medium text-gray-900">
+                            {product.total_revenue ? `${product.total_revenue.toLocaleString()} ${countryCurrency}` : '—'}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {product.price ? `${product.price.toLocaleString()} ${countryCurrency}` : '—'}
+                          </p>
+                        </div>
+                        <ArrowRight className="h-4 w-4 text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </div>
       )}
     </div>

@@ -9,11 +9,18 @@ import {
   Settings,
   LogOut,
   User,
+  Users,
   ChevronUp,
   ChevronDown,
+  ChevronRight,
   Plus,
   Heart,
   Gift,
+  BarChart3,
+  TrendingUp,
+  Bell,
+  Shield,
+  Globe,
 } from "lucide-react"
 import Link from "next/link"
 import Image from "next/image"
@@ -35,6 +42,9 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarMenuSub,
+  SidebarMenuSubButton,
+  SidebarMenuSubItem,
   SidebarRail,
 } from "@/components/ui/sidebar"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -57,11 +67,6 @@ const getNavItems = (t: any) => [
     icon: LayoutDashboard,
   },
   {
-    title: t("sidebar.menu.stores"),
-    url: "/dashboard/stores",
-    icon: Store,
-  },
-  {
     title: t("sidebar.menu.products"),
     url: "/dashboard/products",
     icon: Package,
@@ -72,9 +77,54 @@ const getNavItems = (t: any) => [
     icon: ShoppingBag,
   },
   {
+    title: t("sidebar.menu.customers"),
+    url: "/dashboard/customers",
+    icon: Users,
+  },
+  {
+    title: t("sidebar.menu.analytics"),
+    url: "/dashboard/analytics",
+    icon: BarChart3,
+  },
+  {
+    title: t("sidebar.menu.growth"),
+    url: "/dashboard/growth",
+    icon: TrendingUp,
+  },
+  {
     title: t("sidebar.menu.settings"),
-    url: "/dashboard/settings/store",
+    url: "/dashboard/settings",
     icon: Settings,
+    hasSubMenu: true,
+  },
+]
+
+// Settings sub-menu items
+const getSettingsSubItems = (locale: string) => [
+  {
+    title: locale === 'ar' ? 'إعدادات المتجر' : 'Store Settings',
+    url: "/dashboard/settings/store",
+    icon: Store,
+  },
+  {
+    title: locale === 'ar' ? 'إعدادات الحساب' : 'Account Settings',
+    url: "/dashboard/settings/account",
+    icon: User,
+  },
+  {
+    title: locale === 'ar' ? 'الإشعارات' : 'Notifications',
+    url: "/dashboard/settings/notifications",
+    icon: Bell,
+  },
+  {
+    title: locale === 'ar' ? 'الأمان' : 'Security',
+    url: "/dashboard/settings/security",
+    icon: Shield,
+  },
+  {
+    title: locale === 'ar' ? 'اللغة' : 'Language & Region',
+    url: "/dashboard/settings/language",
+    icon: Globe,
   },
 ]
 
@@ -724,10 +774,20 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const t = useTranslations()
   const { user } = useAuth()
   const { isChangingStore } = useStoreConnection()
+  const { locale } = useLocale()
   const [isLoading, setIsLoading] = React.useState(true)
   const hasLoadedRef = React.useRef(false)
+  const [isSettingsOpen, setIsSettingsOpen] = React.useState(false)
   
   const navItems = React.useMemo(() => getNavItems(t), [t])
+  const settingsSubItems = React.useMemo(() => getSettingsSubItems(locale), [locale])
+
+  // Auto-expand settings if on a settings page
+  React.useEffect(() => {
+    if (pathname.startsWith('/dashboard/settings')) {
+      setIsSettingsOpen(true)
+    }
+  }, [pathname])
 
   React.useEffect(() => {
     // Only show skeleton on initial mount, not on subsequent renders
@@ -780,7 +840,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
               {isLoading || isChangingStore ? (
                 // Skeleton
                 navItems.map((item) => (
-                  <SidebarMenuItem key={`skeleton-${item.title}`}>
+                  <SidebarMenuItem key={`skeleton-${item.title}`} className="mb-1">
                     <SidebarMenuButton disabled>
                       <Skeleton className="size-[18px] rounded bg-gray-200" />
                       <Skeleton className="h-4 w-20 bg-gray-200" />
@@ -805,9 +865,71 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                     
                     return navItems.map((item) => {
                       const isActive = activeItem?.url === item.url
+                      const isSettingsItem = item.hasSubMenu
+                      const isSettingsPage = pathname.startsWith('/dashboard/settings')
+                      
+                      if (isSettingsItem) {
+                        return (
+                          <SidebarMenuItem key={item.title} className="mb-1">
+                            <div className="flex items-center">
+                              <SidebarMenuButton
+                                asChild
+                                isActive={pathname === item.url}
+                                tooltip={item.title}
+                                className="flex-1"
+                              >
+                                <Link href={item.url}>
+                                  <item.icon />
+                                  <span>{item.title}</span>
+                                </Link>
+                              </SidebarMenuButton>
+                              <button
+                                onClick={(e) => {
+                                  e.preventDefault()
+                                  e.stopPropagation()
+                                  setIsSettingsOpen(!isSettingsOpen)
+                                }}
+                                className={cn(
+                                  "ml-1 p-1 rounded-md hover:bg-sidebar-accent transition-colors",
+                                  "group-data-[collapsible=icon]:hidden"
+                                )}
+                                aria-label={isSettingsOpen ? "Collapse settings" : "Expand settings"}
+                              >
+                                <ChevronRight 
+                                  className={cn(
+                                    "size-4 transition-transform text-muted-foreground",
+                                    isSettingsOpen && "rotate-90"
+                                  )}
+                                />
+                              </button>
+                            </div>
+                            {isSettingsOpen && (
+                              <SidebarMenuSub>
+                                {settingsSubItems.map((subItem) => {
+                                  const isSubActive = pathname === subItem.url || 
+                                    (subItem.url !== '/dashboard/settings' && pathname.startsWith(subItem.url))
+                                  
+                                  return (
+                                    <SidebarMenuSubItem key={subItem.title}>
+                                      <SidebarMenuSubButton
+                                        asChild
+                                        isActive={isSubActive}
+                                      >
+                                        <Link href={subItem.url}>
+                                          <span>{subItem.title}</span>
+                                        </Link>
+                                      </SidebarMenuSubButton>
+                                    </SidebarMenuSubItem>
+                                  )
+                                })}
+                              </SidebarMenuSub>
+                            )}
+                          </SidebarMenuItem>
+                        )
+                      }
                       
                       return (
-                        <SidebarMenuItem key={item.title}>
+                        <SidebarMenuItem key={item.title} className="mb-1">
                           <SidebarMenuButton
                             asChild
                             isActive={isActive}

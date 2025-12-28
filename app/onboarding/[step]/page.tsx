@@ -101,19 +101,16 @@ export default async function OnboardingStepPage({ params }: OnboardingStepPageP
   const requestedStepIndex = getStepIndex(step)
   const targetStepIndex = getStepIndex(targetStep)
   
-  // Special case: If user is trying to access summary and their current step is 'connect-store',
-  // OR if they have a store connection (OAuth just completed), allow it
-  const isTransitioningToSummary = step === ONBOARDING_STEPS.SUMMARY && (
-    currentOnboardingStep === ONBOARDING_STEPS.CONNECT_STORE || 
-    hasStoreConnection
-  )
+  // Special case: If user is trying to access summary and they have a store connection (OAuth just completed), allow it
+  const isTransitioningToSummary = step === ONBOARDING_STEPS.SUMMARY && hasStoreConnection
   
-  // Redirect user to their current step if they're not on it
-  // This handles both:
-  // 1. Trying to skip ahead (requestedStepIndex > targetStepIndex)
-  // 2. Going back to a completed step - redirect them forward to current step
-  // Exception: Allow transition from connect-store to summary (OAuth callback scenario)
-  if (requestedStepIndex !== targetStepIndex && !isTransitioningToSummary) {
+  // ALLOW going back to ANY previous step - don't redirect if user is going back
+  // Only redirect if user is trying to skip AHEAD to a step they haven't reached yet
+  const isGoingBack = requestedStepIndex < targetStepIndex
+  const isGoingToSameStep = requestedStepIndex === targetStepIndex
+  
+  // Only redirect if user is trying to skip ahead (not going back, not same step, not transitioning to summary)
+  if (!isGoingBack && !isGoingToSameStep && !isTransitioningToSummary) {
     const cookieStore = await cookies()
     const correctUrl = getLocalizedUrlFromRequest(getOnboardingStepPath(targetStep), {
       cookies: {

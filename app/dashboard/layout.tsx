@@ -29,7 +29,6 @@ import { toast } from '@/lib/toast'
 import { safeFetch, handleError } from '@/lib/error-handler'
 import Image from 'next/image'
 import { Check, ArrowRight, ArrowLeft, Zap, CheckCircle2, Gift, MessageSquare, Mail, Bell, AlertCircle, Info, HelpCircle, User, ShoppingCart, Package, CreditCard, Settings as SettingsIcon, Shield, TrendingUp, Star, Loader2, Store, Copy, Pencil, Trash2, Upload, Image as ImageIcon, Minus, Languages } from 'lucide-react'
-import { ChevronDown } from '@/components/animate-ui/icons/chevron-down'
 import { Plus } from '@/components/animate-ui/icons/plus'
 import { MessageCircleQuestion } from '@/components/animate-ui/icons/message-circle-question'
 import { Settings } from '@/components/animate-ui/icons/settings'
@@ -69,6 +68,13 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuSubContent,
 } from '@/components/ui/dropdown-menu'
+import {
+  Drawer,
+  DrawerContent,
+  DrawerHeader,
+  DrawerTitle,
+  DrawerFooter,
+} from '@/components/ui/drawer'
 
 const ECOMMERCE_STORAGE_URL = 'https://rovphhvuuxwbhgnsifto.supabase.co/storage/v1/object/public/assets/ecommerce';
 
@@ -92,7 +98,17 @@ function DashboardLayoutContentInner({
   const router = useRouter()
   const t = useTranslations()
   const { user, signOut } = useAuth()
-  const { selectedConnectionId, isChangingStore, selectedConnection, setSelectedConnectionId } = useStoreConnection()
+  const { 
+    store, 
+    storeId: contextStoreId, 
+    isLoadingStore,
+    storeConnections: contextStoreConnections,
+    selectedConnectionId, 
+    isChangingStore, 
+    selectedConnection, 
+    setSelectedConnectionId,
+    refreshStore 
+  } = useStoreConnection()
   const { isRTL, locale } = useLocale()
   const { isOpen: isWelcomeModalOpen, open: openModal, close: closeModal, step: modalStep, setStep: setModalStep } = useOnboardingModal()
   const pageName = pathname.split('/').filter(Boolean).pop() || 'Dashboard'
@@ -103,8 +119,6 @@ function DashboardLayoutContentInner({
   const [isCardHovered, setIsCardHovered] = useState(false)
   const [isCard2Hovered, setIsCard2Hovered] = useState(false)
   const [hoveredPlatform, setHoveredPlatform] = useState<string | null>(null)
-  const [isStoresExpandedHover, setIsStoresExpandedHover] = useState(false)
-  const [isAddStoreHover, setIsAddStoreHover] = useState(false)
   const [isSupportHover, setIsSupportHover] = useState(false)
   const [isSettingsHover, setIsSettingsHover] = useState(false)
   const [isLanguageHover, setIsLanguageHover] = useState(false)
@@ -121,11 +135,21 @@ function DashboardLayoutContentInner({
   const [isUploadingLogo, setIsUploadingLogo] = useState(false)
   const [logoZoom, setLogoZoom] = useState(100) // Zoom level in percentage (100 = 1x scale)
   const [isMac, setIsMac] = useState(false) // Default to false to match server render
-  const [storeName, setStoreName] = useState<string | null>(null)
-  const [storeId, setStoreId] = useState<string | null>(null)
-  const [storeLogoUrl, setStoreLogoUrl] = useState<string | null>(null)
-  const [storeConnections, setStoreConnections] = useState<Array<{ id: string; platform: string; store_name: string | null; store_logo_url: string | null; logo_zoom: number | null }>>([])
-  const [isStoresExpanded, setIsStoresExpanded] = useState(false)
+  
+  // Store info now comes from context - use derived values for backward compatibility
+  const storeName = store?.name || null
+  const storeNameAr = store?.name_ar || null
+  const storeId = contextStoreId
+  const storeLogoUrl = store?.logo_url || null
+  
+  // Transform context connections to match local format
+  const storeConnections = contextStoreConnections.map(conn => ({
+    id: conn.id,
+    platform: conn.platform,
+    store_name: conn.external_store_name || null,
+    store_logo_url: null,
+    logo_zoom: null,
+  }))
   
   // Detect if user is on Mac (client-side only to avoid hydration mismatch)
   useEffect(() => {
@@ -593,143 +617,7 @@ function DashboardLayoutContentInner({
   }, [fetchLastSyncTime])
 
   // TODO: Sync event listeners removed - will be reimplemented with new architecture
-
-  // Fetch store name, ID, and logo when selectedConnectionId changes
-  useEffect(() => {
-    const fetchStoreInfo = async () => {
-      if (!selectedConnectionId) {
-        setStoreName(null)
-        setStoreId(null)
-        setStoreLogoUrl(null)
-        return
-      }
-
-      try {
-        // New structure: store_connections.store_id -> stores.id
-        // First get the store_id from the connection, then fetch store details
-        const { data: connection, error: connectionError } = await supabase
-          .from('store_connections')
-          .select('store_id')
-          .eq('id', selectedConnectionId)
-          .maybeSingle()
-
-        if (connectionError || !connection?.store_id) {
-          if (connectionError?.message) {
-            console.error('Error fetching connection:', connectionError.message)
-          }
-          setStoreName(null)
-          setStoreId(null)
-          setStoreLogoUrl(null)
-          setLogoZoom(100)
-          return
-        }
-
-        // Now fetch the store details
-        const { data: store, error: storeError } = await supabase
-          .from('stores')
-          .select('id, name, logo_url')
-          .eq('id', connection.store_id)
-          .eq('is_active', true)
-          .maybeSingle()
-
-        if (storeError?.message) {
-          console.error('Error fetching store info:', storeError.message)
-          setStoreName(null)
-          setStoreId(null)
-          setStoreLogoUrl(null)
-          setLogoZoom(100)
-          return
-        }
-
-        if (store) {
-          setStoreName(store.name)
-          setStoreId(store.id)
-          setStoreLogoUrl(store.logo_url || null)
-          setLogoZoom(100)
-        } else {
-          setStoreName(null)
-          setStoreId(null)
-          setStoreLogoUrl(null)
-          setLogoZoom(100)
-        }
-      } catch (error) {
-        console.error('Exception fetching store info:', error)
-        setStoreName(null)
-        setStoreId(null)
-        setStoreLogoUrl(null)
-      }
-    }
-
-    fetchStoreInfo()
-  }, [selectedConnectionId])
-
-  // Fetch all store connections
-  useEffect(() => {
-    const fetchConnections = async () => {
-      if (!user?.id) {
-        setStoreConnections([])
-        return
-      }
-
-      try {
-        // Get business profile first
-        const { data: businessProfile } = await supabase
-          .from('business_profile')
-          .select('id')
-          .eq('auth_user_id', user.id)
-          .single()
-
-        if (!businessProfile) {
-          setStoreConnections([])
-          return
-        }
-
-        // Fetch stores with their connections (stores is now the source of truth)
-        const { data: storesData, error } = await supabase
-          .from('stores')
-          .select(`
-            id,
-            name,
-            logo_url,
-            platform,
-            is_active,
-            store_connections!inner (
-              id
-            )
-          `)
-          .eq('business_id', businessProfile.id)
-          .eq('is_active', true)
-          .order('created_at', { ascending: false })
-
-        if (error) {
-          console.error('Error fetching stores:', error)
-          setStoreConnections([])
-          return
-        }
-
-        // Transform to match expected format
-        const connections = (storesData || []).map(store => {
-          const connection = Array.isArray(store.store_connections) 
-            ? store.store_connections[0] 
-            : store.store_connections
-          return {
-            id: connection.id,
-            platform: store.platform,
-            store_name: store.name,
-            store_logo_url: store.logo_url,
-            logo_zoom: null,
-          }
-        })
-
-        setStoreConnections(connections)
-      } catch (error) {
-        console.error('Exception fetching store connections:', error)
-        setStoreConnections([])
-      }
-    }
-
-    fetchConnections()
-  }, [user?.id])
+  // Store info and connections now come from StoreConnectionProvider context
 
   // TODO: Sync functionality will be reimplemented with new architecture
   // handleSync, performDirectSync, and handleApproveProducts removed pending new implementation
@@ -1220,7 +1108,7 @@ function DashboardLayoutContentInner({
             <Tooltip>
               <TooltipTrigger asChild>
                 <SidebarTrigger className={cn(
-                  "-ms-1 absolute z-10",
+                  "-ms-1 absolute z-10 size-9 [&_svg]:!h-6 [&_svg]:!w-6 text-gray-500 hover:text-[#F4610B] hover:bg-orange-100 transition-colors",
                   isRTL ? "right-4" : "left-4"
                 )} />
               </TooltipTrigger>
@@ -1291,335 +1179,230 @@ function DashboardLayoutContentInner({
               onUpdateRead={handleUpdateRead}
               onMarkAllAsRead={handleMarkAllAsRead}
             />
-            <Tooltip open={!isStoreDropdownOpen ? undefined : false}>
-              <TooltipTrigger asChild>
-                <div>
-                  <DropdownMenu open={isStoreDropdownOpen} onOpenChange={setIsStoreDropdownOpen}>
-                    <DropdownMenuTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="size-10 ml-2 [&_svg]:!h-6 [&_svg]:!w-6 text-[#F4610B] hover:text-[#F4610B] bg-[#F4610B]/5 hover:bg-[#F4610B]/10 flex items-center justify-center transition-colors relative"
-                        aria-label={storeName || "Store Settings"}
-                      >
-                        {(() => {
-                          const currentStore = storeConnections.find(c => c.id === selectedConnectionId)
-                          const platform = currentStore?.platform || selectedConnection?.platform
-                          const uploadedLogoUrl = currentStore?.store_logo_url || storeLogoUrl
-                          const logoZoomLevel = currentStore?.logo_zoom || logoZoom || 100
-                          const platformLogoUrl = platform ? PLATFORM_LOGOS[platform?.toLowerCase()] : null
-                          
-                          // Show uploaded logo if available
-                          if (uploadedLogoUrl) {
-                            return (
-                              <>
-                                <div className="absolute inset-0 overflow-hidden rounded-lg">
-                                  <Image
-                                    key={uploadedLogoUrl}
-                                    src={uploadedLogoUrl}
-                                    alt="Store logo"
-                                    width={40}
-                                    height={40}
-                                    className="object-cover w-full h-full"
-                                    style={{
-                                      transform: `scale(${logoZoomLevel / 100})`,
-                                      transition: 'transform 0.2s ease-out'
-                                    }}
-                                    unoptimized
-                                  />
-                                </div>
-                                {/* Platform logo badge overlay */}
-                                {platformLogoUrl && (
-                                  <div className="absolute -bottom-1 -right-3 w-6 h-6 rounded-md bg-white shadow-md overflow-hidden flex items-center justify-center z-50">
-                                    <Image
-                                      src={platformLogoUrl || ''}
-                                      alt={platform || 'Platform'}
-                                      width={18}
-                                      height={18}
-                                      className="object-contain w-full h-full"
-                                      unoptimized
-                                    />
-                                  </div>
-                                )}
-                              </>
-                            )
-                          }
-                          
-                          // Default: Store icon with light orange background and platform logo overlay
-                          return (
-                            <>
-                              <div className="w-full h-full flex items-center justify-center bg-[#F4610B]/10 rounded-lg">
-                                <Store size={24} className="text-[#F4610B]" />
-                              </div>
-                              {/* Platform logo badge overlay */}
-                              {platformLogoUrl && (
-                                <div className="absolute -bottom-1 -right-3 w-6 h-6 rounded-md bg-white shadow-md overflow-hidden flex items-center justify-center z-50">
-                                  <Image
-                                    src={platformLogoUrl || ''}
-                                    alt={platform || 'Platform'}
-                                    width={18}
-                                    height={18}
-                                    className="object-contain w-full h-full"
-                                    unoptimized
-                                  />
-                                </div>
-                              )}
-                            </>
-                          )
-                        })()}
-                      </Button>
-                    </DropdownMenuTrigger>
-                  <DropdownMenuContent 
-                    align={isRTL ? "start" : "start"} 
-                    sideOffset={10}
-                    alignOffset={isRTL ? 0 : 0}
-                    className={cn("w-72 border-0 p-0 rounded-2xl", isRTL && "text-right")}
-                    style={{
-                      ...(locale === 'ar' ? { 
-                        fontFamily: 'var(--font-ibm-plex-arabic), "IBM Plex Sans Arabic", sans-serif',
-                        direction: 'rtl'
-                      } : {
-                        direction: 'ltr'
-                      }),
-                      boxShadow: '0 0 20px rgba(0, 0, 0, 0.1)'
-                    }}
-                  >
-                    <DropdownMenuLabel className="px-4 py-4 bg-gray-100/50 rounded-t-2xl">
-                      <div className={cn("flex items-start gap-4", isRTL && "flex-row-reverse justify-end")}>
-                        <div 
-                          className="relative w-10 h-10 bg-[#F4610B]/10 rounded-lg flex-shrink-0 group cursor-pointer overflow-hidden flex items-center justify-center"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            setIsLogoUploadModalOpen(true)
-                          }}
-                        >
-                          {storeLogoUrl ? (
-                            <div className="relative w-full h-full rounded overflow-hidden">
-                              <Image
-                                key={storeLogoUrl}
-                                src={storeLogoUrl}
-                                alt="Store logo"
-                                fill
-                                className="object-cover"
-                                unoptimized
-                              />
-                            </div>
-                          ) : (
-                            <Store className="h-5 w-5 text-[#F4610B] transition-colors" />
-                          )}
-                          {/* Hover overlay with edit icon */}
-                          <div className="absolute inset-0 bg-[#F4610B]/80 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center">
-                            <Pencil className="h-5 w-5 text-white" />
-                          </div>
-                        </div>
-                        <div className={cn("flex-1 min-w-0", isRTL && "text-right")}>
-                          <div className={cn("text-sm font-semibold text-gray-900 mb-0.5", isRTL && "text-right")}>{storeName || 'N/A'}</div>
-                          <div className={cn("flex items-center gap-2", isRTL && "flex-row-reverse justify-end")}>
-                            <div className={cn("text-xs text-gray-500 font-mono", isRTL && "text-right")}>
-                              {storeId ? storeId.slice(0, 8) : 'N/A'}
-                            </div>
-                            {storeId && (
-                              <button
-                                onClick={async (e) => {
-                                  e.stopPropagation()
-                                  try {
-                                    await navigator.clipboard.writeText(storeId)
-                                    toast.success('Store ID copied to clipboard')
-                                  } catch (error) {
-                                    console.error('Failed to copy:', error)
-                                  }
-                                }}
-                                className="p-0.5 hover:bg-gray-100 rounded transition-colors"
-                                aria-label="Copy Store ID"
-                              >
-                                <Copy className="h-3.5 w-3.5 text-gray-900" />
-                              </button>
-                            )}
-                          </div>
-                          <div className={cn("text-xs text-gray-500 font-mono mt-0.5", isRTL && "text-right")}>{user?.email || 'N/A'}</div>
-                        </div>
-                      </div>
-                    </DropdownMenuLabel>
-                    <div className="p-2">
-                      {storeConnections.length > 0 && (
-                        <>
-                          <DropdownMenuItem 
-                            className="group px-3 py-2.5 rounded-xl hover:bg-gray-100 focus:bg-gray-100 hover:text-gray-900 focus:text-gray-900"
-                            onClick={(e) => {
-                              e.preventDefault()
-                              setIsStoresExpanded(!isStoresExpanded)
-                            }}
-                            onMouseEnter={() => setIsStoresExpandedHover(true)}
-                            onMouseLeave={() => setIsStoresExpandedHover(false)}
-                          >
-                            <div className={cn("flex items-center gap-2 flex-1", isRTL && "flex-row-reverse")}>
-                              {(() => {
-                                const currentStore = storeConnections.find(c => c.id === selectedConnectionId)
-                                const platform = currentStore?.platform || selectedConnection?.platform
-                                const logoUrl = currentStore?.store_logo_url || storeLogoUrl
-                                const logoZoomLevel = currentStore?.logo_zoom || logoZoom || 100
-                                const platformLogo = platform ? PLATFORM_LOGOS[platform?.toLowerCase()] : null
-                                
-                                return (
-                                  <div className={`flex size-6 items-center justify-center rounded-md overflow-hidden relative flex-shrink-0 ${
-                                    logoUrl ? '' : 'bg-[#F4610B]/10'
-                                  }`}>
-                                    {logoUrl ? (
-                                      <img 
-                                        key={logoUrl}
-                                        src={logoUrl} 
-                                        alt="Store logo"
-                                        className="absolute inset-0 size-full object-cover opacity-100"
-                                        style={{
-                                          transform: `scale(${logoZoomLevel / 100})`,
-                                          transition: 'transform 0.2s ease-out'
-                                        }}
-                                      />
-                                    ) : (
-                                      <Store className="size-4 relative z-10 text-[#F4610B] transition-colors" />
-                                    )}
-                                  </div>
-                                )
-                              })()}
-                              <span className={cn("flex-1", isRTL && "text-right")}>{storeName || 'Store'}</span>
-                              <AnimateIcon animate={isStoresExpandedHover}>
-                                <ChevronDown 
-                                  size={16} 
-                                  className={`flex-shrink-0 transition-transform duration-200 text-gray-400 group-hover:text-gray-900 ${isStoresExpanded ? 'rotate-180' : 'rotate-0'}`}
-                                />
-                              </AnimateIcon>
-                            </div>
-                          </DropdownMenuItem>
-                          <div
-                            className={`overflow-hidden transition-all duration-300 ease-in-out ${
-                              isStoresExpanded ? 'max-h-96 opacity-100 mb-2' : 'max-h-0 opacity-0'
-                            }`}
-                          >
-                            <div className={cn("pl-4", isRTL && "pr-4 pl-0")}>
-                              {storeConnections
-                                .filter((connection) => connection.id !== selectedConnectionId)
-                                .map((connection) => (
-                                  <DropdownMenuItem
-                                    key={connection.id}
-                                    onClick={() => {
-                                      setSelectedConnectionId(connection.id)
-                                      setIsStoresExpanded(false)
-                                    }}
-                                    className="group px-3 py-2.5 rounded-xl hover:bg-gray-100 focus:bg-gray-100 hover:text-gray-900 focus:text-gray-900"
-                                  >
-                                    <div className={cn("flex items-center gap-2", isRTL && "flex-row-reverse")}>
-                                      <div className={`flex size-6 items-center justify-center rounded-md overflow-hidden relative ${
-                                        connection.store_logo_url ? '' : 'bg-[#F4610B]/10'
-                                      }`}>
-                                        {connection.store_logo_url ? (
-                                          <img 
-                                            key={connection.store_logo_url}
-                                            src={connection.store_logo_url} 
-                                            alt="Store logo"
-                                            className="absolute inset-0 size-full object-cover opacity-60 group-hover:opacity-100 transition-opacity"
-                                            style={{
-                                              transform: `scale(${(connection.logo_zoom || 100) / 100})`,
-                                              transition: 'transform 0.2s ease-out, opacity 0.2s ease-out'
-                                            }}
-                                          />
-                                        ) : (
-                                          <Store className="size-4 relative z-10 text-[#F4610B] transition-colors" />
-                                        )}
-                                      </div>
-                                      <span className={isRTL ? "text-right" : "text-left"}>{connection.store_name || connection.platform}</span>
-                                    </div>
-                                  </DropdownMenuItem>
-                                ))}
-                            </div>
-                          </div>
-                        </>
-                      )}
-                      <DropdownMenuItem
-                        onClick={() => {
-                          setIsStoresExpanded(false)
-                          openModal()
-                          setModalStep('connect-platform')
-                        }}
-                        onMouseEnter={() => setIsAddStoreHover(true)}
-                        onMouseLeave={() => setIsAddStoreHover(false)}
-                        className={cn("group px-3 py-2.5 rounded-xl hover:bg-gray-100 focus:bg-gray-100 hover:text-gray-900 focus:text-gray-900 [&_svg]:group-hover:text-gray-900 flex items-center", isRTL && "flex-row-reverse")}
-                      >
-                        <AnimateIcon animate={isAddStoreHover}>
-                          <Plus size={16} className={cn("text-gray-400 group-hover:text-green-600 transition-colors", isRTL ? "ml-2" : "mr-2")} />
-                        </AnimateIcon>
-                        <span className={isRTL ? "text-right" : "text-left"}>{t("sidebar.store.addStore")}</span>
-                      </DropdownMenuItem>
-                      <DropdownMenuItem 
-                        onClick={() => router.push('/dashboard/support')} 
-                        onMouseEnter={() => setIsSupportHover(true)}
-                        onMouseLeave={() => setIsSupportHover(false)}
-                        className={cn("group px-3 py-2.5 rounded-xl hover:bg-gray-100 focus:bg-gray-100 hover:text-gray-900 focus:text-gray-900 flex items-center", isRTL && "flex-row-reverse")}
-                      >
-                        <AnimateIcon animate={isSupportHover}>
-                          <MessageCircleQuestion size={16} className={cn("text-gray-400 group-hover:text-gray-900 transition-colors", isRTL ? "ml-2" : "mr-2")} />
-                        </AnimateIcon>
-                        <span className={isRTL ? "text-right" : "text-left"}>{t("sidebar.user.support")}</span>
-                      </DropdownMenuItem>
-                      <DropdownMenuItem 
-                        onClick={() => router.push('/dashboard/settings/account')} 
-                        onMouseEnter={() => setIsSettingsHover(true)}
-                        onMouseLeave={() => setIsSettingsHover(false)}
-                        className={cn("group px-3 py-2.5 rounded-xl hover:bg-gray-100 focus:bg-gray-100 hover:text-gray-900 focus:text-gray-900 flex items-center", isRTL && "flex-row-reverse")}
-                      >
-                        <AnimateIcon animate={isSettingsHover}>
-                          <Settings size={16} className={cn("text-gray-400 group-hover:text-gray-900 transition-colors", isRTL ? "ml-2" : "mr-2")} />
-                        </AnimateIcon>
-                        <span className={isRTL ? "text-right" : "text-left"}>{t("sidebar.user.accountSettings")}</span>
-                      </DropdownMenuItem>
-                      <DropdownMenuItem 
-                        onClick={(e) => {
-                          e.preventDefault()
-                          const otherLang = locale === 'en' ? 'ar' : 'en'
-                          // Set cookie
-                          document.cookie = `locale=${otherLang};path=/;max-age=31536000;sameSite=Lax`
-                          // Reload with new locale
-                          const url = new URL(window.location.href)
-                          url.searchParams.set('_locale', otherLang)
-                          url.searchParams.set('_t', Date.now().toString())
-                          window.location.replace(url.toString())
-                        }}
-                        onMouseEnter={() => setIsLanguageHover(true)}
-                        onMouseLeave={() => setIsLanguageHover(false)}
-                        className={cn("group px-3 py-2.5 rounded-xl hover:bg-gray-100 focus:bg-gray-100 hover:text-gray-900 focus:text-gray-900 flex items-center", isRTL && "flex-row-reverse")}
-                      >
-                        <AnimateIcon animate={isLanguageHover}>
-                          <Languages size={16} className={cn("text-gray-400 group-hover:text-gray-900 transition-colors", isRTL ? "ml-2" : "mr-2")} />
-                        </AnimateIcon>
-                        <span className={isRTL ? "text-right" : "text-left"}>{locale === 'en' ? t("sidebar.user.switchToArabic") : t("sidebar.user.switchToEnglish")}</span>
-                      </DropdownMenuItem>
-                      <DropdownMenuItem 
-                        onClick={async () => {
-                          await signOut()
-                          router.push('/auth/login')
-                          router.refresh()
-                        }}
-                        onMouseEnter={() => setIsLogoutHover(true)}
-                        onMouseLeave={() => setIsLogoutHover(false)}
-                        className={cn("group text-red-600 focus:text-red-600 focus:bg-red-50 hover:text-red-600 hover:bg-red-50 px-3 py-2.5 rounded-xl [&_svg]:text-red-600 [&_svg]:group-hover:text-red-600 flex items-center", isRTL && "flex-row-reverse")}
-                      >
-                        <AnimateIcon animate={isLogoutHover}>
-                          <LogOut size={16} className={cn("text-red-600", isRTL ? "ml-2" : "mr-2")} />
-                        </AnimateIcon>
-                        <span className={isRTL ? "text-right" : "text-left"}>{t("sidebar.user.logout")}</span>
-                      </DropdownMenuItem>
-                    </div>
-                  </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
-              </TooltipTrigger>
-              <TooltipContent 
-                side="bottom" 
-                sideOffset={16} 
-                className="text-xs px-2 py-1.5"
+            <Drawer open={isStoreDropdownOpen} onOpenChange={setIsStoreDropdownOpen} direction={isRTL ? "left" : "right"}>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="size-10 ml-2 [&_svg]:!h-6 [&_svg]:!w-6 text-[#F4610B] hover:text-[#F4610B] bg-[#F4610B]/5 hover:bg-[#F4610B]/10 flex items-center justify-center transition-colors relative"
+                aria-label={storeName || "Store Settings"}
+                onClick={() => setIsStoreDropdownOpen(true)}
               >
-                Store Settings
-              </TooltipContent>
-            </Tooltip>
+                {(() => {
+                  const currentStore = storeConnections.find(c => c.id === selectedConnectionId)
+                  const platform = currentStore?.platform || selectedConnection?.platform
+                  const uploadedLogoUrl = currentStore?.store_logo_url || storeLogoUrl
+                  const logoZoomLevel = currentStore?.logo_zoom || logoZoom || 100
+                  const platformLogoUrl = platform ? PLATFORM_LOGOS[platform?.toLowerCase()] : null
+                  
+                  // Show uploaded logo if available
+                  if (uploadedLogoUrl) {
+                    return (
+                      <>
+                        <div className="absolute inset-0 overflow-hidden rounded-lg">
+                          <Image
+                            key={uploadedLogoUrl}
+                            src={uploadedLogoUrl}
+                            alt="Store logo"
+                            width={40}
+                            height={40}
+                            className="object-cover w-full h-full"
+                            style={{
+                              transform: `scale(${logoZoomLevel / 100})`,
+                              transition: 'transform 0.2s ease-out'
+                            }}
+                            unoptimized
+                          />
+                        </div>
+                        {/* Platform logo badge overlay */}
+                        {platformLogoUrl && (
+                          <div className="absolute -bottom-1 -right-3 w-6 h-6 rounded-md bg-white shadow-md overflow-hidden flex items-center justify-center z-50">
+                            <Image
+                              src={platformLogoUrl || ''}
+                              alt={platform || 'Platform'}
+                              width={18}
+                              height={18}
+                              className="object-contain w-full h-full"
+                              unoptimized
+                            />
+                          </div>
+                        )}
+                      </>
+                    )
+                  }
+                  
+                  // Default: Store icon with light orange background and platform logo overlay
+                  return (
+                    <>
+                      <div className="w-full h-full flex items-center justify-center bg-[#F4610B]/10 rounded-lg">
+                        <Store size={24} className="text-[#F4610B]" />
+                      </div>
+                      {/* Platform logo badge overlay */}
+                      {platformLogoUrl && (
+                        <div className="absolute -bottom-1 -right-3 w-6 h-6 rounded-md bg-white shadow-md overflow-hidden flex items-center justify-center z-50">
+                          <Image
+                            src={platformLogoUrl || ''}
+                            alt={platform || 'Platform'}
+                            width={18}
+                            height={18}
+                            className="object-contain w-full h-full"
+                            unoptimized
+                          />
+                        </div>
+                      )}
+                    </>
+                  )
+                })()}
+              </Button>
+              <DrawerContent 
+                className={cn("w-[480px] border-0 p-0 rounded-none h-full flex flex-col", isRTL && "text-right")}
+                style={{
+                  ...(locale === 'ar' ? { 
+                    fontFamily: 'var(--font-ibm-plex-arabic), "IBM Plex Sans Arabic", sans-serif',
+                    direction: 'rtl'
+                  } : {
+                    direction: 'ltr'
+                  }),
+                  boxShadow: '0 0 20px rgba(0, 0, 0, 0.1)'
+                }}
+              >
+                <DrawerTitle className="sr-only">{storeName || t("sidebar.storeSettings")}</DrawerTitle>
+                <div className="px-6 py-6 bg-gray-100/50 rounded-t-2xl">
+                  <div className={cn("flex items-start gap-4", isRTL && "flex-row-reverse justify-end")}>
+                    <div 
+                      className="relative w-14 h-14 bg-[#F4610B]/10 rounded-xl flex-shrink-0 group cursor-pointer overflow-hidden flex items-center justify-center"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setIsLogoUploadModalOpen(true)
+                        setIsStoreDropdownOpen(false)
+                      }}
+                    >
+                      {storeLogoUrl ? (
+                        <div className="relative w-full h-full rounded-xl overflow-hidden">
+                          <Image
+                            key={storeLogoUrl}
+                            src={storeLogoUrl}
+                            alt="Store logo"
+                            fill
+                            className="object-cover"
+                            unoptimized
+                          />
+                        </div>
+                      ) : (
+                        <Store className="h-7 w-7 text-[#F4610B] transition-colors" />
+                      )}
+                      {/* Hover overlay with edit icon */}
+                      <div className="absolute inset-0 bg-[#F4610B]/80 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center">
+                        <Pencil className="h-6 w-6 text-white" />
+                      </div>
+                    </div>
+                    <div className={cn("flex-1 min-w-0", isRTL && "text-right")}>
+                      <div className={cn("flex items-center gap-2 mb-0.5", isRTL && "flex-row-reverse justify-end")}>
+                        <span className="text-sm font-semibold text-gray-900">{storeName || 'N/A'}</span>
+                        {storeNameAr && (
+                          <>
+                            <span className="text-gray-300">|</span>
+                            <span className="text-sm font-semibold text-gray-900" style={{ fontFamily: 'var(--font-ibm-plex-arabic)' }}>{storeNameAr}</span>
+                          </>
+                        )}
+                      </div>
+                      <div className={cn("flex items-center gap-2", isRTL && "flex-row-reverse justify-end")}>
+                        <div className={cn("text-xs text-gray-500 font-mono", isRTL && "text-right")}>
+                          {storeId ? storeId.slice(0, 8) : 'N/A'}
+                        </div>
+                        {storeId && (
+                          <button
+                            onClick={async (e) => {
+                              e.stopPropagation()
+                              try {
+                                await navigator.clipboard.writeText(storeId)
+                                toast.success('Store ID copied to clipboard')
+                              } catch (error) {
+                                if (process.env.NODE_ENV === 'development') {
+                                  console.error('Failed to copy:', error)
+                                }
+                              }
+                            }}
+                            className="p-0.5 hover:bg-gray-100 rounded transition-colors"
+                            aria-label="Copy Store ID"
+                          >
+                            <Copy className="h-3.5 w-3.5 text-gray-900" />
+                          </button>
+                        )}
+                      </div>
+                      <div className={cn("text-xs text-gray-500 font-mono mt-0.5", isRTL && "text-right")}>{user?.email || 'N/A'}</div>
+                    </div>
+                  </div>
+                </div>
+                <div className="px-6 py-6">
+                  <button
+                    onClick={() => {
+                      router.push('/dashboard/settings/store')
+                      setIsStoreDropdownOpen(false)
+                    }} 
+                    onMouseEnter={() => setIsSettingsHover(true)}
+                    onMouseLeave={() => setIsSettingsHover(false)}
+                    className={cn("w-full group px-3 py-3.5 rounded-xl hover:bg-orange-50 focus:bg-orange-50 hover:text-[#F4610B] focus:text-[#F4610B] flex items-center transition-none", isRTL && "flex-row-reverse")}
+                  >
+                    <AnimateIcon animate={isSettingsHover}>
+                      <Settings size={16} className={cn("text-gray-400 group-hover:text-[#F4610B] transition-none", isRTL ? "ml-2" : "mr-2")} />
+                    </AnimateIcon>
+                    <span className={cn("text-sm", isRTL ? "text-right" : "text-left")}>{t("sidebar.storeSettings")}</span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      router.push('/dashboard/support')
+                      setIsStoreDropdownOpen(false)
+                    }} 
+                    onMouseEnter={() => setIsSupportHover(true)}
+                    onMouseLeave={() => setIsSupportHover(false)}
+                    className={cn("w-full group px-3 py-3.5 rounded-xl hover:bg-orange-50 focus:bg-orange-50 hover:text-[#F4610B] focus:text-[#F4610B] flex items-center transition-none", isRTL && "flex-row-reverse")}
+                  >
+                    <AnimateIcon animate={isSupportHover}>
+                      <MessageCircleQuestion size={16} className={cn("text-gray-400 group-hover:text-[#F4610B] transition-none", isRTL ? "ml-2" : "mr-2")} />
+                    </AnimateIcon>
+                    <span className={cn("text-sm", isRTL ? "text-right" : "text-left")}>{t("sidebar.user.support")}</span>
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.preventDefault()
+                      const otherLang = locale === 'en' ? 'ar' : 'en'
+                      // Set cookie
+                      document.cookie = `locale=${otherLang};path=/;max-age=31536000;sameSite=Lax`
+                      // Reload with new locale
+                      const url = new URL(window.location.href)
+                      url.searchParams.set('_locale', otherLang)
+                      url.searchParams.set('_t', Date.now().toString())
+                      window.location.replace(url.toString())
+                    }}
+                    onMouseEnter={() => setIsLanguageHover(true)}
+                    onMouseLeave={() => setIsLanguageHover(false)}
+                    className={cn("w-full group px-3 py-3.5 rounded-xl hover:bg-orange-50 focus:bg-orange-50 hover:text-[#F4610B] focus:text-[#F4610B] flex items-center transition-none", isRTL && "flex-row-reverse")}
+                  >
+                    <AnimateIcon animate={isLanguageHover}>
+                      <Languages size={16} className={cn("text-gray-400 group-hover:text-[#F4610B] transition-none", isRTL ? "ml-2" : "mr-2")} />
+                    </AnimateIcon>
+                    <span className={cn("text-sm", isRTL ? "text-right" : "text-left")}>{locale === 'en' ? t("sidebar.user.switchToArabic") : t("sidebar.user.switchToEnglish")}</span>
+                  </button>
+                </div>
+                <DrawerFooter className="px-6 py-2 border-t border-gray-100 mt-auto">
+                  <button
+                    onClick={async () => {
+                      await signOut()
+                      router.push('/auth/login')
+                      router.refresh()
+                    }}
+                    onMouseEnter={() => setIsLogoutHover(true)}
+                    onMouseLeave={() => setIsLogoutHover(false)}
+                    className={cn("w-full group text-red-600 focus:text-red-600 focus:bg-red-50 hover:text-red-600 hover:bg-red-50 px-3 py-3.5 rounded-xl [&_svg]:text-red-600 [&_svg]:group-hover:text-red-600 flex items-center", isRTL && "flex-row-reverse")}
+                  >
+                    <AnimateIcon animate={isLogoutHover}>
+                      <LogOut size={16} className={cn("text-red-600", isRTL ? "ml-2" : "mr-2")} />
+                    </AnimateIcon>
+                    <span className={cn("text-sm", isRTL ? "text-right" : "text-left")}>{t("sidebar.user.logout")}</span>
+                  </button>
+                </DrawerFooter>
+              </DrawerContent>
+            </Drawer>
           </div>
         </header>
         <SearchModal 
@@ -1796,19 +1579,10 @@ function DashboardLayoutContentInner({
                         setIsLogoUploadModalOpen(false)
                         setLogoZoom(100) // Reset zoom after removal
                         
-                        // Clear the logo URL in state
-                        setStoreLogoUrl(null)
+                        // Refresh store data from context
+                        await refreshStore()
                         
-                        // Update the storeConnections array to remove the logo URL and reset zoom
-                        setStoreConnections(prev => 
-                          prev.map(conn => 
-                            conn.id === selectedConnectionId 
-                              ? { ...conn, store_logo_url: null, logo_zoom: 100 }
-                              : conn
-                          )
-                        )
-                        
-                        // Dispatch event to notify sidebar to refresh connections
+                        // Dispatch event to notify sidebar to refresh
                         window.dispatchEvent(new CustomEvent('storeLogoUpdated', { 
                           detail: { connectionId: selectedConnectionId, logoUrl: null, logoZoom: 100 }
                         }))
@@ -1856,22 +1630,12 @@ function DashboardLayoutContentInner({
                     setLogoPreview(null)
                     setLogoZoom(100) // Reset zoom after upload
                     
-                    // Update the logo URL in state
+                    // Refresh store data from context
+                    await refreshStore()
+                    
+                    // Dispatch event to notify sidebar to refresh
                     if (data.logoUrl) {
-                      // Add timestamp to force image refresh
                       const logoUrlWithTimestamp = `${data.logoUrl}?t=${Date.now()}`
-                      setStoreLogoUrl(logoUrlWithTimestamp)
-                      
-                      // Update the storeConnections array to include the new logo URL
-                      setStoreConnections(prev => 
-                        prev.map(conn => 
-                          conn.id === selectedConnectionId 
-                            ? { ...conn, store_logo_url: logoUrlWithTimestamp }
-                            : conn
-                        )
-                      )
-                      
-                      // Dispatch event to notify sidebar to refresh connections
                       window.dispatchEvent(new CustomEvent('storeLogoUpdated', { 
                         detail: { connectionId: selectedConnectionId, logoUrl: logoUrlWithTimestamp, logoZoom: logoZoom }
                       }))
@@ -1903,10 +1667,10 @@ function DashboardLayoutContentInner({
             </DialogFooter>
           </DialogContent>
         </Dialog>
-        <div className="flex flex-1 flex-col gap-4 p-4 sm:px-0 sm:py-4 md:px-4 lg:px-8 relative h-full">
+        <div className="flex flex-1 flex-col gap-4 p-4 sm:px-0 sm:py-4 md:px-4 lg:px-8 pb-8 relative h-full overflow-y-auto">
           {children}
-          {/* Loading overlay when changing stores */}
-          {isChangingStore && (
+          {/* Loading overlay when changing stores - DISABLED */}
+          {/* {isChangingStore && (
             <div className="absolute inset-0 bg-white/80 backdrop-blur-sm z-50 flex items-center justify-center transition-opacity duration-300">
               <div className="flex flex-col items-center gap-4">
                 <div className="relative">
@@ -1925,7 +1689,7 @@ function DashboardLayoutContentInner({
                 </p>
               </div>
             </div>
-          )}
+          )} */}
         </div>
       </SidebarInset>
 

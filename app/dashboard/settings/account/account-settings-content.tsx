@@ -4,9 +4,18 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbList,
+  BreadcrumbLink,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from '@/components/ui/breadcrumb'
 import { useState, useEffect, useRef } from 'react'
 import { useLocale } from '@/i18n/context'
 import { User, Building2, Store, Calendar, Mail } from 'lucide-react'
+import Link from 'next/link'
 
 interface AccountSettingsContentProps {
   business: {
@@ -57,17 +66,56 @@ export function AccountSettingsContent({
 
   if (isLoading) {
     return (
-      <div className="space-y-4">
-        <Skeleton className="h-32 w-full" />
-        <Skeleton className="h-32 w-full" />
+      <div className="space-y-6 max-w-7xl mx-auto w-full">
+        {/* Breadcrumb Skeleton */}
+        <Breadcrumb>
+          <BreadcrumbList>
+            <BreadcrumbItem>
+              <Skeleton className="h-5 w-20" />
+            </BreadcrumbItem>
+            <BreadcrumbSeparator />
+            <BreadcrumbItem>
+              <Skeleton className="h-5 w-16" />
+            </BreadcrumbItem>
+          </BreadcrumbList>
+        </Breadcrumb>
+
+        <div className="space-y-2 mt-2">
+          <Skeleton className="h-8 w-48" />
+          <Skeleton className="h-4 w-96" />
+        </div>
+        <div className="space-y-4">
+          <Skeleton className="h-32 w-full rounded-3xl" />
+          <Skeleton className="h-32 w-full rounded-3xl" />
+          <Skeleton className="h-32 w-full rounded-3xl" />
+        </div>
       </div>
     )
   }
 
   return (
-    <div className="h-full space-y-6" lang={locale} dir={isRTL ? 'rtl' : 'ltr'}>
+    <div className="h-full space-y-6 max-w-7xl mx-auto w-full" lang={locale} dir={isRTL ? 'rtl' : 'ltr'}>
+      {/* Breadcrumb */}
+      <Breadcrumb>
+        <BreadcrumbList>
+          <BreadcrumbItem>
+            <BreadcrumbLink asChild>
+              <Link href="/dashboard/settings" className="text-md font-medium hover:text-foreground">
+                {locale === 'ar' ? 'الإعدادات' : 'Settings'}
+              </Link>
+            </BreadcrumbLink>
+          </BreadcrumbItem>
+          <BreadcrumbSeparator />
+          <BreadcrumbItem>
+            <BreadcrumbPage className="text-md font-medium">
+              {locale === 'ar' ? 'الحساب' : 'Account'}
+            </BreadcrumbPage>
+          </BreadcrumbItem>
+        </BreadcrumbList>
+      </Breadcrumb>
+
       {/* Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mt-2">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">
             {locale === 'ar' ? 'إعدادات الحساب' : 'Account Settings'}
@@ -80,7 +128,7 @@ export function AccountSettingsContent({
         </div>
       </div>
       {/* Account Information */}
-      <Card>
+      <Card className="rounded-3xl shadow-[0_18px_35px_rgba(15,23,42,0.04)] border-0">
         <CardHeader>
           <div className="flex items-center gap-2">
             <User className="h-5 w-5 text-primary" />
@@ -117,7 +165,7 @@ export function AccountSettingsContent({
       </Card>
 
       {/* Business Information */}
-      <Card>
+      <Card className="rounded-3xl shadow-[0_18px_35px_rgba(15,23,42,0.04)] border-0">
         <CardHeader>
           <div className="flex items-center gap-2">
             <Building2 className="h-5 w-5 text-primary" />
@@ -184,7 +232,7 @@ export function AccountSettingsContent({
       </Card>
 
       {/* Quick Actions */}
-      <Card>
+      <Card className="rounded-3xl shadow-[0_18px_35px_rgba(15,23,42,0.04)] border-0">
         <CardHeader>
           <CardTitle>
             {locale === 'ar' ? 'إجراءات سريعة' : 'Quick Actions'}

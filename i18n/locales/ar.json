@@ -412,6 +412,9 @@
       "stores": "المتاجر",
       "products": "المنتجات",
       "orders": "الطلبات",
+      "analytics": "التحليلات",
+      "customers": "العملاء",
+      "growth": "النمو",
       "settings": "الإعدادات"
     },
     "store": {
@@ -423,6 +426,7 @@
       "createOrConnect": "إنشاء أو ربط متجر",
       "store": "متجر"
     },
+    "storeSettings": "إعدادات المتجر",
     "user": {
       "profile": "الملف الشخصي",
       "accountSettings": "إعدادات الحساب",

@@ -111,7 +111,7 @@ export function OnboardingPanel({ steps, completedCount, totalSteps }: Onboardin
             className="w-full mt-4"
             variant={completedCount === 0 ? "default" : "outline"}
           >
-            <Link href={localizedUrl(steps.find(s => !s.completed)?.href || '/dashboard/stores')}>
+            <Link href={localizedUrl(steps.find(s => !s.completed)?.href || '/dashboard')}>
               {completedCount === 0 ? 'Get Started' : 'Continue Setup'}
               <ArrowRight className="h-4 w-4 ml-2" />
             </Link>

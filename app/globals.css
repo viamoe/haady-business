@@ -768,8 +768,8 @@ div.text-red-500 {
 [data-slot="sidebar-menu-button"] {
   transition: width 0.5s cubic-bezier(0.25, 0.1, 0.25, 1),
               height 0.5s cubic-bezier(0.25, 0.1, 0.25, 1),
-              padding 0.5s cubic-bezier(0.25, 0.1, 0.25, 1),
-              opacity 0.4s ease-in-out !important;
+              padding 0.5s cubic-bezier(0.25, 0.1, 0.25, 1) !important;
+  transition-property: width, height, padding !important;
 }
 
 [data-slot="sidebar-menu-button"] > span:last-child {
@@ -798,6 +798,7 @@ div.text-red-500 {
 [data-slot="sidebar-menu-button"]:not([data-active="true"]) {
   opacity: 0.36 !important;
   color: hsl(var(--muted-foreground)) !important;
+  transition: opacity 0s !important;
 }
 
 [data-slot="sidebar-menu-button"]:not([data-active="true"]) span,
@@ -808,35 +809,41 @@ div.text-red-500 {
 
 [data-slot="sidebar-menu-button"]:not([data-active="true"]):hover {
   opacity: 1 !important;
-  background-color: hsl(var(--sidebar-accent)) !important;
+  background-color: rgb(255 247 237) !important; /* orange-50 - more muted */
+  transition: opacity 0s, background-color 0s, color 0s !important;
 }
 
 [data-slot="sidebar-menu-button"]:not([data-active="true"]):hover span,
 [data-slot="sidebar-menu-button"]:not([data-active="true"]):hover svg,
 [data-slot="sidebar-menu-button"]:not([data-active="true"]):hover a {
-  color: hsl(var(--sidebar-foreground)) !important;
+  color: rgb(244 97 11) !important; /* #F4610B */
+  transition: none !important;
 }
 
-/* Selected item: subtle gray background */
+/* Selected item: orange background and text (same as hover, no hover effect) */
 [data-slot="sidebar-menu-button"][data-active="true"] {
-  background-color: rgb(243 244 246) !important; /* gray-100 */
+  background-color: rgb(255 237 213) !important; /* orange-100 */
   font-weight: 600 !important;
+  transition: none !important;
 }
 
 [data-slot="sidebar-menu-button"][data-active="true"] span,
 [data-slot="sidebar-menu-button"][data-active="true"] svg,
 [data-slot="sidebar-menu-button"][data-active="true"] a {
-  color: hsl(var(--sidebar-foreground)) !important;
+  color: rgb(244 97 11) !important; /* #F4610B */
+  transition: none !important;
 }
 
 [data-slot="sidebar-menu-button"][data-active="true"]:hover {
-  background-color: rgb(243 244 246) !important; /* gray-100 */
+  background-color: rgb(255 237 213) !important; /* orange-100 - no change on hover */
+  transition: none !important;
 }
 
 [data-slot="sidebar-menu-button"][data-active="true"]:hover span,
 [data-slot="sidebar-menu-button"][data-active="true"]:hover svg,
 [data-slot="sidebar-menu-button"][data-active="true"]:hover a {
-  color: hsl(var(--sidebar-foreground)) !important;
+  color: rgb(244 97 11) !important; /* #F4610B - no change on hover */
+  transition: none !important;
 }
 
 /* Dark mode support */
@@ -846,6 +853,58 @@ div.text-red-500 {
 
 .dark [data-slot="sidebar-menu-button"][data-active="true"]:hover {
   background-color: rgb(31 41 55) !important; /* gray-800 */
+}
+
+/* Sub-menu button styles - match main menu button styles */
+[data-slot="sidebar-menu-sub-button"]:not([data-active="true"]) {
+  opacity: 0.36 !important;
+  color: hsl(var(--muted-foreground)) !important;
+  transition: opacity 0s !important;
+}
+
+[data-slot="sidebar-menu-sub-button"]:not([data-active="true"]) span,
+[data-slot="sidebar-menu-sub-button"]:not([data-active="true"]) svg,
+[data-slot="sidebar-menu-sub-button"]:not([data-active="true"]) a {
+  color: hsl(var(--muted-foreground)) !important;
+}
+
+[data-slot="sidebar-menu-sub-button"]:not([data-active="true"]):hover {
+  opacity: 1 !important;
+  background-color: rgb(255 247 237) !important; /* orange-50 - more muted */
+  transition: opacity 0s, background-color 0s, color 0s !important;
+}
+
+[data-slot="sidebar-menu-sub-button"]:not([data-active="true"]):hover span,
+[data-slot="sidebar-menu-sub-button"]:not([data-active="true"]):hover svg,
+[data-slot="sidebar-menu-sub-button"]:not([data-active="true"]):hover a {
+  color: rgb(244 97 11) !important; /* #F4610B */
+  transition: none !important;
+}
+
+/* Selected sub-menu item: orange background and text */
+[data-slot="sidebar-menu-sub-button"][data-active="true"] {
+  background-color: rgb(255 237 213) !important; /* orange-100 */
+  font-weight: 600 !important;
+  transition: none !important;
+}
+
+[data-slot="sidebar-menu-sub-button"][data-active="true"] span,
+[data-slot="sidebar-menu-sub-button"][data-active="true"] svg,
+[data-slot="sidebar-menu-sub-button"][data-active="true"] a {
+  color: rgb(244 97 11) !important; /* #F4610B */
+  transition: none !important;
+}
+
+[data-slot="sidebar-menu-sub-button"][data-active="true"]:hover {
+  background-color: rgb(255 237 213) !important; /* orange-100 - no change on hover */
+  transition: none !important;
+}
+
+[data-slot="sidebar-menu-sub-button"][data-active="true"]:hover span,
+[data-slot="sidebar-menu-sub-button"][data-active="true"]:hover svg,
+[data-slot="sidebar-menu-sub-button"][data-active="true"]:hover a {
+  color: rgb(244 97 11) !important; /* #F4610B - no change on hover */
+  transition: none !important;
 }
 
 /* Prevent horizontal scrollbar in entire sidebar */
@@ -1255,6 +1314,122 @@ html[lang="ar"] [data-sonner-toast] button,
 /* Reduce spacing in content wrapper */
 [data-sonner-toast] [data-content] {
   gap: 0.125rem !important; /* 2px spacing between title and description */
+}
+
+/* ============================================
+   SOLID TOAST STYLES - Full Width Colored Toasts
+   ============================================ */
+
+/* Custom slide down animation for solid toast */
+@keyframes slideDown {
+  from {
+    transform: translateY(-100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+/* Base solid toast style */
+[data-sonner-toast].solid-toast {
+  --width: 100vw !important;
+  --offset: 0px !important;
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  width: 100vw !important;
+  max-width: none !important;
+  border-radius: 0 !important;
+  border: none !important;
+  box-shadow: none !important;
+  padding: 14px 24px !important;
+  margin: 0 !important;
+  transform: none !important;
+  inset: 0 !important;
+  bottom: auto !important;
+}
+
+[data-sonner-toast].solid-toast [data-icon] {
+  display: none !important;
+}
+
+[data-sonner-toast].solid-toast [data-title],
+[data-sonner-toast].solid-toast [data-sonner-title] {
+  color: white !important;
+  font-weight: 600 !important;
+  font-size: 0.9375rem !important;
+  text-align: center !important;
+  width: 100% !important;
+}
+
+[data-sonner-toast].solid-toast [data-description],
+[data-sonner-toast].solid-toast [data-sonner-description] {
+  color: rgba(255, 255, 255, 0.9) !important;
+  font-size: 0.875rem !important;
+  text-align: center !important;
+  width: 100% !important;
+}
+
+[data-sonner-toast].solid-toast [data-content] {
+  justify-content: center !important;
+  text-align: center !important;
+  width: 100% !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+}
+
+[data-sonner-toast].solid-toast > div {
+  justify-content: center !important;
+  width: 100% !important;
+}
+
+[data-sonner-toast].solid-toast [data-action="true"],
+[data-sonner-toast].solid-toast button[data-action="true"] {
+  background-color: rgba(255, 255, 255, 0.2) !important;
+  color: white !important;
+  border: 1px solid rgba(255, 255, 255, 0.3) !important;
+}
+
+[data-sonner-toast].solid-toast [data-action="true"]:hover,
+[data-sonner-toast].solid-toast button[data-action="true"]:hover {
+  background-color: rgba(255, 255, 255, 0.3) !important;
+}
+
+/* Success - Green */
+[data-sonner-toast].solid-toast.solid-toast-success {
+  background-color: #16a34a !important; /* green-600 */
+}
+
+/* Error/Danger - Red */
+[data-sonner-toast].solid-toast.solid-toast-error {
+  background-color: #dc2626 !important; /* red-600 */
+}
+
+/* Warning - Amber */
+[data-sonner-toast].solid-toast.solid-toast-warning {
+  background-color: #d97706 !important; /* amber-600 */
+}
+
+/* Info - Blue */
+[data-sonner-toast].solid-toast.solid-toast-info {
+  background-color: #2563eb !important; /* blue-600 */
+}
+
+/* Close button styling for solid toasts */
+[data-sonner-toast].solid-toast [data-close-button] {
+  color: white !important;
+  opacity: 0.7 !important;
+  position: absolute !important;
+  right: 16px !important;
+  top: 50% !important;
+  transform: translateY(-50%) !important;
+}
+
+[data-sonner-toast].solid-toast [data-close-button]:hover {
+  opacity: 1 !important;
+  background-color: rgba(255, 255, 255, 0.1) !important;
 }
 
 /* Custom scrollbar styling - Gray thumb, no track */

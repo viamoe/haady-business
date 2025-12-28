@@ -820,10 +820,16 @@ export default function AuthForm({ mode, reason }: AuthFormProps) {
           {/* Header */}
           <div className="text-center mb-10">
             <h1 className="text-3xl font-bold text-gray-900 mb-3 tracking-tight">
-              {isSignupMode ? t('auth.createAccount') : t('auth.loginToAccount')}
+              {showOtp 
+                ? t('auth.otpVerificationTitle')
+                : (isSignupMode ? t('auth.createAccount') : t('auth.loginToAccount'))
+              }
             </h1>
             <p className="text-lg text-gray-400">
-              {isSignupMode ? t('auth.createAccountSubtitle') : t('auth.subtitle')}
+              {showOtp
+                ? t('auth.otpVerificationSubtitle')
+                : (isSignupMode ? t('auth.createAccountSubtitle') : t('auth.subtitle'))
+              }
             </p>
           </div>
 
@@ -1007,27 +1013,15 @@ export default function AuthForm({ mode, reason }: AuthFormProps) {
                     autoFocus={true}
                   />
                   
-                  {/* Submit Button */}
-                  <Button
-                    type="button"
-                    onClick={() => {
-                      const otpCode = otp.join('')
-                      if (otpCode.length === 6) {
-                        handleVerifyOtp(otpCode)
-                      }
-                    }}
-                    disabled={otp.join('').length !== 6 || isVerifying}
-                    className="w-full h-12 bg-gray-900 hover:bg-gray-800 text-white rounded-md font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {isVerifying ? (
-                      <>
-                        <Loader2 className={`h-5 w-5 animate-spin ${isRTL ? 'ml-2' : 'mr-2'}`} />
-                        {t('common.loading')}
-                      </>
-                    ) : (
-                      t('auth.verifyCode') || 'Verify Code'
-                    )}
-                  </Button>
+                  {/* Verification Status */}
+                  {isVerifying && (
+                    <div className={`flex items-center justify-center gap-2 py-3 ${isRTL ? 'flex-row-reverse' : ''}`}>
+                      <Loader2 className="h-5 w-5 animate-spin text-gray-600" />
+                      <span className="text-sm text-gray-600">
+                        {t('auth.verifying') || 'Verifying code...'}
+                      </span>
+                    </div>
+                  )}
                   
                   {/* Timer and Resend Code */}
                   <div className="flex flex-col items-center gap-2 mt-4">
@@ -1090,25 +1084,27 @@ export default function AuthForm({ mode, reason }: AuthFormProps) {
             )}
           </form>
 
-          {/* Partner Logos Section */}
-          <div className="mt-12 text-center">
-            <p className="text-sm text-gray-400 mb-5">
-              {t('auth.joinBusinesses')}
-            </p>
-            <div className="flex flex-nowrap items-center justify-center gap-6 w-full px-4">
-              {ecommerceLogos.map((logo) => (
-                <Image
-                  key={logo.name}
-                  src={`${ECOMMERCE_STORAGE_URL}/${logo.name}.png`}
-                  alt={logo.alt}
-                  width={180}
-                  height={60}
-                  className="h-12 w-auto object-contain grayscale opacity-30 hover:grayscale-0 hover:opacity-100 hover:animate-logo-pulse transition-all duration-300 cursor-pointer"
-                  unoptimized
-                />
-              ))}
+          {/* Partner Logos Section - Hide during OTP step */}
+          {!showOtp && (
+            <div className="mt-12 text-center">
+              <p className="text-sm text-gray-400 mb-5">
+                {t('auth.joinBusinesses')}
+              </p>
+              <div className="flex flex-nowrap items-center justify-center gap-6 w-full px-4">
+                {ecommerceLogos.map((logo) => (
+                  <Image
+                    key={logo.name}
+                    src={`${ECOMMERCE_STORAGE_URL}/${logo.name}.png`}
+                    alt={logo.alt}
+                    width={180}
+                    height={60}
+                    className="h-12 w-auto object-contain grayscale opacity-30 hover:grayscale-0 hover:opacity-100 hover:animate-logo-pulse transition-all duration-300 cursor-pointer"
+                    unoptimized
+                  />
+                ))}
+              </div>
             </div>
-          </div>
+          )}
         </div>
       </div>
 

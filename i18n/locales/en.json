@@ -412,6 +412,9 @@
       "stores": "Stores",
       "products": "Products",
       "orders": "Orders",
+      "analytics": "Analytics",
+      "customers": "Customers",
+      "growth": "Growth",
       "settings": "Settings"
     },
     "store": {
@@ -423,6 +426,7 @@
       "createOrConnect": "Create or connect a store",
       "store": "Store"
     },
+    "storeSettings": "Store Settings",
     "user": {
       "profile": "Profile",
       "accountSettings": "Account Settings",

@@ -364,16 +364,16 @@ function SidebarTrigger({
         {shouldReverseIcons ? (
           // English (LTR): reversed icons
           isCollapsed ? (
-            <PanelLeftOpen size={DEFAULT_ICON_SIZE} />
+            <PanelLeftOpen size={24} />
           ) : (
-            <PanelLeftClose size={DEFAULT_ICON_SIZE} />
+            <PanelLeftClose size={24} />
           )
         ) : (
           // Arabic (RTL): normal icons
           isCollapsed ? (
-            <PanelLeftClose size={DEFAULT_ICON_SIZE} />
+            <PanelLeftClose size={24} />
           ) : (
-            <PanelLeftOpen size={DEFAULT_ICON_SIZE} />
+            <PanelLeftOpen size={24} />
           )
         )}
       </AnimateIcon>
@@ -571,7 +571,7 @@ function SidebarMenuItem({ className, ...props }: React.ComponentProps<"li">) {
       data-slot="sidebar-menu-item"
       data-sidebar="menu-item"
       className={cn(
-        "group/menu-item relative group-data-[collapsible=icon]:w-auto rounded-xl transition-colors duration-150 hover:bg-gray-100/75",
+        "group/menu-item relative group-data-[collapsible=icon]:w-auto rounded-xl",
         "data-[active=true]:bg-gray-100/80",
         className
       )}
@@ -585,8 +585,8 @@ const sidebarMenuButtonVariants = cva(
   [
     "peer/menu-button flex w-full items-center gap-3 rounded-xl px-3 py-2.5",
     "text-left text-sm font-medium outline-hidden cursor-pointer",
-    // Only transition background color for hover (no size/position transitions)
-    "transition-[background-color] duration-150",
+    // Instant hover transition
+    "transition-none",
     "disabled:pointer-events-none disabled:opacity-50",
     "aria-disabled:pointer-events-none aria-disabled:opacity-50",
     "group-has-data-[sidebar=menu-action]/menu-item:pr-8",
@@ -608,21 +608,23 @@ const sidebarMenuButtonVariants = cva(
         default: [
           // Default state
           "text-gray-500 [&>svg]:text-gray-400",
-          // Hover state - darker gray
-          "hover:bg-gray-200 hover:text-gray-900 hover:[&>svg]:text-gray-600",
+          // Hover state - muted orange like notification and sidebar toggle buttons (only for non-active items)
+          "hover:bg-orange-50 hover:text-[#F4610B] hover:[&>svg]:text-[#F4610B]",
           // Focus state
           "focus-visible:ring-2 focus-visible:ring-orange-200",
           // Active/pressed state
           "active:bg-orange-100 active:text-orange-600",
-          // Selected/current state - gray background with dark text
-          "data-[active=true]:!bg-gray-100 data-[active=true]:!text-gray-900 data-[active=true]:!font-semibold",
-          "data-[active=true]:[&>svg]:!text-gray-700",
+          // Selected/current state - orange background and text (same as hover, no hover effect)
+          "data-[active=true]:!bg-orange-100 data-[active=true]:!text-[#F4610B] data-[active=true]:!font-semibold",
+          "data-[active=true]:[&>svg]:!text-[#F4610B]",
+          "data-[active=true]:hover:!bg-orange-100 data-[active=true]:hover:!text-[#F4610B] data-[active=true]:hover:[&>svg]:!text-[#F4610B]",
         ].join(" "),
         outline: [
           "bg-transparent text-gray-500",
-          "hover:bg-gray-200 hover:text-gray-900",
-          "data-[active=true]:!bg-gray-100 data-[active=true]:!text-gray-900 data-[active=true]:!font-semibold",
-          "data-[active=true]:[&>svg]:!text-gray-700",
+          "hover:bg-orange-100 hover:text-[#F4610B] hover:[&>svg]:text-[#F4610B]",
+          "data-[active=true]:!bg-orange-100 data-[active=true]:!text-[#F4610B] data-[active=true]:!font-semibold",
+          "data-[active=true]:[&>svg]:!text-[#F4610B]",
+          "data-[active=true]:hover:!bg-orange-100 data-[active=true]:hover:!text-[#F4610B] data-[active=true]:hover:[&>svg]:!text-[#F4610B]",
         ].join(" "),
       },
       size: {
@@ -832,10 +834,10 @@ function SidebarMenuSubButton({
       data-size={size}
       data-active={isActive}
       className={cn(
-        "text-sidebar-foreground ring-sidebar-ring hover:bg-sidebar-accent hover:text-sidebar-accent-foreground active:bg-sidebar-accent active:text-sidebar-accent-foreground [&>svg]:text-sidebar-accent-foreground flex h-9 min-w-0 -translate-x-px items-center gap-4 overflow-hidden rounded-md px-4 py-4 outline-hidden focus-visible:ring-2 disabled:pointer-events-none disabled:opacity-50 aria-disabled:pointer-events-none aria-disabled:opacity-50 [&>span:last-child]:truncate [&>svg]:size-4 [&>svg]:shrink-0",
+        "text-sidebar-foreground ring-sidebar-ring hover:bg-sidebar-accent hover:text-sidebar-accent-foreground active:bg-sidebar-accent active:text-sidebar-accent-foreground [&>svg]:text-sidebar-accent-foreground flex h-9 min-w-0 -translate-x-px items-center gap-3 overflow-hidden rounded-md px-3 py-2.5 outline-hidden focus-visible:ring-2 disabled:pointer-events-none disabled:opacity-50 aria-disabled:pointer-events-none aria-disabled:opacity-50 [&>span:last-child]:truncate [&>svg]:size-4 [&>svg]:shrink-0",
         "data-[active=true]:bg-sidebar-accent data-[active=true]:text-sidebar-accent-foreground",
-        size === "sm" && "text-xs",
-        size === "md" && "text-sm",
+        size === "sm" && "text-xs font-medium",
+        size === "md" && "text-sm font-medium",
         "group-data-[collapsible=icon]:hidden",
         className
       )}
