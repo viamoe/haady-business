@@ -108,7 +108,7 @@ export function PlatformHeader({
 
   // Visibility logic
   const showNavButtons = !isAuthPage && !user && !isDashboardPage && !hideNavButtons && variant !== 'landing';
-  const showUserInfo = user && !loading && !isDashboardPage;
+  const showUserInfo = user && !loading && !isDashboardPage && !isAuthPage;
   const showHeader = variant === 'onboarding' || (!isDashboardPage && !isOnboardingPage);
 
   // Scroll handler for landing variant
@@ -154,6 +154,7 @@ export function PlatformHeader({
       if (!user?.id) {
         setIsLoadingBusinessName(false);
         setHasCompletedOnboarding(false);
+        setBusinessName(null);
         return;
       }
 
@@ -200,6 +201,7 @@ export function PlatformHeader({
       if (!user?.id) {
         setSelectedStoreLabel(null);
         setSelectedStoreLogo(null);
+        setSelectedStoreLogoZoom(null);
         return;
       }
 
@@ -404,9 +406,9 @@ export function PlatformHeader({
                 </>
               ) : (
                 <>
-                  {user ? (
-                // User is logged in
-                hasCompletedOnboarding ? (
+                  {user && !loading ? (
+                    // User is logged in
+                    hasCompletedOnboarding ? (
                   // User completed onboarding - Show store logo, name, and Dashboard link
                   <Link
                     href={localizedUrl('/dashboard')}
@@ -814,220 +816,46 @@ export function PlatformHeader({
                 <SimpleLanguageSwitcher />
               )}
 
-              {/* User avatar dropdown for default/onboarding */}
-              {showUserInfo && user && (
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <button
-                      className="flex h-9 w-9 items-center justify-center rounded-full bg-gray-800 text-white text-sm font-medium hover:opacity-80 transition-opacity focus:outline-none cursor-pointer shrink-0"
-                      aria-label="User menu"
-                    >
-                      {userInitials}
-                    </button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent
-                    align="end"
-                    side="bottom"
-                    sideOffset={8}
-                    className="w-48 rounded-2xl p-0 shadow-[0_20px_60px_rgba(15,23,42,0.15)] bg-white overflow-hidden border-0"
-                  >
-                    <div className="p-2 space-y-1">
-                      <DropdownMenuItem
-                        onSelect={(e) => {
-                          e.preventDefault();
-                          handleSignOut();
-                        }}
-                        className="cursor-pointer rounded-md flex items-center gap-2 text-sm font-medium text-red-600 hover:bg-red-50 focus:bg-red-50 focus:text-red-600"
-                      >
-                        <LogOut className="h-4 w-4 text-red-600" />
-                        Sign Out
-                      </DropdownMenuItem>
-                    </div>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              )}
 
-              {/* Default variant - show full user menu for completed onboarding */}
+              {/* Default variant - show store logo link for completed onboarding */}
               {variant === 'default' && showUserInfo && hasCompletedOnboarding && !isLoadingBusinessName && (
                 <>
-                  {locale === 'ar' && <AdvancedLanguageSelector />}
-                  <DropdownMenu>
-                    <div className="flex items-center gap-2">
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Link
-                            href={localizedUrl('/dashboard')}
-                            className="cursor-pointer hover:opacity-80 transition-opacity"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              try {
-                                const url = localizedUrl('/dashboard');
-                                router.push(url);
-                              } catch (error) {
-                                console.error('Navigation error:', error);
-                                router.push('/dashboard');
-                              }
-                            }}
-                          >
-                            <div
-                              className={`flex h-9 w-9 items-center justify-center rounded-lg shrink-0 overflow-hidden relative ${
-                                selectedStoreLogo ? '' : 'bg-[#F4610B]/10'
-                              }`}
-                            >
-                              {selectedStoreLogo ? (
-                                <img
-                                  src={selectedStoreLogo}
-                                  alt="Store Logo"
-                                  className="absolute inset-0 h-full w-full object-cover"
-                                  style={{
-                                    transform: `scale(${(selectedStoreLogoZoom || 100) / 100})`,
-                                    transition: 'transform 0.2s ease-out',
-                                  }}
-                                />
-                              ) : (
-                                <Store className="h-6 w-6 text-[#F4610B] relative z-10" />
-                              )}
-                            </div>
-                          </Link>
-                        </TooltipTrigger>
-                        <TooltipContent side="left" sideOffset={10} className="text-xs px-2 py-1.5">
-                          {(() => {
-                            const dashboardLabel = t('dashboard.pageName.dashboard');
-                            const storeLabel = selectedStoreLabel || dashboardLabel;
-                            if (!selectedStoreLabel) return dashboardLabel;
-                            return isRTL ? `${storeLabel} ${dashboardLabel}` : `${storeLabel} Dashboard`;
-                          })()}
-                        </TooltipContent>
-                      </Tooltip>
-                      <DropdownMenuTrigger asChild>
-                        <button className="group flex items-center gap-3 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-100/75 rounded-lg pl-2 pr-3 py-1.5 transition-colors focus:outline-none">
-                          <div className="flex flex-col items-start text-left min-w-0">
-                            <span className="text-sm font-medium text-gray-900 leading-tight">
-                              {selectedStoreLabel ||
-                                businessName ||
-                                user?.user_metadata?.full_name ||
-                                user?.email?.split('@')[0] ||
-                                'User'}
-                            </span>
-                            <span className="text-xs text-gray-600 leading-tight">{user?.email}</span>
-                          </div>
-                          <ChevronDown className="h-4 w-4 text-gray-400 group-hover:text-gray-600 transition-colors" />
-                        </button>
-                      </DropdownMenuTrigger>
-                    </div>
-                    <DropdownMenuContent
-                      align="end"
-                      side="bottom"
-                      sideOffset={-48}
-                      className="w-60 rounded-2xl p-0 shadow-[0_20px_60px_rgba(15,23,42,0.15)] bg-white overflow-hidden border-0"
-                    >
-                      <div className="px-4 py-3 bg-gray-50 flex items-center gap-3 border-b border-gray-100">
-                        <div
-                          className={`flex h-12 w-12 items-center justify-center rounded-lg shrink-0 overflow-hidden relative ${
-                            selectedStoreLogo ? '' : 'bg-[#F4610B]/10'
-                          }`}
-                        >
-                          {selectedStoreLogo ? (
-                            <img
-                              src={selectedStoreLogo}
-                              alt="Store Logo"
-                              className="absolute inset-0 h-full w-full object-cover"
-                              style={{
-                                transform: `scale(${(selectedStoreLogoZoom || 100) / 100})`,
-                                transition: 'transform 0.2s ease-out',
-                              }}
-                            />
-                          ) : (
-                            <Store className="h-6 w-6 text-[#F4610B]" />
-                          )}
-                        </div>
-                        <div className="min-w-0">
-                          <p className="text-sm font-semibold text-gray-900 truncate">
-                            {selectedStoreLabel ||
-                              businessName ||
-                              user?.user_metadata?.full_name ||
-                              user?.email?.split('@')[0] ||
-                              'User'}
-                          </p>
-                          <p className="text-xs text-gray-500 truncate">{user?.email}</p>
-                        </div>
-                      </div>
-                      <div className="p-2 space-y-1">
-                        <DropdownMenuItem
-                          onSelect={(e) => {
-                            e.preventDefault();
-                            try {
-                              const url = localizedUrl('/dashboard');
-                              router.push(url);
-                            } catch (error) {
-                              console.error('Navigation error:', error);
-                              router.push('/dashboard');
-                            }
-                          }}
-                          className="cursor-pointer rounded-xl flex items-center gap-2 text-sm font-medium text-gray-900 hover:bg-gray-100"
-                        >
-                          <LayoutDashboard className="h-4 w-4 text-gray-400" />
-                          Dashboard
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          onSelect={(e) => {
-                            e.preventDefault();
-                            try {
-                              const url = localizedUrl('/dashboard/settings/account');
-                              router.push(url);
-                            } catch (error) {
-                              console.error('Navigation error:', error);
-                              router.push('/dashboard/settings/account');
-                            }
-                          }}
-                          className="cursor-pointer rounded-xl flex items-center gap-2 text-sm font-medium text-gray-900 hover:bg-gray-100"
-                        >
-                          <Settings className="h-4 w-4 text-gray-400" />
-                          Account Settings
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          onSelect={(e) => {
-                            e.preventDefault();
-                            const otherLang = locale === 'en' ? 'ar' : 'en';
-                            const loadingMessage = locale === 'ar' ? 'جاري تبديل اللغة...' : 'Switching language...';
-                            setLoading(true, loadingMessage);
-                            setTimeout(() => {
-                              setLocale(otherLang);
-                            }, 2000);
-                          }}
-                          className="cursor-pointer rounded-xl flex items-center gap-2 text-sm font-medium text-gray-900 hover:bg-gray-100"
-                        >
-                          <Languages className="h-4 w-4 text-gray-400" />
-                          {locale === 'en' ? 'Switch to Arabic' : 'التبديل إلى الإنجليزية'}
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator className="my-2 bg-gray-100" />
-                        <DropdownMenuItem
-                          onSelect={(e) => {
-                            e.preventDefault();
-                            handleSignOut();
-                          }}
-                          className="cursor-pointer rounded-xl flex items-center gap-2 text-sm font-medium text-red-600 hover:bg-red-50 focus:bg-red-50 focus:text-red-600"
-                        >
-                          <LogOut className="h-4 w-4" />
-                          Sign Out
-                        </DropdownMenuItem>
-                      </div>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                  <Button
-                    asChild
-                    className="h-9 bg-black text-white hover:bg-gray-900 flex items-center gap-2"
+                  <Link
+                    href={localizedUrl('/dashboard')}
+                    className="group flex items-center gap-3 p-2 pr-4 rounded-lg hover:bg-[#F4610B]/5 transition-colors cursor-pointer"
+                    suppressHydrationWarning
                   >
-                    <Link href={localizedUrl('/dashboard')}>
-                      <span>{locale === 'ar' ? 'لوحة التحكم' : 'Dashboard'}</span>
-                      {locale === 'ar' ? (
-                        <ArrowRight className="h-4 w-4 rotate-180" />
+                    {/* Store Logo */}
+                    <div
+                      className={`flex h-10 w-10 items-center justify-center rounded-lg shrink-0 overflow-hidden relative ${
+                        selectedStoreLogo ? '' : 'bg-[#F4610B]/10'
+                      }`}
+                    >
+                      {selectedStoreLogo ? (
+                        <img
+                          src={selectedStoreLogo}
+                          alt="Store Logo"
+                          className="absolute inset-0 h-full w-full object-cover"
+                          style={{
+                            transform: `scale(${(selectedStoreLogoZoom || 100) / 100})`,
+                            transition: 'transform 0.2s ease-out',
+                          }}
+                        />
                       ) : (
-                        <ArrowRight className="h-4 w-4" />
+                        <Store className="h-5 w-5 text-[#F4610B] relative z-10" />
                       )}
-                    </Link>
-                  </Button>
-                  {locale !== 'ar' && <AdvancedLanguageSelector />}
+                    </div>
+                    {/* Store Name and Dashboard Link */}
+                    <div className="flex flex-col items-start text-left min-w-0">
+                      <span className="text-sm font-medium text-gray-900 group-hover:text-[#F4610B] leading-tight truncate max-w-[200px] transition-colors">
+                        {selectedStoreLabel || businessName || 'Store'}
+                      </span>
+                      <span className="text-xs text-gray-600 group-hover:text-[#F4610B] transition-colors">
+                        Dashboard
+                      </span>
+                    </div>
+                  </Link>
+                  <AdvancedLanguageSelector />
                 </>
               )}
             </div>
