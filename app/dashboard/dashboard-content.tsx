@@ -767,8 +767,21 @@ const insightCards = useMemo(() => {
   ]
 }, [productCount, countryCurrency, t])
 
-  const recentOrders = []
-  const recentProducts = []
+  const recentOrders: Array<{
+    id: string;
+    orderNumber?: string;
+    customerName?: string;
+    total?: number;
+    status?: string;
+    createdAt?: string;
+  }> = []
+  const recentProducts: Array<{
+    id: string;
+    name?: string;
+    image?: string;
+    sales?: number;
+    revenue?: number;
+  }> = []
   
   return (
     <div className="h-full">
