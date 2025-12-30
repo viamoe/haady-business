@@ -21,7 +21,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Loader2, Upload, X, Image as ImageIcon, Wand2, Tag, Barcode, Copy, Check, CheckCircle2, Package, DollarSign, Star, Plus, Minus, Store, Globe, CloudDownload, Sparkles, AlertCircle, Gift, Trash2, GripVertical, Search, ArrowRightLeft, Percent, BadgePercent, Calendar, ChevronDown } from 'lucide-react'
+import { Loader2, Upload, X, Image as ImageIcon, Wand2, Tag, Barcode, Copy, Check, CheckCircle2, Package, DollarSign, Star, Plus, Minus, Store, Globe, CloudDownload, Sparkles, AlertCircle, Gift, Trash2, GripVertical, Search, ArrowRightLeft, Percent, BadgePercent, Calendar, ChevronDown, MapPin, Truck, Download, Building2 } from 'lucide-react'
 import { supabase } from '@/lib/supabase/client'
 import { useStoreConnection } from '@/lib/store-connection-context'
 import { toast } from '@/lib/toast'
@@ -1548,12 +1548,13 @@ export function ProductForm({ open, onOpenChange, product, onSuccess, asPage = f
               <Label className="text-sm text-gray-600">Fulfillment</Label>
               <div className="flex flex-wrap gap-2">
                 {([
-                  { value: 'pickup', label: 'Pickup', disabled: productType === 'digital' || productType === 'service' },
-                  { value: 'delivery', label: 'Delivery', disabled: productType === 'digital' || productType === 'service' },
-                  { value: 'digital', label: 'Digital', disabled: productType !== 'digital' },
-                  { value: 'onsite', label: 'On-Site', disabled: productType !== 'service' },
+                  { value: 'pickup', label: 'Pickup', icon: MapPin, disabled: productType === 'digital' || productType === 'service' },
+                  { value: 'delivery', label: 'Delivery', icon: Truck, disabled: productType === 'digital' || productType === 'service' },
+                  { value: 'digital', label: 'Digital', icon: Download, disabled: productType !== 'digital' },
+                  { value: 'onsite', label: 'On-Site', icon: Building2, disabled: productType !== 'service' },
                 ] as const).filter(type => !type.disabled).map((type) => {
                   const isChecked = fulfillmentTypes.includes(type.value)
+                  const Icon = type.icon
                   return (
                     <button
                       key={type.value}
@@ -1579,6 +1580,7 @@ export function ProductForm({ open, onOpenChange, product, onSuccess, asPage = f
                           </svg>
                         </div>
                       )}
+                      <Icon className="h-4 w-4" />
                       {type.label}
                     </button>
                   )
