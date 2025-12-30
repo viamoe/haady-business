@@ -32,7 +32,7 @@ export const variantOptionSchema = z.object({
 // Product variant schema
 export const productVariantSchema = z.object({
   id: z.string(),
-  options: z.record(z.string()),
+  options: z.record(z.string(), z.string()),
   price: z.string().refine(val => !val || parseFloat(val) >= 0, 'Price must be positive'),
   sku: z.string(),
   stock: z.string(),

@@ -30,15 +30,22 @@ export function SkuBarcodeSection() {
     { value: 'QR', label: 'QR Code' },
   ]
 
-  const handleGenerateSku = async () => {
-    if (!storeId) return
-    const newSku = await generateSKU(storeId, formData.nameEn)
+  const handleGenerateSku = () => {
+    const newSku = generateSKU(formData.nameEn || formData.nameAr, { prefix: 'PROD' })
     updateField('sku', newSku)
   }
 
   const handleGenerateBarcode = () => {
-    const newBarcode = generateBarcode(formData.barcodeType)
-    updateField('barcode', newBarcode)
+    // Map UI barcode types to generator types
+    const typeMap: Record<string, string> = {
+      'EAN13': 'EAN13',
+      'UPC': 'UPC-A', 
+      'CODE128': 'CODE128',
+      'QR': 'CODE128', // QR not supported by generator, fallback to CODE128
+    }
+    const generatorType = typeMap[formData.barcodeType] || 'EAN13'
+    const result = generateBarcode({ type: generatorType as any })
+    updateField('barcode', result.barcode)
   }
 
   const copyToClipboard = (text: string, type: 'sku' | 'barcode') => {
@@ -219,10 +226,10 @@ export function SkuBarcodeSection() {
               <Label className="text-xs text-gray-500 mb-2 block">Preview</Label>
               <div className="flex justify-center">
                 <BarcodeDisplay
-                  value={formData.barcode}
-                  format={formData.barcodeType === 'QR' ? 'QR' : formData.barcodeType}
-                  width={formData.barcodeType === 'QR' ? 120 : 200}
-                  height={formData.barcodeType === 'QR' ? 120 : 80}
+                  barcode={formData.barcode}
+                  type={formData.barcodeType === 'UPC' ? 'UPC-A' : formData.barcodeType === 'QR' ? 'QR' : formData.barcodeType as any}
+                  size="md"
+                  showValue
                 />
               </div>
             </div>

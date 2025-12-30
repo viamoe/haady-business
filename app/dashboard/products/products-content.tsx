@@ -84,6 +84,9 @@ interface Product {
   // Pricing & Discounts
   compare_at_price?: number | null
   discount_type?: 'none' | 'percentage' | 'fixed_amount'
+  // Inventory tracking
+  track_inventory?: boolean
+  allow_backorder?: boolean
   discount_value?: number | null
   discount_start_date?: string | null
   discount_end_date?: string | null
