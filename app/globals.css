@@ -785,7 +785,7 @@ div.text-red-500 {
 
 [data-slot="sidebar"][data-state="expanded"] [data-slot="sidebar-menu-button"] span,
 [data-slot="sidebar"]:not([data-state="collapsed"]) [data-slot="sidebar-menu-button"] span {
-  font-size: 14px !important;
+  font-size: 12px !important;
   font-weight: 500 !important;
 }
 
@@ -796,15 +796,15 @@ div.text-red-500 {
 
 /* Non-selected items: muted with hover effect */
 [data-slot="sidebar-menu-button"]:not([data-active="true"]) {
-  opacity: 0.36 !important;
-  color: hsl(var(--muted-foreground)) !important;
+  opacity: 1 !important;
+  color: rgb(107 114 128) !important; /* gray-500 - lighter gray */
   transition: opacity 0s !important;
 }
 
 [data-slot="sidebar-menu-button"]:not([data-active="true"]) span,
 [data-slot="sidebar-menu-button"]:not([data-active="true"]) svg,
 [data-slot="sidebar-menu-button"]:not([data-active="true"]) a {
-  color: hsl(var(--muted-foreground)) !important;
+  color: rgb(107 114 128) !important; /* gray-500 - lighter gray */
 }
 
 [data-slot="sidebar-menu-button"]:not([data-active="true"]):hover {
@@ -857,15 +857,15 @@ div.text-red-500 {
 
 /* Sub-menu button styles - match main menu button styles */
 [data-slot="sidebar-menu-sub-button"]:not([data-active="true"]) {
-  opacity: 0.36 !important;
-  color: hsl(var(--muted-foreground)) !important;
+  opacity: 1 !important;
+  color: rgb(107 114 128) !important; /* gray-500 - lighter gray */
   transition: opacity 0s !important;
 }
 
 [data-slot="sidebar-menu-sub-button"]:not([data-active="true"]) span,
 [data-slot="sidebar-menu-sub-button"]:not([data-active="true"]) svg,
 [data-slot="sidebar-menu-sub-button"]:not([data-active="true"]) a {
-  color: hsl(var(--muted-foreground)) !important;
+  color: rgb(107 114 128) !important; /* gray-500 - lighter gray */
 }
 
 [data-slot="sidebar-menu-sub-button"]:not([data-active="true"]):hover {
@@ -881,11 +881,19 @@ div.text-red-500 {
   transition: none !important;
 }
 
-/* Selected sub-menu item: orange background and text */
+/* Selected sub-menu item: orange text only, no background */
 [data-slot="sidebar-menu-sub-button"][data-active="true"] {
-  background-color: rgb(255 237 213) !important; /* orange-100 */
+  background-color: transparent !important;
   font-weight: 600 !important;
   transition: none !important;
+  position: relative !important;
+  overflow: visible !important;
+}
+
+/* Active sub-menu indicator line is handled by animated React component */
+/* Hide the default ::before pseudo-element */
+[data-slot="sidebar-menu-sub-button"]::before {
+  display: none !important;
 }
 
 [data-slot="sidebar-menu-sub-button"][data-active="true"] span,
@@ -896,7 +904,7 @@ div.text-red-500 {
 }
 
 [data-slot="sidebar-menu-sub-button"][data-active="true"]:hover {
-  background-color: rgb(255 237 213) !important; /* orange-100 - no change on hover */
+  background-color: transparent !important; /* No background on hover */
   transition: none !important;
 }
 
@@ -905,6 +913,33 @@ div.text-red-500 {
 [data-slot="sidebar-menu-sub-button"][data-active="true"]:hover a {
   color: rgb(244 97 11) !important; /* #F4610B - no change on hover */
   transition: none !important;
+}
+
+/* Ensure badge is always visible, especially on hover for non-selected items */
+[data-slot="sidebar-menu-badge"] {
+  opacity: 1 !important;
+  visibility: visible !important;
+  display: flex !important;
+  z-index: 10 !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+/* Ensure badge is properly centered vertically in Products menu item */
+[data-slot="sidebar-menu-item"] > div.flex.items-center.relative [data-slot="sidebar-menu-badge"] {
+  top: 50% !important;
+  transform: translateY(-50%) !important;
+}
+
+/* Keep badge visible when hovering over menu items (both selected and non-selected) */
+[data-slot="sidebar-menu-item"]:hover [data-slot="sidebar-menu-badge"],
+[data-slot="sidebar-menu-item"]:has([data-slot="sidebar-menu-button"]:hover) [data-slot="sidebar-menu-badge"],
+[data-slot="sidebar-menu-button"]:hover ~ [data-slot="sidebar-menu-badge"],
+[data-slot="sidebar-menu-button"]:not([data-active="true"]):hover ~ [data-slot="sidebar-menu-badge"],
+[data-slot="sidebar-menu-button"][data-active="true"]:hover ~ [data-slot="sidebar-menu-badge"] {
+  opacity: 1 !important;
+  visibility: visible !important;
+  display: flex !important;
 }
 
 /* Prevent horizontal scrollbar in entire sidebar */

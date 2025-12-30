@@ -21,6 +21,7 @@ import {
   Bell,
   Shield,
   Globe,
+  Tag,
 } from "lucide-react"
 import Link from "next/link"
 import Image from "next/image"
@@ -41,6 +42,7 @@ import {
   SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
+  SidebarMenuBadge,
   SidebarMenuItem,
   SidebarMenuSub,
   SidebarMenuSubButton,
@@ -56,6 +58,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { cn } from "@/lib/utils"
+import { AnimatePresence, motion } from "framer-motion"
 
 const HAADY_LOGO_URL = 'https://rovphhvuuxwbhgnsifto.supabase.co/storage/v1/object/public/assets/haady-icon.svg';
 
@@ -70,6 +73,7 @@ const getNavItems = (t: any) => [
     title: t("sidebar.menu.products"),
     url: "/dashboard/products",
     icon: Package,
+    hasSubMenu: true,
   },
   {
     title: t("sidebar.menu.orders"),
@@ -96,6 +100,26 @@ const getNavItems = (t: any) => [
     url: "/dashboard/settings",
     icon: Settings,
     hasSubMenu: true,
+  },
+]
+
+// Products sub-menu items
+const getProductsSubItems = (t: any, locale: string) => [
+  {
+    title: t("sidebar.menu.products"),
+    url: "/dashboard/products",
+  },
+  {
+    title: t("sidebar.menu.categories"),
+    url: "/dashboard/products/categories",
+  },
+  {
+    title: t("sidebar.menu.inventory"),
+    url: "/dashboard/products/inventory",
+  },
+  {
+    title: locale === 'ar' ? 'هدايا المتجر' : 'In-Store Gifting',
+    url: "/dashboard/products/gifts",
   },
 ]
 
@@ -127,6 +151,135 @@ const getSettingsSubItems = (locale: string) => [
     icon: Globe,
   },
 ]
+
+// Animated Sub Menu with spring sliding indicator
+function AnimatedSubMenu({ 
+  items, 
+  pathname, 
+  pendingRoute, 
+  setPendingRoute,
+  baseUrl,
+  badgeCount,
+  badgeIndex = 0
+}: { 
+  items: { title: string; url: string; icon?: React.ComponentType<{ className?: string }> }[]
+  pathname: string
+  pendingRoute: string | null
+  setPendingRoute: (route: string | null) => void
+  baseUrl: string // e.g., '/dashboard/products' or '/dashboard/settings'
+  badgeCount?: number | null // Optional badge count to display
+  badgeIndex?: number // Which item index to show the badge on (default: 0)
+}) {
+  const containerRef = React.useRef<HTMLUListElement>(null)
+  const itemRefs = React.useRef<(HTMLDivElement | null)[]>([])
+  const [linePosition, setLinePosition] = React.useState({ top: 0, height: 0 })
+  const [isInitialized, setIsInitialized] = React.useState(false)
+
+  // Find active index
+  const activeIndex = items.findIndex((item) => 
+    pendingRoute
+      ? pendingRoute === item.url
+      : pathname === item.url || 
+        (item.url !== baseUrl && pathname.startsWith(item.url))
+  )
+
+  // Update line position when active index changes
+  React.useEffect(() => {
+    if (activeIndex === -1 || !containerRef.current) return
+
+    const updatePosition = () => {
+      const activeRef = itemRefs.current[activeIndex]
+      if (activeRef && containerRef.current) {
+        const containerRect = containerRef.current.getBoundingClientRect()
+        const itemRect = activeRef.getBoundingClientRect()
+        const itemHeight = itemRect.height
+        const relativeTop = itemRect.top - containerRect.top
+        
+        setLinePosition({
+          top: relativeTop + (itemHeight * 0.2), // Center the line (60% height means 20% from top)
+          height: itemHeight * 0.6
+        })
+        
+        if (!isInitialized) {
+          setIsInitialized(true)
+        }
+      }
+    }
+
+    // Small delay to ensure DOM is ready
+    const timer = setTimeout(updatePosition, 50)
+    return () => clearTimeout(timer)
+  }, [activeIndex, isInitialized])
+
+  return (
+    <SidebarMenuSub ref={containerRef} className="relative">
+      {/* Animated indicator line - positioned over the gray border */}
+      {activeIndex !== -1 && isInitialized && (
+        <motion.div
+          className="absolute -left-[1px] w-[3px] bg-[#F4610B] z-10 pointer-events-none"
+          initial={false}
+          animate={{ 
+            top: linePosition.top,
+            height: linePosition.height
+          }}
+          transition={{
+            type: "spring",
+            stiffness: 300,
+            damping: 25,
+            mass: 0.8
+          }}
+        />
+      )}
+      {items.map((item, index) => {
+        const isActive = pendingRoute
+          ? pendingRoute === item.url
+          : pathname === item.url || 
+            (item.url !== baseUrl && pathname.startsWith(item.url))
+        const showBadge = index === badgeIndex && badgeCount !== null && badgeCount !== undefined
+        
+        return (
+          <motion.div
+            key={item.title}
+            ref={(el) => { itemRefs.current[index] = el }}
+            initial={{ opacity: 0, x: -8 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -8 }}
+            transition={{ 
+              duration: 0.35, 
+              delay: index * 0.05,
+              ease: [0.25, 0.1, 0.25, 1]
+            }}
+          >
+            <SidebarMenuSubItem>
+              <SidebarMenuSubButton
+                asChild
+                isActive={isActive || pendingRoute === item.url}
+              >
+                <Link 
+                  href={item.url}
+                  onClick={() => {
+                    setPendingRoute(item.url)
+                    window.dispatchEvent(new CustomEvent('dashboard-navigation-start', { 
+                      detail: { url: item.url } 
+                    }))
+                  }}
+                  className="flex items-center justify-between w-full"
+                >
+                  <span>{item.title}</span>
+                  {showBadge && (
+                    <div className="flex items-center justify-center h-5 min-w-5 px-1.5 rounded-md bg-[#F4610B] text-white text-[10px] font-bold tabular-nums">
+                      {badgeCount}
+                    </div>
+                  )}
+                </Link>
+              </SidebarMenuSubButton>
+            </SidebarMenuSubItem>
+          </motion.div>
+        )
+      })}
+    </SidebarMenuSub>
+  )
+}
 
 // Get user initials
 function getUserInitials(email: string | undefined) {
@@ -773,21 +926,154 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const pathname = usePathname()
   const t = useTranslations()
   const { user } = useAuth()
-  const { isChangingStore } = useStoreConnection()
+  const { isChangingStore, selectedConnectionId } = useStoreConnection()
   const { locale } = useLocale()
   const [isLoading, setIsLoading] = React.useState(true)
   const hasLoadedRef = React.useRef(false)
   const [isSettingsOpen, setIsSettingsOpen] = React.useState(false)
+  const [isProductsOpen, setIsProductsOpen] = React.useState(false)
+  const [productCount, setProductCount] = React.useState<number | null>(null)
+  const [pendingRoute, setPendingRoute] = React.useState<string | null>(null)
   
   const navItems = React.useMemo(() => getNavItems(t), [t])
+  const productsSubItems = React.useMemo(() => getProductsSubItems(t, locale), [t, locale])
   const settingsSubItems = React.useMemo(() => getSettingsSubItems(locale), [locale])
-
-  // Auto-expand settings if on a settings page
+  
+  // Auto-open sub-menus when on their pages, collapse when navigating away
   React.useEffect(() => {
+    if (pathname.startsWith('/dashboard/products')) {
+      setIsProductsOpen(true)
+    } else {
+      setIsProductsOpen(false)
+    }
     if (pathname.startsWith('/dashboard/settings')) {
       setIsSettingsOpen(true)
+    } else {
+      setIsSettingsOpen(false)
     }
+    // Clear pending route when pathname actually changes
+    setPendingRoute(null)
   }, [pathname])
+
+  // Fetch product count function
+  const fetchProductCount = React.useCallback(async () => {
+    if (!user?.id) {
+      setProductCount(null)
+      return
+    }
+
+    try {
+      // Get business profile
+      const { data: businessProfile } = await supabase
+        .from('business_profile')
+        .select('id')
+        .eq('auth_user_id', user.id)
+        .single()
+
+      if (!businessProfile) {
+        setProductCount(0)
+        return
+      }
+
+      let storeIds: string[] = []
+
+      if (selectedConnectionId) {
+        // Get stores for the selected connection
+        const { data: connection } = await supabase
+          .from('store_connections')
+          .select('store_id')
+          .eq('id', selectedConnectionId)
+          .maybeSingle()
+
+        if (connection?.store_id) {
+          // Get the store
+          const { data: store } = await supabase
+            .from('stores')
+            .select('id')
+            .eq('id', connection.store_id)
+            .eq('is_active', true)
+            .maybeSingle()
+
+          if (store) {
+            storeIds = [store.id]
+          }
+        } else {
+          // Check if it's a Haady store ID directly
+          const { data: store } = await supabase
+            .from('stores')
+            .select('id')
+            .eq('id', selectedConnectionId)
+            .eq('platform', 'haady')
+            .eq('is_active', true)
+            .maybeSingle()
+
+          if (store) {
+            storeIds = [store.id]
+          }
+        }
+      } else {
+        // No connection selected, get all active stores for the business
+        const { data: stores } = await supabase
+          .from('stores')
+          .select('id')
+          .eq('business_id', businessProfile.id)
+          .eq('is_active', true)
+
+        storeIds = stores?.map(s => s.id) || []
+      }
+
+      if (storeIds.length === 0) {
+        setProductCount(0)
+        return
+      }
+
+      // Fetch product count
+      const { count, error } = await supabase
+        .from('products')
+        .select('id', { count: 'exact', head: true })
+        .in('store_id', storeIds)
+        .eq('is_active', true)
+
+      if (error) {
+        // If error is related to deleted_at column not existing, retry without it
+        if (error.message?.includes('deleted_at') || error.code === '42703' || error.code === 'PGRST116') {
+          const retryResult = await supabase
+            .from('products')
+            .select('id', { count: 'exact', head: true })
+            .in('store_id', storeIds)
+            .eq('is_active', true)
+
+          setProductCount(retryResult.count || 0)
+        } else {
+          console.error('Error fetching product count:', error)
+          setProductCount(0)
+        }
+      } else {
+        setProductCount(count || 0)
+      }
+    } catch (error) {
+      console.error('Error fetching product count:', error)
+      setProductCount(0)
+    }
+  }, [user?.id, selectedConnectionId])
+
+  // Initial fetch and refetch on dependency changes
+  React.useEffect(() => {
+    fetchProductCount()
+  }, [fetchProductCount])
+
+  // Listen for products updated event to refresh count
+  React.useEffect(() => {
+    const handleProductsUpdated = () => {
+      fetchProductCount()
+    }
+
+    window.addEventListener('productsUpdated', handleProductsUpdated)
+    return () => {
+      window.removeEventListener('productsUpdated', handleProductsUpdated)
+    }
+  }, [fetchProductCount])
+
 
   React.useEffect(() => {
     // Only show skeleton on initial mount, not on subsequent renders
@@ -864,9 +1150,16 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                       }) ?? navItems.find(item => item.url === '/dashboard')
                     
                     return navItems.map((item) => {
-                      const isActive = activeItem?.url === item.url
-                      const isSettingsItem = item.hasSubMenu
+                      // Check if item is active based on pathname OR pending route (for instant feedback)
+                      // If there's a pending route, only that item is active; otherwise use pathname
+                      const isActive = pendingRoute 
+                        ? pendingRoute === item.url
+                        : activeItem?.url === item.url
+                      const hasSubMenu = item.hasSubMenu
+                      const isSettingsItem = hasSubMenu && item.url === '/dashboard/settings'
+                      const isProductsItem = hasSubMenu && item.url === '/dashboard/products'
                       const isSettingsPage = pathname.startsWith('/dashboard/settings')
+                      const isProductsPage = pathname.startsWith('/dashboard/products')
                       
                       if (isSettingsItem) {
                         return (
@@ -874,11 +1167,20 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                             <div className="flex items-center">
                               <SidebarMenuButton
                                 asChild
-                                isActive={pathname === item.url}
+                                isActive={pendingRoute ? pendingRoute.startsWith('/dashboard/settings') : isSettingsPage}
                                 tooltip={item.title}
                                 className="flex-1"
                               >
-                                <Link href={item.url}>
+                                <Link 
+                                  href={item.url}
+                                  onClick={() => {
+                                    setPendingRoute(item.url)
+                                    // Dispatch event to trigger immediate skeleton loading
+                                    window.dispatchEvent(new CustomEvent('dashboard-navigation-start', { 
+                                      detail: { url: item.url } 
+                                    }))
+                                  }}
+                                >
                                   <item.icon />
                                   <span>{item.title}</span>
                                 </Link>
@@ -903,39 +1205,107 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                                 />
                               </button>
                             </div>
-                            {isSettingsOpen && (
-                              <SidebarMenuSub>
-                                {settingsSubItems.map((subItem) => {
-                                  const isSubActive = pathname === subItem.url || 
-                                    (subItem.url !== '/dashboard/settings' && pathname.startsWith(subItem.url))
-                                  
-                                  return (
-                                    <SidebarMenuSubItem key={subItem.title}>
-                                      <SidebarMenuSubButton
-                                        asChild
-                                        isActive={isSubActive}
-                                      >
-                                        <Link href={subItem.url}>
-                                          <span>{subItem.title}</span>
-                                        </Link>
-                                      </SidebarMenuSubButton>
-                                    </SidebarMenuSubItem>
-                                  )
-                                })}
-                              </SidebarMenuSub>
-                            )}
+                            <AnimatePresence>
+                              {isSettingsOpen && (
+                                <motion.div
+                                  initial={{ height: 0, opacity: 0 }}
+                                  animate={{ height: "auto", opacity: 1 }}
+                                  exit={{ height: 0, opacity: 0 }}
+                                  transition={{ duration: 0.4, ease: [0.25, 0.1, 0.25, 1] }}
+                                  style={{ overflow: "hidden" }}
+                                >
+                                  <AnimatedSubMenu 
+                                    items={settingsSubItems}
+                                    pathname={pathname}
+                                    pendingRoute={pendingRoute}
+                                    setPendingRoute={setPendingRoute}
+                                    baseUrl="/dashboard/settings"
+                                  />
+                                </motion.div>
+                              )}
+                            </AnimatePresence>
+                          </SidebarMenuItem>
+                        )
+                      }
+                      
+                      if (isProductsItem) {
+                        return (
+                          <SidebarMenuItem key={item.title} className="mb-1">
+                            <div className="flex items-center relative">
+                              <SidebarMenuButton
+                                asChild
+                                isActive={pendingRoute ? pendingRoute.startsWith('/dashboard/products') : isProductsPage}
+                                tooltip={item.title}
+                                className="flex-1 relative"
+                              >
+                                <Link href={item.url}>
+                                  <item.icon />
+                                  <span>{item.title}</span>
+                                </Link>
+                              </SidebarMenuButton>
+                              <button
+                                onClick={(e) => {
+                                  e.preventDefault()
+                                  e.stopPropagation()
+                                  setIsProductsOpen(!isProductsOpen)
+                                }}
+                                className={cn(
+                                  "ml-1 p-1 rounded-md hover:bg-sidebar-accent transition-colors",
+                                  "group-data-[collapsible=icon]:hidden"
+                                )}
+                                aria-label={isProductsOpen ? "Collapse products" : "Expand products"}
+                              >
+                                <ChevronRight 
+                                  className={cn(
+                                    "size-4 transition-transform text-muted-foreground",
+                                    isProductsOpen && "rotate-90"
+                                  )}
+                                />
+                              </button>
+                            </div>
+                            <AnimatePresence>
+                              {isProductsOpen && (
+                                <motion.div
+                                  initial={{ height: 0, opacity: 0 }}
+                                  animate={{ height: "auto", opacity: 1 }}
+                                  exit={{ height: 0, opacity: 0 }}
+                                  transition={{ duration: 0.4, ease: [0.25, 0.1, 0.25, 1] }}
+                                  style={{ overflow: "hidden" }}
+                                >
+                                  <AnimatedSubMenu 
+                                    items={productsSubItems}
+                                    pathname={pathname}
+                                    pendingRoute={pendingRoute}
+                                    setPendingRoute={setPendingRoute}
+                                    baseUrl="/dashboard/products"
+                                    badgeCount={productCount}
+                                    badgeIndex={0}
+                                  />
+                                </motion.div>
+                              )}
+                            </AnimatePresence>
                           </SidebarMenuItem>
                         )
                       }
                       
                       return (
-                        <SidebarMenuItem key={item.title} className="mb-1">
+                        <SidebarMenuItem key={item.title} className="mb-1 relative">
                           <SidebarMenuButton
                             asChild
                             isActive={isActive}
                             tooltip={item.title}
                           >
-                            <Link href={item.url} aria-current={isActive ? 'page' : undefined}>
+                            <Link 
+                              href={item.url} 
+                              aria-current={isActive ? 'page' : undefined}
+                              onClick={() => {
+                                setPendingRoute(item.url)
+                                // Dispatch event to trigger immediate skeleton loading
+                                window.dispatchEvent(new CustomEvent('dashboard-navigation-start', { 
+                                  detail: { url: item.url } 
+                                }))
+                              }}
+                            >
                               <item.icon />
                               <span>{item.title}</span>
                             </Link>

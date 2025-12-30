@@ -109,8 +109,8 @@ export function getClientIP(request: Request): string {
  * Rate limit configuration for OTP requests
  */
 export const OTP_RATE_LIMIT = {
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  maxRequests: 3, // Max 3 OTP requests per 15 minutes
+  windowMs: 60 * 1000, // 1 minute (for testing)
+  maxRequests: 3, // Max 3 OTP requests per minute
 } as const;
 
 /**

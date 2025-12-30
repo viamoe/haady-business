@@ -411,6 +411,8 @@
       "dashboard": "Dashboard",
       "stores": "Stores",
       "products": "Products",
+      "categories": "Categories",
+      "inventory": "Inventory",
       "orders": "Orders",
       "analytics": "Analytics",
       "customers": "Customers",

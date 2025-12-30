@@ -1,0 +1,63 @@
+/**
+ * Type definitions for Categories Management System
+ */
+
+export interface Category {
+  id: string
+  name: string
+  name_ar: string | null
+  slug: string
+  parent_id: string | null
+  level: number
+  icon: string | null
+  description: string | null
+  description_ar: string | null
+  is_active: boolean
+  sort_order: number
+  created_at: string
+  updated_at: string
+  path?: string // Full path from helper function
+  children?: Category[] // For hierarchical structure
+}
+
+export interface CreateCategoryRequest {
+  name: string
+  name_ar?: string | null
+  slug?: string
+  parent_id?: string | null
+  icon?: string | null
+  description?: string | null
+  description_ar?: string | null
+  sort_order?: number
+}
+
+export interface UpdateCategoryRequest extends Partial<CreateCategoryRequest> {
+  is_active?: boolean
+}
+
+export interface CategoryListResponse {
+  categories: Category[]
+  total: number
+  page?: number
+  limit?: number
+}
+
+export interface ProductCategoryLink {
+  product_id: string
+  category_id: string
+  category_name?: string
+  category_name_ar?: string
+  category_path?: string
+}
+
+export interface CategoryQueryOptions {
+  parent_id?: string | null
+  level?: number
+  include_inactive?: boolean
+  hierarchical?: boolean
+  page?: number
+  limit?: number
+  sort_by?: 'name' | 'sort_order' | 'created_at'
+  order?: 'asc' | 'desc'
+}
+

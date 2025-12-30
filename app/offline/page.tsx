@@ -4,14 +4,11 @@ import { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { WifiOff, RefreshCw, Home } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import Image from 'next/image';
 import { useNetworkStatus } from '@/lib/network-context';
 import { getLocalizedUrl } from '@/lib/localized-url';
 
 // Force dynamic rendering to avoid static generation issues with layout cookies
 export const dynamic = 'force-dynamic';
-
-const HAADY_LOGO_URL = 'https://rovphhvuuxwbhgnsifto.supabase.co/storage/v1/object/public/assets/haady-icon.svg';
 
 export default function OfflinePage() {
   const router = useRouter();
@@ -45,18 +42,6 @@ export default function OfflinePage() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 p-4">
       <div className="max-w-md w-full text-center space-y-6">
-        {/* Logo */}
-        <div className="flex justify-center mb-8">
-          <Image
-            src={HAADY_LOGO_URL}
-            alt="Haady"
-            width={64}
-            height={64}
-            className="w-16 h-16"
-            unoptimized
-          />
-        </div>
-
         {/* Icon */}
         <div className="flex justify-center">
           <div className="relative">

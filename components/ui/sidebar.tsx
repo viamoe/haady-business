@@ -559,7 +559,7 @@ function SidebarMenu({ className, ...props }: React.ComponentProps<"ul">) {
     <ul
       data-slot="sidebar-menu"
       data-sidebar="menu"
-      className={cn("flex w-full min-w-0 flex-col gap-1 group-data-[collapsible=icon]:gap-2 group-data-[collapsible=icon]:items-center group-data-[collapsible=icon]:px-0", className)}
+      className={cn("flex w-full min-w-0 flex-col gap-0.5 group-data-[collapsible=icon]:gap-1 group-data-[collapsible=icon]:items-center group-data-[collapsible=icon]:px-0", className)}
       {...props}
     />
   )
@@ -598,7 +598,7 @@ const sidebarMenuButtonVariants = cva(
     // Hide text when collapsed
     "group-data-[collapsible=icon]:[&>span]:!hidden",
     // Icon styles - FIXED size, NO transitions (prevents movement during sidebar animation)
-    "[&>svg]:!size-5 [&>svg]:!shrink-0 [&>svg]:!transition-none [&>svg]:!transform-none",
+    "[&>svg]:!size-4 [&>svg]:!shrink-0 [&>svg]:!transition-none [&>svg]:!transform-none",
     // Text truncation (when expanded)
     "[&>span:last-child]:truncate [&[data-transitioning=true]>span:last-child]:hidden",
   ].join(" "),
@@ -607,7 +607,7 @@ const sidebarMenuButtonVariants = cva(
       variant: {
         default: [
           // Default state
-          "text-gray-500 [&>svg]:text-gray-400",
+          "text-gray-900 [&>svg]:text-gray-800",
           // Hover state - muted orange like notification and sidebar toggle buttons (only for non-active items)
           "hover:bg-orange-50 hover:text-[#F4610B] hover:[&>svg]:text-[#F4610B]",
           // Focus state
@@ -620,7 +620,7 @@ const sidebarMenuButtonVariants = cva(
           "data-[active=true]:hover:!bg-orange-100 data-[active=true]:hover:!text-[#F4610B] data-[active=true]:hover:[&>svg]:!text-[#F4610B]",
         ].join(" "),
         outline: [
-          "bg-transparent text-gray-500",
+          "bg-transparent text-gray-900",
           "hover:bg-orange-100 hover:text-[#F4610B] hover:[&>svg]:text-[#F4610B]",
           "data-[active=true]:!bg-orange-100 data-[active=true]:!text-[#F4610B] data-[active=true]:!font-semibold",
           "data-[active=true]:[&>svg]:!text-[#F4610B]",
@@ -785,20 +785,24 @@ function SidebarMenuSkeleton({
   )
 }
 
-function SidebarMenuSub({ className, ...props }: React.ComponentProps<"ul">) {
-  return (
-    <ul
-      data-slot="sidebar-menu-sub"
-      data-sidebar="menu-sub"
-      className={cn(
-        "border-sidebar-border ml-[18px] mr-3.5 flex min-w-0 translate-x-px flex-col gap-1 border-l px-2.5 pt-2 pb-0.5",
-        "group-data-[collapsible=icon]:hidden",
-        className
-      )}
-      {...props}
-    />
-  )
-}
+const SidebarMenuSub = React.forwardRef<HTMLUListElement, React.ComponentProps<"ul">>(
+  ({ className, ...props }, ref) => {
+    return (
+      <ul
+        ref={ref}
+        data-slot="sidebar-menu-sub"
+        data-sidebar="menu-sub"
+        className={cn(
+          "border-sidebar-border ml-[18px] mr-3.5 flex min-w-0 translate-x-px flex-col gap-1 border-l px-2.5 pt-2 pb-0.5 overflow-visible",
+          "group-data-[collapsible=icon]:hidden",
+          className
+        )}
+        {...props}
+      />
+    )
+  }
+)
+SidebarMenuSub.displayName = "SidebarMenuSub"
 
 function SidebarMenuSubItem({
   className,
@@ -834,10 +838,10 @@ function SidebarMenuSubButton({
       data-size={size}
       data-active={isActive}
       className={cn(
-        "text-sidebar-foreground ring-sidebar-ring hover:bg-sidebar-accent hover:text-sidebar-accent-foreground active:bg-sidebar-accent active:text-sidebar-accent-foreground [&>svg]:text-sidebar-accent-foreground flex h-9 min-w-0 -translate-x-px items-center gap-3 overflow-hidden rounded-md px-3 py-2.5 outline-hidden focus-visible:ring-2 disabled:pointer-events-none disabled:opacity-50 aria-disabled:pointer-events-none aria-disabled:opacity-50 [&>span:last-child]:truncate [&>svg]:size-4 [&>svg]:shrink-0",
-        "data-[active=true]:bg-sidebar-accent data-[active=true]:text-sidebar-accent-foreground",
+        "relative text-gray-900 [&>svg]:text-gray-800 ring-sidebar-ring hover:bg-sidebar-accent hover:text-sidebar-accent-foreground active:bg-sidebar-accent active:text-sidebar-accent-foreground [&>svg]:text-sidebar-accent-foreground flex h-9 min-w-0 -translate-x-px items-center gap-3 overflow-hidden rounded-md px-3 py-2.5 outline-hidden focus-visible:ring-2 disabled:pointer-events-none disabled:opacity-50 aria-disabled:pointer-events-none aria-disabled:opacity-50 [&>span:last-child]:truncate [&>svg]:size-4 [&>svg]:shrink-0",
+        "data-[active=true]:bg-sidebar-accent data-[active=true]:text-sidebar-accent-foreground data-[active=true]:overflow-visible",
         size === "sm" && "text-xs font-medium",
-        size === "md" && "text-sm font-medium",
+        size === "md" && "text-xs font-medium",
         "group-data-[collapsible=icon]:hidden",
         className
       )}

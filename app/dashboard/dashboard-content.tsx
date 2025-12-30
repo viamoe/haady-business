@@ -77,6 +77,19 @@ interface DashboardContentProps {
   isSetupComplete: boolean
   storeConnections?: StoreConnection[]
   countryCurrency?: string
+  initialSalesData?: {
+    today: number
+    week: number
+    month: number
+    year: number
+  }
+  initialOrdersData?: {
+    today: number
+    week: number
+    month: number
+    year: number
+  }
+  storeIds?: string[]
 }
 
 // Get period options with translations
@@ -95,47 +108,53 @@ const getGreeting = (t: any) => {
   return t('dashboard.greeting.evening')
 }
 
-// Generate chart data based on period with fake data for testing
-function generateChartData(period: string, baseValue: number = 0) {
+// Generate chart data based on period - uses real data when available, otherwise distributes total evenly
+function generateChartData(period: string, baseValue: number = 0, historicalData?: Array<{ name: string; value: number }>) {
+  // If we have historical data, use it
+  if (historicalData && historicalData.length > 0) {
+    return historicalData
+  }
+  
+  // Fallback: distribute baseValue evenly across period (for when no historical data)
   const data = []
   let dataPoints = 7
   
-  // Use fake data for testing - generate realistic trends
   if (period === 'today') {
     dataPoints = 24 // Hourly data for today
-    const base = baseValue || 1000 // Default to 1000 if baseValue is 0
+    const avgValue = baseValue / dataPoints
     for (let i = 0; i < dataPoints; i++) {
-      // Simulate daily pattern: lower in morning, peak in afternoon/evening
-      const hourMultiplier = i < 6 ? 0.3 : i < 12 ? 0.6 : i < 18 ? 1.0 : i < 22 ? 0.9 : 0.5
-      const randomVariation = 0.8 + Math.random() * 0.4 // 0.8 to 1.2
       data.push({
         name: `${String(i).padStart(2, '0')}:00`,
-        value: Math.max(0, base * hourMultiplier * randomVariation),
+        value: avgValue,
       })
     }
   } else if (period === 'week') {
     dataPoints = 7 // Daily data for week
     const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
-    const base = baseValue || 500 // Default to 500 if baseValue is 0
+    const avgValue = baseValue / dataPoints
     for (let i = 0; i < dataPoints; i++) {
-      // Simulate weekly pattern: lower on weekends
-      const dayMultiplier = i < 5 ? 1.0 : 0.7 // Weekdays vs weekends
-      const randomVariation = 0.85 + Math.random() * 0.3 // 0.85 to 1.15
       data.push({
         name: days[i],
-        value: Math.max(0, base * dayMultiplier * randomVariation),
+        value: avgValue,
       })
     }
   } else if (period === 'month') {
     dataPoints = 30 // Daily data for month
-    const base = baseValue || 200 // Default to 200 if baseValue is 0
+    const avgValue = baseValue / dataPoints
     for (let i = 1; i <= dataPoints; i++) {
-      // Simulate monthly trend with some growth
-      const trendMultiplier = 1 + (i / dataPoints) * 0.3 // Gradual increase
-      const randomVariation = 0.8 + Math.random() * 0.4 // 0.8 to 1.2
       data.push({
         name: i.toString(),
-        value: Math.max(0, base * trendMultiplier * randomVariation),
+        value: avgValue,
+      })
+    }
+  } else if (period === 'year') {
+    dataPoints = 12 // Monthly data for year
+    const avgValue = baseValue / dataPoints
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+    for (let i = 0; i < dataPoints; i++) {
+      data.push({
+        name: months[i],
+        value: avgValue,
       })
     }
   }
@@ -182,37 +201,20 @@ function StatsCard({
   // Extract numeric value for chart
   const numericValueForChart = parseFloat(numericValue.replace(/[^\d.]/g, '')) || 0
   
-  // Generate chart data
+  // Generate chart data (for visualization only - distributes total evenly)
   const chartData = useMemo(() => generateChartData(selectedPeriod, numericValueForChart), [selectedPeriod, numericValueForChart])
   
-  // Calculate summary value from chart data (total for sales/orders, average for products)
-  const chartSummaryValue = useMemo(() => {
-    if (chartData.length === 0) return 0
-    
-    if (title === 'Products') {
-      // For products, show average
-      const sum = chartData.reduce((acc, item) => acc + item.value, 0)
-      return Math.round(sum / chartData.length)
-    } else {
-      // For sales and orders, show total
-      return Math.round(chartData.reduce((acc, item) => acc + item.value, 0))
-    }
-  }, [chartData, title])
-  
-  // Format the display value based on card type
+  // Use the actual value prop directly (real data from database)
+  // The chart is just for visualization, the displayed value is the real total
   const displayValue = useMemo(() => {
-    if (title === 'Sales') {
-      // For sales, format with currency
-      if (isCurrencyUrl && currencyIconUrl) {
-        return chartSummaryValue.toLocaleString()
-      } else {
-        return `${chartSummaryValue.toLocaleString()} ${countryCurrency || 'SAR'}`
-      }
-    } else {
-      // For orders and products, just show the number
-      return chartSummaryValue.toLocaleString()
+    // For Sales, the value already includes currency formatting
+    if (title === 'Sales' && isCurrencyUrl && currencyIconUrl) {
+      // Value is already formatted as number with currency icon
+      return value
     }
-  }, [chartSummaryValue, title, isCurrencyUrl, currencyIconUrl, countryCurrency])
+    // For other cases, use the value as-is (it's already formatted correctly)
+    return value
+  }, [value, title, isCurrencyUrl, currencyIconUrl])
 
   return (
     <Card className="group relative min-h-[200px] overflow-hidden rounded-3xl shadow-[0_18px_35px_rgba(15,23,42,0.04)] hover:shadow-[0_0_80px_rgba(15,23,42,0.12)] border-0 flex flex-col transition-all duration-200 hover:-translate-y-1">
@@ -228,6 +230,7 @@ function StatsCard({
                   width={24}
                   height={24}
                   className="inline-block"
+                  style={{ width: 'auto', height: '24px' }}
                   unoptimized
                 />
               )}
@@ -240,7 +243,7 @@ function StatsCard({
       <CardContent className="pt-2 flex flex-col gap-2">
         {/* Chart - Centered in a div */}
         <div className="flex items-center justify-center w-full py-2">
-          <div className="h-[80px] w-full max-w-full">
+          <div className="h-[80px] w-full max-w-full min-w-0 min-h-[80px]">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={chartData} margin={{ top: 5, right: 5, left: 5, bottom: 5 }}>
                 <defs>
@@ -269,6 +272,7 @@ function StatsCard({
                                   width={20}
                                   height={20}
                                   className="inline-block"
+                                  style={{ width: 'auto', height: '20px' }}
                                   unoptimized
                                 />
                               </>
@@ -384,16 +388,22 @@ export function DashboardContent({
   isSetupComplete: initialIsSetupComplete,
   storeConnections = [],
   countryCurrency = 'SAR',
+  initialSalesData = { today: 0, week: 0, month: 0, year: 0 },
+  initialOrdersData = { today: 0, week: 0, month: 0, year: 0 },
+  storeIds: initialStoreIds = [],
 }: DashboardContentProps) {
   const pathname = usePathname()
   const t = useTranslations()
-  const { selectedConnectionId } = useStoreConnection()
+  const { selectedConnectionId, storeId } = useStoreConnection()
   const [isLoading, setIsLoading] = useState(true)
   const [storeCount, setStoreCount] = useState(initialStoreCount)
   const [productCount, setProductCount] = useState(initialProductCount)
   const [hasStore, setHasStore] = useState(initialHasStore)
   const [hasProducts, setHasProducts] = useState(initialHasProducts)
   const [isSetupComplete, setIsSetupComplete] = useState(initialIsSetupComplete)
+  const [salesData, setSalesData] = useState(initialSalesData)
+  const [ordersData, setOrdersData] = useState(initialOrdersData)
+  const [storeIds, setStoreIds] = useState(initialStoreIds)
   const [dateRange, setDateRange] = useState<DateRange | undefined>({
     from: new Date(new Date().setDate(new Date().getDate() - 30)), // Default to last 30 days
     to: new Date(),
@@ -422,12 +432,35 @@ export function DashboardContent({
   useEffect(() => {
     const fetchStoreData = async () => {
       if (!selectedConnectionId) {
-        // No store selected, show all data
+        // No store selected, show all data from initial props
         setStoreCount(initialStoreCount)
         setProductCount(initialProductCount)
         setHasStore(initialHasStore)
         setHasProducts(initialHasProducts)
         setIsSetupComplete(initialIsSetupComplete)
+        setSalesData(initialSalesData)
+        setOrdersData(initialOrdersData)
+        setStoreIds(initialStoreIds)
+        
+        // Also refresh product count to ensure it's up to date
+        if (initialStoreIds.length > 0) {
+          try {
+            const { count, error } = await supabase
+              .from('products')
+              .select('id', { count: 'exact', head: true })
+              .in('store_id', initialStoreIds)
+              .eq('is_active', true)
+            
+            if (!error && count !== null) {
+              setProductCount(count)
+              setHasProducts(count > 0)
+            }
+          } catch (error) {
+            if (process.env.NODE_ENV === 'development') {
+              console.error('Error refreshing product count:', error)
+            }
+          }
+        }
         return
       }
 
@@ -500,26 +533,39 @@ export function DashboardContent({
           .in('store_id', storeIds)
           .eq('is_active', true)
 
-        // If error is related to deleted_at column not existing, retry without it
-            if (productsError && (productsError.message?.includes('deleted_at') || productsError.code === '42703' || productsError.code === 'PGRST116')) {
-              if (process.env.NODE_ENV === 'development') {
-                console.log('Retrying product count query without deleted_at filter')
-              }
+        // If error, try without is_active filter
+        if (productsError) {
+          if (process.env.NODE_ENV === 'development') {
+            console.error('Error fetching product count:', productsError)
+            console.log('Retrying without is_active filter, storeIds:', storeIds)
+          }
+          
           const retryResult = await supabase
             .from('products')
             .select('id', { count: 'exact', head: true })
             .in('store_id', storeIds)
-            .eq('is_active', true)
           
-          productCount = retryResult.count
-          productsError = retryResult.error
+          if (retryResult.error) {
+            if (process.env.NODE_ENV === 'development') {
+              console.error('Error fetching products (retry failed):', retryResult.error)
+            }
+            // If products query fails, still set store count but set products to 0
+            setStoreCount(storeCountForConnection)
+            setProductCount(0)
+            setHasStore(storeCountForConnection > 0)
+            setHasProducts(false)
+            setIsSetupComplete(false)
+            return
+          } else {
+            productCount = retryResult.count
+            productsError = null
+          }
         }
 
         if (productsError) {
           if (process.env.NODE_ENV === 'development') {
-            console.error('Error fetching products:', productsError)
+            console.error('Error fetching products (final):', productsError)
           }
-          // If products query fails, still set store count but set products to 0
           setStoreCount(storeCountForConnection)
           setProductCount(0)
           setHasStore(storeCountForConnection > 0)
@@ -530,11 +576,58 @@ export function DashboardContent({
 
         const productCountForConnection = productCount || 0
 
+        // Fetch sales and orders data for the selected stores
+        const now = new Date()
+        const todayStart = new Date(now)
+        todayStart.setHours(0, 0, 0, 0)
+        
+        const weekStart = new Date(now)
+        weekStart.setDate(weekStart.getDate() - 7)
+        
+        const monthStart = new Date(now)
+        monthStart.setDate(monthStart.getDate() - 30)
+        
+        const yearStart = new Date(now)
+        yearStart.setFullYear(yearStart.getFullYear() - 1)
+
+        const [ordersTodayRes, ordersWeekRes, ordersMonthRes, ordersYearRes, salesTodayRes, salesWeekRes, salesMonthRes, salesYearRes] = await Promise.all([
+          supabase.from('orders').select('id', { count: 'exact', head: true }).in('store_id', storeIds).gte('created_at', todayStart.toISOString()),
+          supabase.from('orders').select('id', { count: 'exact', head: true }).in('store_id', storeIds).gte('created_at', weekStart.toISOString()),
+          supabase.from('orders').select('id', { count: 'exact', head: true }).in('store_id', storeIds).gte('created_at', monthStart.toISOString()),
+          supabase.from('orders').select('id', { count: 'exact', head: true }).in('store_id', storeIds).gte('created_at', yearStart.toISOString()),
+          supabase.from('orders').select('total_amount').in('store_id', storeIds).gte('created_at', todayStart.toISOString()).eq('payment_status', 'paid'),
+          supabase.from('orders').select('total_amount').in('store_id', storeIds).gte('created_at', weekStart.toISOString()).eq('payment_status', 'paid'),
+          supabase.from('orders').select('total_amount').in('store_id', storeIds).gte('created_at', monthStart.toISOString()).eq('payment_status', 'paid'),
+          supabase.from('orders').select('total_amount').in('store_id', storeIds).gte('created_at', yearStart.toISOString()).eq('payment_status', 'paid'),
+        ])
+
+        const calculateSalesTotal = (ordersData: any[] | null) => {
+          if (!ordersData || ordersData.length === 0) return 0
+          return ordersData.reduce((sum, order) => sum + (parseFloat(order.total_amount?.toString() || '0') || 0), 0)
+        }
+
+        const newSalesData = {
+          today: calculateSalesTotal(salesTodayRes.data),
+          week: calculateSalesTotal(salesWeekRes.data),
+          month: calculateSalesTotal(salesMonthRes.data),
+          year: calculateSalesTotal(salesYearRes.data),
+        }
+
+        const newOrdersData = {
+          today: ordersTodayRes.count || 0,
+          week: ordersWeekRes.count || 0,
+          month: ordersMonthRes.count || 0,
+          year: ordersYearRes.count || 0,
+        }
+
         setStoreCount(storeCountForConnection)
         setProductCount(productCountForConnection)
         setHasStore(storeCountForConnection > 0)
         setHasProducts(productCountForConnection > 0)
         setIsSetupComplete(storeCountForConnection > 0 && productCountForConnection > 0 && hasPaymentConfigured && hasShippingConfigured)
+        setSalesData(newSalesData)
+        setOrdersData(newOrdersData)
+        setStoreIds(storeIds)
       } catch (error) {
         if (process.env.NODE_ENV === 'development') {
           console.error('Error fetching store data:', error)
@@ -550,6 +643,39 @@ export function DashboardContent({
 
     fetchStoreData()
   }, [selectedConnectionId, initialStoreCount, initialProductCount, initialHasStore, initialHasProducts, initialIsSetupComplete, hasPaymentConfigured, hasShippingConfigured])
+
+  // Listen for product updates to refresh counts
+  useEffect(() => {
+    const handleProductsUpdated = () => {
+      // Refetch product count when products are updated
+      const fetchProductCount = async () => {
+        try {
+          const currentStoreIds = storeIds.length > 0 ? storeIds : initialStoreIds
+          if (currentStoreIds.length === 0) return
+
+          const { count } = await supabase
+            .from('products')
+            .select('id', { count: 'exact', head: true })
+            .in('store_id', currentStoreIds)
+            .eq('is_active', true)
+
+          if (count !== null) {
+            setProductCount(count)
+            setHasProducts(count > 0)
+          }
+        } catch (error) {
+          console.error('Error refreshing product count:', error)
+        }
+      }
+
+      fetchProductCount()
+    }
+
+    window.addEventListener('productsUpdated', handleProductsUpdated as EventListener)
+    return () => {
+      window.removeEventListener('productsUpdated', handleProductsUpdated as EventListener)
+    }
+  }, [storeIds, initialStoreIds])
 
   // Listen for sync completion events to refresh product count
   useEffect(() => {
@@ -679,10 +805,49 @@ export function DashboardContent({
     }
   }, [selectedConnectionId, hasPaymentConfigured, hasShippingConfigured])
 
+  // Track if we're navigating (to prevent blank page)
+  const isNavigatingRef = useRef(false)
+
+  // Listen for navigation start event to show skeleton immediately
+  // Use capture phase to fire before other handlers
+  useEffect(() => {
+    const handleNavigationStart = (event: CustomEvent) => {
+      const url = event.detail?.url
+      // Only trigger if navigating to dashboard page
+      if (url && url === '/dashboard') {
+        isNavigatingRef.current = true
+        setIsLoading(true)
+        // Reset hasLoadedRef so skeleton shows properly
+        hasLoadedRef.current = false
+      }
+    }
+
+    // Use capture phase to ensure this fires early
+    window.addEventListener('dashboard-navigation-start', handleNavigationStart as EventListener, true)
+    return () => {
+      window.removeEventListener('dashboard-navigation-start', handleNavigationStart as EventListener, true)
+    }
+  }, [])
+
+  // Show skeleton when pathname changes to dashboard
+  useEffect(() => {
+    if (pathname === '/dashboard' && isNavigatingRef.current) {
+      // We're navigating to dashboard, ensure loading is true
+      setIsLoading(true)
+      isNavigatingRef.current = false
+    }
+  }, [pathname])
+
   useEffect(() => {
     // Only show skeleton on initial mount, not on subsequent renders
-    if (hasLoadedRef.current) {
+    // But don't interfere if we're navigating or if we're on dashboard (might be navigating)
+    if (hasLoadedRef.current && !isNavigatingRef.current && pathname !== '/dashboard') {
       setIsLoading(false)
+      return
+    }
+
+    // If we're navigating, don't set to false yet - let navigation event handle it
+    if (isNavigatingRef.current) {
       return
     }
 
@@ -690,10 +855,11 @@ export function DashboardContent({
     const timer = setTimeout(() => {
       setIsLoading(false)
       hasLoadedRef.current = true
+      isNavigatingRef.current = false
     }, 800)
 
     return () => clearTimeout(timer)
-  }, [])
+  }, [pathname])
 
   // Memoize onboarding steps to avoid recreation on every render
   const onboardingSteps = useMemo(() => [
@@ -736,7 +902,17 @@ const completedSteps = useMemo(() => onboardingSteps.filter(s => s.completed).le
 const insightCards = useMemo(() => {
   // Check if countryCurrency is a URL (currency icon)
   const isCurrencyIconUrl = countryCurrency && (countryCurrency.startsWith('http://') || countryCurrency.startsWith('https://'))
-  const salesValue = isCurrencyIconUrl ? '0' : `0 ${countryCurrency}`
+  
+  // Get current period values
+  const salesPeriod = insightPeriods.sales || 'today'
+  const ordersPeriod = insightPeriods.orders || 'today'
+  const currentSales = salesData[salesPeriod] || 0
+  const currentOrders = ordersData[ordersPeriod] || 0
+  
+  // Format sales value
+  const salesValue = isCurrencyIconUrl 
+    ? currentSales.toLocaleString() 
+    : `${currentSales.toLocaleString()} ${countryCurrency}`
 
   return [
     {
@@ -751,7 +927,7 @@ const insightCards = useMemo(() => {
     {
       id: 'orders',
       title: t('dashboard.cards.orders.title'),
-      value: '0',
+      value: currentOrders.toLocaleString(),
       description: t('dashboard.cards.orders.description'),
       icon: ShoppingBag,
       chartColor: '#F4610B',
@@ -765,7 +941,7 @@ const insightCards = useMemo(() => {
       chartColor: '#F4610B',
     },
   ]
-}, [productCount, countryCurrency, t])
+}, [productCount, countryCurrency, t, salesData, ordersData, insightPeriods])
 
   const recentOrders: Array<{
     id: string;

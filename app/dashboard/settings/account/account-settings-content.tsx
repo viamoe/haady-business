@@ -50,6 +50,22 @@ export function AccountSettingsContent({
     return arabicPattern.test(text)
   }
 
+  // Listen for navigation start event to show skeleton immediately
+  useEffect(() => {
+    const handleNavigationStart = (event: CustomEvent) => {
+      const url = event.detail?.url
+      // Only trigger if navigating to account settings page
+      if (url && url.startsWith('/dashboard/settings/account')) {
+        setIsLoading(true)
+      }
+    }
+
+    window.addEventListener('dashboard-navigation-start', handleNavigationStart as EventListener)
+    return () => {
+      window.removeEventListener('dashboard-navigation-start', handleNavigationStart as EventListener)
+    }
+  }, [])
+
   useEffect(() => {
     if (hasLoadedRef.current) {
       setIsLoading(false)

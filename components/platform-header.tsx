@@ -353,7 +353,7 @@ export function PlatformHeader({
             </div>
 
             {/* Navigation - Centered */}
-            <nav className="group hidden items-center gap-12 text-base font-normal lg:flex absolute left-1/2 transform -translate-x-1/2 z-10">
+            <nav className="group hidden items-center gap-12 text-sm font-normal lg:flex absolute left-1/2 transform -translate-x-1/2 z-10">
               <Link
                 href={`${homeUrl || localizedUrl('/')}#features`}
                 className="transition-opacity duration-200 group-hover:opacity-20 hover:opacity-100 hover:text-foreground/80"
@@ -484,7 +484,7 @@ export function PlatformHeader({
                 <Button
                   variant="ghost"
                   onClick={handleLanguageToggle}
-                  className="flex items-center gap-2 text-sm h-10 text-gray-600 hover:text-orange-500 hover:bg-orange-100 transition-colors"
+                  className="flex items-center gap-2 text-sm h-10 text-gray-600 hover:text-[#F4610B] hover:bg-orange-50 transition-colors"
                 >
                   {currentCountry && currentCountry.flag_url ? (
                     <Flag
@@ -601,7 +601,7 @@ export function PlatformHeader({
                       <Button
                         variant="ghost"
                         onClick={handleLanguageToggle}
-                        className="flex items-center gap-2 text-sm h-10 text-gray-600 hover:text-orange-500 hover:bg-orange-100 transition-colors"
+                        className="flex items-center gap-2 text-sm h-10 text-gray-600 hover:text-[#F4610B] hover:bg-orange-50 transition-colors"
                       >
                         {currentCountry && currentCountry.flag_url ? (
                           <Flag

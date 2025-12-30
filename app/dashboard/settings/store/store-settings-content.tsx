@@ -36,6 +36,22 @@ export function StoreSettingsContent() {
     ? subPageName.charAt(0).toUpperCase() + subPageName.slice(1)
     : null
 
+  // Listen for navigation start event to show skeleton immediately
+  useEffect(() => {
+    const handleNavigationStart = (event: CustomEvent) => {
+      const url = event.detail?.url
+      // Only trigger if navigating to store settings page
+      if (url && url.startsWith('/dashboard/settings/store')) {
+        setIsLoading(true)
+      }
+    }
+
+    window.addEventListener('dashboard-navigation-start', handleNavigationStart as EventListener)
+    return () => {
+      window.removeEventListener('dashboard-navigation-start', handleNavigationStart as EventListener)
+    }
+  }, [])
+
   useEffect(() => {
     // Only show skeleton on initial mount, not on subsequent renders
     if (hasLoadedRef.current) {

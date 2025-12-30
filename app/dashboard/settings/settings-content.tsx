@@ -79,6 +79,22 @@ export function SettingsContent({ storeConnections = [] }: SettingsContentProps)
   const pageName = pathname.split('/').filter(Boolean).pop() || 'Settings'
   const capitalizedPageName = pageName.charAt(0).toUpperCase() + pageName.slice(1)
 
+  // Listen for navigation start event to show skeleton immediately
+  useEffect(() => {
+    const handleNavigationStart = (event: CustomEvent) => {
+      const url = event.detail?.url
+      // Only trigger if navigating to settings page
+      if (url && url.startsWith('/dashboard/settings')) {
+        setIsLoading(true)
+      }
+    }
+
+    window.addEventListener('dashboard-navigation-start', handleNavigationStart as EventListener)
+    return () => {
+      window.removeEventListener('dashboard-navigation-start', handleNavigationStart as EventListener)
+    }
+  }, [])
+
   useEffect(() => {
     // Only show skeleton on initial mount, not on subsequent renders
     if (hasLoadedRef.current) {

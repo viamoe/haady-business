@@ -27,6 +27,22 @@ export function OrdersContent() {
   const [isLoading, setIsLoading] = React.useState(true)
   const [hasInitialized, setHasInitialized] = React.useState(false)
 
+  // Listen for navigation start event to show skeleton immediately
+  React.useEffect(() => {
+    const handleNavigationStart = (event: CustomEvent) => {
+      const url = event.detail?.url
+      // Only trigger if navigating to orders page
+      if (url && url.startsWith('/dashboard/orders')) {
+        setIsLoading(true)
+      }
+    }
+
+    window.addEventListener('dashboard-navigation-start', handleNavigationStart as EventListener)
+    return () => {
+      window.removeEventListener('dashboard-navigation-start', handleNavigationStart as EventListener)
+    }
+  }, [])
+
   // Initialize on mount
   React.useEffect(() => {
     const timer = setTimeout(() => {
@@ -157,12 +173,12 @@ export function OrdersContent() {
       </div>
 
       {isLoading ? (
-        <div className="flex flex-col items-center justify-center py-12 border rounded-lg flex-1">
+        <div className="flex flex-col items-center justify-center py-12 rounded-lg flex-1">
           <ShoppingBag className="h-12 w-12 text-gray-300 mb-4 animate-pulse" />
           <p className="text-muted-foreground font-medium">Loading orders...</p>
         </div>
       ) : orders.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-12 border rounded-lg flex-1">
+        <div className="flex flex-col items-center justify-center py-12 rounded-lg flex-1">
           <ShoppingBag className="h-12 w-12 text-gray-300 mb-4" />
           <p className="text-muted-foreground font-medium">No orders found</p>
           <p className="text-sm text-muted-foreground mt-1 mb-4">

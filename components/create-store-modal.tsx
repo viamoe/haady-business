@@ -151,7 +151,7 @@ export function CreateStoreModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl w-[calc(100%-2rem)] max-h-[calc(100vh-4rem)] bg-white rounded-3xl shadow-2xl p-6 sm:p-8 flex flex-col overflow-hidden">
+      <DialogContent className="max-w-2xl w-[calc(100%-2rem)] max-h-[calc(100vh-4rem)] bg-white rounded-3xl shadow-[0_18px_35px_rgba(15,23,42,0.04)] border-0 p-6 sm:p-8 flex flex-col overflow-hidden">
         <DialogHeader className="text-left space-y-1.5 mb-6 flex-shrink-0">
           <DialogTitle className="text-xl sm:text-2xl font-bold text-gray-900 tracking-tight">
             {t('onboarding.createStoreModal.title') || 'Create New Store'}

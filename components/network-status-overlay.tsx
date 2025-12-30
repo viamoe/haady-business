@@ -80,18 +80,6 @@ export function NetworkStatusOverlay() {
       
       {/* Content */}
       <div className="relative z-10 flex flex-col items-center justify-center p-8 max-w-md text-center">
-        {/* Logo */}
-        <div className="mb-8">
-          <Image
-            src={HAADY_LOGO_URL}
-            alt="Haady"
-            width={64}
-            height={64}
-            className="w-16 h-16 opacity-50 grayscale"
-            unoptimized
-          />
-        </div>
-
         {/* Animated Icon */}
         <div className="relative mb-6">
           {status === 'reconnecting' ? (
@@ -213,8 +201,8 @@ export function SlowConnectionBanner() {
 
   return (
     <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 animate-in slide-in-from-bottom-4 fade-in duration-300">
-      <div className="flex items-center gap-2 bg-amber-50 border border-amber-200 text-amber-800 px-4 py-2 rounded-full shadow-lg text-sm">
-        <Zap className="w-4 h-4" />
+      <div className="flex items-center gap-2 bg-[#F4610B] text-white px-4 py-2 rounded-full shadow-lg text-sm">
+        <Zap className="w-4 h-4 text-white" />
         <span>Slow connection detected</span>
       </div>
     </div>

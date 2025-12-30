@@ -69,8 +69,22 @@ export default async function DashboardPage() {
 
   const storeIds = storesData?.map(store => store.id) || []
 
+  // Calculate date ranges for today, week, month, year
+  const now = new Date()
+  const todayStart = new Date(now)
+  todayStart.setHours(0, 0, 0, 0)
+  
+  const weekStart = new Date(now)
+  weekStart.setDate(weekStart.getDate() - 7)
+  
+  const monthStart = new Date(now)
+  monthStart.setDate(monthStart.getDate() - 30)
+  
+  const yearStart = new Date(now)
+  yearStart.setFullYear(yearStart.getFullYear() - 1)
+
   // Parallelize all database queries for better performance
-  const [storeCountResult, productCountResult, connectionsResult] = await Promise.all([
+  const [storeCountResult, productCountResult, connectionsResult, ordersTodayResult, ordersWeekResult, ordersMonthResult, ordersYearResult, salesTodayResult, salesWeekResult, salesMonthResult, salesYearResult] = await Promise.all([
     // Get store count
     supabase
       .from('stores')
@@ -84,7 +98,6 @@ export default async function DashboardPage() {
           .select('id', { count: 'exact', head: true })
           .in('store_id', storeIds)
           .eq('is_active', true)
-          .is('deleted_at', null)
       : Promise.resolve({ data: null, count: 0, error: null } as { data: null; count: number; error: null }),
     
     // Get store connections via stores (new structure)
@@ -102,6 +115,82 @@ export default async function DashboardPage() {
       `)
       .eq('business_id', businessProfile.id)
       .eq('is_active', true),
+    
+    // Get orders count for today
+    storeIds.length > 0
+      ? supabase
+          .from('orders')
+          .select('id', { count: 'exact', head: true })
+          .in('store_id', storeIds)
+          .gte('created_at', todayStart.toISOString())
+      : Promise.resolve({ data: null, count: 0, error: null } as { data: null; count: number; error: null }),
+    
+    // Get orders count for week
+    storeIds.length > 0
+      ? supabase
+          .from('orders')
+          .select('id', { count: 'exact', head: true })
+          .in('store_id', storeIds)
+          .gte('created_at', weekStart.toISOString())
+      : Promise.resolve({ data: null, count: 0, error: null } as { data: null; count: number; error: null }),
+    
+    // Get orders count for month
+    storeIds.length > 0
+      ? supabase
+          .from('orders')
+          .select('id', { count: 'exact', head: true })
+          .in('store_id', storeIds)
+          .gte('created_at', monthStart.toISOString())
+      : Promise.resolve({ data: null, count: 0, error: null } as { data: null; count: number; error: null }),
+    
+    // Get orders count for year
+    storeIds.length > 0
+      ? supabase
+          .from('orders')
+          .select('id', { count: 'exact', head: true })
+          .in('store_id', storeIds)
+          .gte('created_at', yearStart.toISOString())
+      : Promise.resolve({ data: null, count: 0, error: null } as { data: null; count: number; error: null }),
+    
+    // Get sales (total_amount) for today (only paid orders)
+    storeIds.length > 0
+      ? supabase
+          .from('orders')
+          .select('total_amount')
+          .in('store_id', storeIds)
+          .gte('created_at', todayStart.toISOString())
+          .eq('payment_status', 'paid')
+      : Promise.resolve({ data: null, error: null } as { data: null; error: null }),
+    
+    // Get sales for week
+    storeIds.length > 0
+      ? supabase
+          .from('orders')
+          .select('total_amount')
+          .in('store_id', storeIds)
+          .gte('created_at', weekStart.toISOString())
+          .eq('payment_status', 'paid')
+      : Promise.resolve({ data: null, error: null } as { data: null; error: null }),
+    
+    // Get sales for month
+    storeIds.length > 0
+      ? supabase
+          .from('orders')
+          .select('total_amount')
+          .in('store_id', storeIds)
+          .gte('created_at', monthStart.toISOString())
+          .eq('payment_status', 'paid')
+      : Promise.resolve({ data: null, error: null } as { data: null; error: null }),
+    
+    // Get sales for year
+    storeIds.length > 0
+      ? supabase
+          .from('orders')
+          .select('total_amount')
+          .in('store_id', storeIds)
+          .gte('created_at', yearStart.toISOString())
+          .eq('payment_status', 'paid')
+      : Promise.resolve({ data: null, error: null } as { data: null; error: null }),
   ])
 
   // Get primary store name (business name is now the store name)
@@ -126,43 +215,49 @@ export default async function DashboardPage() {
   }
   const storeCount = storeCountResult.count || 0
   
-  // Handle product count with fallback for deleted_at column
+  // Handle product count
   let productCount = 0
   if (productCountResult.error) {
-    // If error is due to deleted_at column not existing, try without it
     const errorMessage = productCountResult.error.message || ''
     const errorCode = productCountResult.error.code || ''
     
-    if (errorMessage.includes('deleted_at') || errorCode === '42703') {
-      if (storeIds.length > 0) {
-        const { count: retryCount, error: retryError } = await supabase
-          .from('products')
-          .select('id', { count: 'exact', head: true })
-          .in('store_id', storeIds)
-          .eq('is_active', true)
-        
-        if (retryError) {
-          // Only log retry errors if they have meaningful content
-          if (retryError.message || retryError.code) {
-            console.warn('Error fetching product count (retry failed):', retryError)
-          }
-          productCount = 0
-        } else {
-          productCount = retryCount || 0
+    // Log the error for debugging
+    if (process.env.NODE_ENV === 'development') {
+      console.error('Error fetching product count:', {
+        error: productCountResult.error,
+        message: errorMessage,
+        code: errorCode,
+        storeIds: storeIds,
+        storeIdsLength: storeIds.length
+      })
+    }
+    
+    // Try to retry without is_active filter if that's causing issues
+    if (storeIds.length > 0) {
+      const { count: retryCount, error: retryError } = await supabase
+        .from('products')
+        .select('id', { count: 'exact', head: true })
+        .in('store_id', storeIds)
+      
+      if (retryError) {
+        if (process.env.NODE_ENV === 'development') {
+          console.error('Error fetching product count (retry failed):', retryError)
         }
-      } else {
         productCount = 0
+      } else {
+        productCount = retryCount || 0
+        if (process.env.NODE_ENV === 'development') {
+          console.log('Product count (retry successful):', productCount)
+        }
       }
     } else {
-      // Only log error if it has a message or code (not an empty object)
-      if (errorMessage || errorCode) {
-        console.error('Error fetching product count:', productCountResult.error)
-      }
-      // Silently handle empty error objects
       productCount = 0
     }
   } else {
     productCount = productCountResult.count || 0
+    if (process.env.NODE_ENV === 'development') {
+      console.log('Product count:', productCount, 'storeIds:', storeIds)
+    }
   }
 
   // Fetch country and currency information from database
@@ -187,6 +282,23 @@ export default async function DashboardPage() {
   } else {
     console.log('Merchant country not set:', business)
   }
+
+  // Calculate sales totals
+  const calculateSalesTotal = (ordersData: any[] | null) => {
+    if (!ordersData || ordersData.length === 0) return 0
+    return ordersData.reduce((sum, order) => sum + (parseFloat(order.total_amount?.toString() || '0') || 0), 0)
+  }
+
+  const salesToday = calculateSalesTotal(salesTodayResult.data)
+  const salesWeek = calculateSalesTotal(salesWeekResult.data)
+  const salesMonth = calculateSalesTotal(salesMonthResult.data)
+  const salesYear = calculateSalesTotal(salesYearResult.data)
+
+  // Get orders counts
+  const ordersToday = ordersTodayResult.count || 0
+  const ordersWeek = ordersWeekResult.count || 0
+  const ordersMonth = ordersMonthResult.count || 0
+  const ordersYear = ordersYearResult.count || 0
 
   // Check setup completion status
   const hasStore = storeCount > 0
@@ -254,6 +366,19 @@ export default async function DashboardPage() {
       isSetupComplete={isSetupComplete}
       storeConnections={storeConnections}
       countryCurrency={countryCurrency}
+      initialSalesData={{
+        today: salesToday,
+        week: salesWeek,
+        month: salesMonth,
+        year: salesYear,
+      }}
+      initialOrdersData={{
+        today: ordersToday,
+        week: ordersWeek,
+        month: ordersMonth,
+        year: ordersYear,
+      }}
+      storeIds={storeIds}
     />
   )
 }

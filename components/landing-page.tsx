@@ -655,7 +655,6 @@ export default function LandingPage() {
       </div>
       <div className="relative overflow-x-hidden">
         <div className="absolute -top-[278px] left-0 h-96 w-96 rounded-full bg-[#F4610B]/20 blur-3xl" />
-        <div className="absolute right-0 -top-[190px] h-80 w-80 rounded-full bg-pink-500/20 blur-3xl" />
 
         <PlatformHeader
           variant="landing"

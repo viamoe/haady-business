@@ -11,6 +11,22 @@ export function GrowthContent() {
   const [isLoading, setIsLoading] = React.useState(true)
   const [hasInitialized, setHasInitialized] = React.useState(false)
 
+  // Listen for navigation start event to show skeleton immediately
+  React.useEffect(() => {
+    const handleNavigationStart = (event: CustomEvent) => {
+      const url = event.detail?.url
+      // Only trigger if navigating to growth page
+      if (url && url.startsWith('/dashboard/growth')) {
+        setIsLoading(true)
+      }
+    }
+
+    window.addEventListener('dashboard-navigation-start', handleNavigationStart as EventListener)
+    return () => {
+      window.removeEventListener('dashboard-navigation-start', handleNavigationStart as EventListener)
+    }
+  }, [])
+
   // Initialize on mount
   React.useEffect(() => {
     const timer = setTimeout(() => {

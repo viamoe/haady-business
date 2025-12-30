@@ -67,7 +67,7 @@ export function WideCardModal({
           className={cn(
             "fixed left-[50%] top-[50%] z-50 translate-x-[-50%] translate-y-[-50%]",
             "w-[calc(100%-2rem)] max-w-2xl max-h-[calc(100vh-4rem)]",
-            "bg-white rounded-3xl shadow-2xl",
+            "bg-white rounded-3xl shadow-[0_18px_35px_rgba(15,23,42,0.04)] border-0",
             "p-6 sm:p-8",
             "flex flex-col",
             "overflow-hidden",
