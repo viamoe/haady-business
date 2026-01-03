@@ -32,11 +32,11 @@ export function LoadingOverlay({ isLoading, className }: LoadingOverlayProps) {
   return (
     <div
       className={cn(
-        'fixed inset-0 z-50 flex items-center justify-center bg-[#F4610B]/5 backdrop-blur-sm',
+        'fixed inset-0 z-[70] flex items-center justify-center min-h-screen bg-[#F4610B]/5 backdrop-blur-sm',
         className
       )}
     >
-      <div className="flex flex-col items-center gap-6">
+      <div className="flex flex-col items-center justify-center gap-6">
         {/* Haady Logo with Heartbeat Animation */}
         <div className="animate-heartbeat">
           <Image
@@ -56,7 +56,7 @@ export function LoadingOverlay({ isLoading, className }: LoadingOverlayProps) {
               <Button
                 asChild
                 size="lg"
-                className="bg-black text-white hover:bg-orange-500 transition-colors"
+                className="bg-[#F4610B] text-white hover:bg-[#d9560a] rounded-md shadow-sm transition-colors"
               >
                 <Link href={localizedUrl('/onboarding')} className="flex items-center gap-2">
                   <span>{t('landing.header.completeSetup')}</span>
@@ -69,6 +69,7 @@ export function LoadingOverlay({ isLoading, className }: LoadingOverlayProps) {
                   asChild
                   variant="ghost"
                   size="lg"
+                  className="rounded-md"
                 >
                   <Link href={localizedUrl('/auth/login')}>
                     {t('common.login')}
@@ -77,7 +78,7 @@ export function LoadingOverlay({ isLoading, className }: LoadingOverlayProps) {
                 <Button
                   asChild
                   size="lg"
-                  className="bg-black text-white hover:bg-orange-500 transition-colors"
+                  className="bg-[#F4610B] text-white hover:bg-[#d9560a] rounded-md shadow-sm transition-colors"
                 >
                   <Link href={localizedUrl('/auth/signup')}>
                     {t('landing.header.cta.primary')}
