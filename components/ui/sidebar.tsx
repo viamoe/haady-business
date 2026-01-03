@@ -202,6 +202,8 @@ function Sidebar({
 }) {
   const { isMobile, state, openMobile, setOpenMobile, isInitialLoad } = useSidebar()
 
+  const isCollapsed = state === "collapsed"
+
   if (collapsible === "none") {
     return (
       <div
@@ -241,8 +243,6 @@ function Sidebar({
       </Sheet>
     )
   }
-
-  const isCollapsed = state === "collapsed"
   
   // Calculate widths based on variant and state
   const getGapWidth = () => {

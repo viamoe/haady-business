@@ -10,8 +10,10 @@ import {
   PricingSection,
   ImagesSection,
   ClassificationSection,
+  CategoriesSection,
   InventorySection,
   SkuBarcodeSection,
+  ProductQRSection,
   BundleSection,
   VariantsSection,
 } from './sections'
@@ -92,6 +94,9 @@ function ProductFormContent({
       {/* Classification (Type, Selling Method, Fulfillment, Sales Channels) */}
       <ClassificationSection />
 
+      {/* Product Categories */}
+      <CategoriesSection />
+
       {/* Bundle Contents - Only shown for bundle products */}
       <BundleSection />
 
@@ -103,6 +108,9 @@ function ProductFormContent({
 
       {/* SKU & Barcode */}
       <SkuBarcodeSection />
+
+      {/* Product QR Code */}
+      <ProductQRSection />
 
       {/* Inventory */}
       <InventorySection />

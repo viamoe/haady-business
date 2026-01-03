@@ -3,6 +3,7 @@ import { createServerSupabase } from '@/lib/supabase/server'
 import { cookies } from 'next/headers'
 import { getLocalizedUrlFromRequest } from '@/lib/localized-url'
 import { NewProductPage as NewProductPageComponent } from './new-product-page'
+import { Suspense } from 'react'
 
 export const dynamic = 'force-dynamic'
 
@@ -47,7 +48,16 @@ export default async function NewProductPage() {
   }
 
   return (
-    <NewProductPageComponent />
+    <Suspense fallback={
+      <div className="flex items-center justify-center py-12">
+        <div className="flex flex-col items-center gap-3">
+          <div className="h-8 w-8 border-4 border-[#F4610B] border-t-transparent rounded-full animate-spin" />
+          <p className="text-sm text-gray-500">Loading...</p>
+        </div>
+      </div>
+    }>
+      <NewProductPageComponent />
+    </Suspense>
   )
 }
 

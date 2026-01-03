@@ -1,5 +1,6 @@
 import { cookies } from 'next/headers';
 import { createServerClient } from '@supabase/ssr';
+import { createClient } from '@supabase/supabase-js';
 
 export const createServerSupabase = async () => {
   const cookieStore = await cookies();
@@ -21,6 +22,24 @@ export const createServerSupabase = async () => {
           // This is a no-op to prevent "Cookies can only be modified in a Server Action or Route Handler" errors
           // Cookie updates will be handled properly in route handlers like /auth/callback
         },
+      }
+    }
+  );
+};
+
+// Service role client for admin operations (bypasses RLS)
+export const createServiceSupabase = async () => {
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    throw new Error('SUPABASE_SERVICE_ROLE_KEY is not set')
+  }
+  
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY,
+    {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false
       }
     }
   );

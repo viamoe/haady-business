@@ -60,9 +60,11 @@ export function PricingSection() {
               className={cn("flex items-center gap-2", errors.price ? 'text-red-600' : '')}
             >
               Price{' '}
-              <span className="text-[10px] font-medium text-red-500 bg-red-50 px-1.5 py-0.5 rounded-full">
-                required
-              </span>
+              {!formData.price && (
+                <span className="text-[10px] font-medium text-red-500 bg-red-50 px-1.5 py-0.5 rounded-full">
+                  required
+                </span>
+              )}
             </Label>
             <div className="relative">
               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">

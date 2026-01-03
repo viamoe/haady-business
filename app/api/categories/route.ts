@@ -22,6 +22,7 @@ export async function GET(request: Request) {
     // Parse query parameters
     const parent_id = searchParams.get('parent_id')
     const level = searchParams.get('level') ? parseInt(searchParams.get('level')!, 10) : undefined
+    const category_type = searchParams.get('category_type') as 'joyful_gifting' | 'tastes_treats' | 'digital_surprises' | 'moments_meaning' | 'donation_charity' | null
     const include_inactive = searchParams.get('include_inactive') === 'true'
     const hierarchical = searchParams.get('hierarchical') === 'true'
     const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10))
@@ -45,10 +46,11 @@ export async function GET(request: Request) {
       )
     }
 
-    // Get categories
+    // Get categories - only pass parent_id if explicitly provided, otherwise undefined to get all
     const options = {
-      parent_id: parent_id || null,
+      parent_id: parent_id !== null ? (parent_id || undefined) : undefined,
       level,
+      category_type: category_type || undefined,
       include_inactive,
       hierarchical,
       sort_by,

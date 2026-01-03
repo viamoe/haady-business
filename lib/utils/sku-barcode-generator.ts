@@ -277,6 +277,35 @@ export function generateBarcode(
 }
 
 /**
+ * Generate QR code URL for a product
+ * Creates a URL that works for both web and mobile app deep linking
+ */
+export function generateQRCodeURL(
+  productId: string,
+  storeId?: string,
+  baseUrl?: string
+): string {
+  // Use provided base URL or default to haady.app
+  const base = baseUrl || process.env.NEXT_PUBLIC_SITE_URL || 'https://haady.app'
+  
+  // Remove protocol and trailing slashes for consistency
+  const cleanBase = base.replace(/^https?:\/\//, '').replace(/\/$/, '')
+  
+  // Generate URL that works for both web and mobile app
+  // Format: https://haady.app/product/{productId}?store={storeId}
+  // This can be handled by:
+  // - Web: Opens product page
+  // - Mobile app: Deep links to product in app (via universal links)
+  let url = `https://${cleanBase}/product/${productId}`
+  
+  if (storeId) {
+    url += `?store=${storeId}`
+  }
+  
+  return url
+}
+
+/**
  * Generate both SKU and Barcode
  */
 export function generateIdentifiers(

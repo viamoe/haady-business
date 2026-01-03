@@ -69,6 +69,7 @@ import {
 import { supabase } from "@/lib/supabase/client"
 import { useAuth } from "@/lib/auth/auth-context"
 import { useLocale } from "@/i18n/context"
+import { useHeader } from "@/lib/header-context"
 import {
   Table,
   TableBody,
@@ -216,6 +217,7 @@ export function InventoryContent() {
   const t = useTranslations()
   const { user } = useAuth()
   const { locale } = useLocale()
+  const { setHeaderContent } = useHeader()
   const [isLoading, setIsLoading] = React.useState(true)
   const [isRefreshing, setIsRefreshing] = React.useState(false)
   const [products, setProducts] = React.useState<Product[]>([])
@@ -252,6 +254,9 @@ export function InventoryContent() {
     available: true,
     status: true,
   })
+
+  // Animation state for table rows
+  const [shouldAnimateRows, setShouldAnimateRows] = React.useState(false)
   
   const toggleRowExpansion = (productId: string) => {
     setExpandedRow(prev => prev === productId ? null : productId)
@@ -385,6 +390,18 @@ export function InventoryContent() {
     setStockStatusFilter("all")
     setStockBranchFilter("all")
   }
+
+  // Trigger animation when filtered products change
+  React.useEffect(() => {
+    if (filteredProducts.length > 0 && !isLoading) {
+      setShouldAnimateRows(true)
+      // Reset animation state after animation completes
+      const timer = setTimeout(() => {
+        setShouldAnimateRows(false)
+      }, 1000) // Allow time for all rows to animate
+      return () => clearTimeout(timer)
+    }
+  }, [filteredProducts.length, isLoading])
   
   // Filtered and sorted transactions
   const filteredTransactions = React.useMemo(() => {
@@ -738,6 +755,21 @@ export function InventoryContent() {
 
     return { total, withInventory, lowStock, outOfStock }
   }, [products, inventory])
+
+  // Set header content
+  React.useEffect(() => {
+    setHeaderContent({
+      title: 'Inventory Management',
+      count: stats.total,
+      searchPlaceholder: 'Search products...',
+      searchValue: '',
+      onSearch: () => {},
+    })
+
+    return () => {
+      setHeaderContent(null)
+    }
+  }, [stats.total, setHeaderContent])
 
   // Get available quantity for selected product and branch
   const getAvailableQuantity = React.useCallback(() => {
@@ -1146,17 +1178,11 @@ export function InventoryContent() {
   }
 
   return (
-    <div className="space-y-6 h-full flex flex-col min-h-0">
+    <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
       {/* Tabs wrapping everything */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 min-h-0 flex flex-col">
-        {/* Header with Tabs */}
-        <div className="flex items-center justify-between flex-shrink-0">
-          <div>
-            <h1 className="text-3xl font-bold">Inventory Management</h1>
-            <p className="text-muted-foreground mt-1">
-              Manage stock levels, branches, and availability
-            </p>
-          </div>
+        {/* Tabs on the left */}
+        <div className="flex items-center flex-shrink-0 pb-4">
           <AnimatedTabsList activeTab={activeTab} branchesCount={branches.length} />
         </div>
 
@@ -1529,7 +1555,7 @@ export function InventoryContent() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredProducts.map((product) => {
+                    {filteredProducts.map((product, index) => {
                       const inv = getProductInventory(product.id)
                       const threshold = product.low_stock_threshold || 10
                       const isLow = inv.totalAvailable > 0 && inv.totalAvailable <= threshold
@@ -1542,8 +1568,13 @@ export function InventoryContent() {
                           <TableRow 
                             className={cn(
                               "transition-colors cursor-pointer group",
-                              isExpanded ? "bg-gray-50 hover:bg-gray-50 shadow-[inset_0_4px_8px_-4px_rgba(0,0,0,0.05)] border-b-0" : "border-b border-gray-50 hover:bg-gray-50"
+                              isExpanded ? "bg-gray-50 hover:bg-gray-50 shadow-[inset_0_4px_8px_-4px_rgba(0,0,0,0.05)] border-b-0" : "border-b border-gray-50 hover:bg-gray-50",
+                              shouldAnimateRows && "animate-tableRowFadeIn"
                             )}
+                            style={shouldAnimateRows ? {
+                              animationDelay: `${Math.min(index, 20) * 30}ms`,
+                              opacity: 0
+                            } : undefined}
                             onClick={() => hasBranches && toggleRowExpansion(product.id)}
                           >
                             {/* Expand Button */}

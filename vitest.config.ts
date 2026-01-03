@@ -11,7 +11,10 @@ export default defineConfig({
     include: ['**/__tests__/**/*.{test,spec}.{ts,tsx}'],
     coverage: {
       reporter: ['text', 'json', 'html'],
-      include: ['components/product-form/**/*.{ts,tsx}'],
+      include: [
+        'components/product-form/**/*.{ts,tsx}',
+        'app/dashboard/products/hooks/**/*.{ts,tsx}',
+      ],
       exclude: ['**/__tests__/**', '**/index.ts'],
     },
   },

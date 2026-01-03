@@ -16,6 +16,7 @@ import {
   BreadcrumbPage,
 } from '@/components/ui/breadcrumb'
 import { usePathname, useSearchParams, useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/button'
 import { AnimateIcon } from '@/components/animate-ui/icons/icon'
@@ -57,6 +58,7 @@ import { CreateStoreModal } from '@/components/create-store-modal'
 // TODO: ProductApprovalModal removed - will be reimplemented with new architecture
 import { Search } from 'lucide-react'
 import { Kbd } from '@/components/ui/kbd'
+import { HeaderProvider, useHeader } from '@/lib/header-context'
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -98,6 +100,7 @@ function DashboardLayoutContentInner({
   const router = useRouter()
   const t = useTranslations()
   const { user, signOut } = useAuth()
+  const { headerContent } = useHeader()
   const { 
     store, 
     storeId: contextStoreId, 
@@ -1102,125 +1105,195 @@ function DashboardLayoutContentInner({
     <>
       <AppSidebar side={isRTL ? "right" : "left"} />
       <SidebarInset className="shadow-none md:shadow-none [&]:!shadow-none">
-        <header className="flex h-16 shrink-0 items-center justify-between gap-2 border-b border-gray-100 relative overflow-hidden">
-          {/* TODO: Wormmy animation - will be reimplemented with new architecture */}
-          <div className="flex items-center gap-3 flex-1">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <SidebarTrigger className={cn(
-                  "-ms-1 absolute z-10 size-9 [&_svg]:!h-6 [&_svg]:!w-6 text-gray-500 hover:text-[#F4610B] hover:bg-orange-100 transition-colors",
-                  isRTL ? "right-4" : "left-4"
-                )} />
-              </TooltipTrigger>
-              <TooltipContent 
-                side="bottom" 
-                sideOffset={16} 
-                className="text-xs px-2 py-1.5"
-              >
-                Toggle Sidebar
-              </TooltipContent>
-            </Tooltip>
-            <div className={cn(
-              "absolute z-10 left-1/2 -translate-x-1/2"
-            )}>
-              <div className="relative">
-                <Search className={cn(
-                  "absolute h-4 w-4 text-muted-foreground pointer-events-none",
-                  isRTL ? "right-3" : "left-3",
-                  "top-1/2 -translate-y-1/2"
-                )} />
-                <Input
-                  type="text"
-                  placeholder={t('header.search.placeholder')}
-                  className={cn(
-                    "h-11 pl-9",
-                    isRTL ? "pr-9" : "pr-20",
-                    "w-[200px] sm:w-[250px] md:w-[300px] lg:w-[350px] xl:w-[400px]",
-                    "cursor-pointer"
+        <header className="flex h-16 shrink-0 items-center gap-4 px-4 border-b border-gray-100 relative overflow-hidden">
+          {headerContent ? (
+            <>
+              {/* Left side: Sidebar trigger + separator + title + count badge */}
+              <div className="flex items-center gap-3 flex-shrink-0 min-w-0" style={{ maxWidth: '400px' }}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <SidebarTrigger className={cn(
+                      "size-9 [&_svg]:!h-6 [&_svg]:!w-6 text-gray-500 hover:text-[#F4610B] hover:bg-orange-100 transition-colors flex-shrink-0"
+                    )} />
+                  </TooltipTrigger>
+                  <TooltipContent 
+                    side="bottom" 
+                    sideOffset={16} 
+                    className="text-xs px-2 py-1.5"
+                  >
+                    Toggle Sidebar
+                  </TooltipContent>
+                </Tooltip>
+                <div className="h-6 w-px bg-gray-200 flex-shrink-0" />
+                <div className="flex flex-col justify-center min-w-0 flex-1 overflow-hidden">
+                  {headerContent.breadcrumbs && headerContent.breadcrumbs.length > 0 && (
+                    <div className="flex items-center gap-1.5 text-xs text-gray-500 mb-0.5">
+                      {headerContent.breadcrumbs.map((crumb, index) => (
+                        <React.Fragment key={index}>
+                          {index > 0 && <span className="text-gray-300">/</span>}
+                          {crumb.href ? (
+                            crumb.onClick ? (
+                              <button
+                                type="button"
+                                onClick={crumb.onClick}
+                                className="hover:text-[#F4610B] transition-colors"
+                              >
+                                {crumb.label}
+                              </button>
+                            ) : (
+                              <Link href={crumb.href} className="hover:text-[#F4610B] transition-colors">
+                                {crumb.label}
+                              </Link>
+                            )
+                          ) : (
+                            <span className="flex items-center gap-1.5">
+                              {crumb.isLoading && <Loader2 className="h-3 w-3 animate-spin text-[#F4610B]" />}
+                              {crumb.label}
+                            </span>
+                          )}
+                        </React.Fragment>
+                      ))}
+                    </div>
                   )}
-                  onClick={() => setIsSearchModalOpen(true)}
-                  readOnly
-                />
-                <div className={cn(
-                  "absolute pointer-events-none",
-                  isRTL ? "left-3" : "right-3",
-                  "top-1/2 -translate-y-1/2"
-                )}>
-                  <Kbd className="bg-gray-100 text-gray-600 border border-gray-200 text-xs">
-                    {isMac ? '⌘' : 'Ctrl'} K
-                  </Kbd>
+                  <div className="flex items-center gap-2">
+                    <h1 className={cn(
+                      "font-semibold text-gray-900 truncate min-w-0",
+                      headerContent.breadcrumbs && headerContent.breadcrumbs.length > 0 ? "text-base" : "text-lg"
+                    )}>{headerContent.title}</h1>
+                    {headerContent.hasUnsavedChanges && (
+                      <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-orange-50 border border-orange-200 flex-shrink-0">
+                        <span className="h-1.5 w-1.5 rounded-full bg-[#F4610B] animate-pulse" />
+                        <span className="text-[11px] font-medium text-[#F4610B]">Unsaved</span>
+                      </div>
+                    )}
+                    {headerContent.count !== undefined && (
+                      <div className="flex items-center justify-center h-6 min-w-6 px-2 rounded-md bg-[#F4610B] text-white text-xs font-bold tabular-nums flex-shrink-0">
+                        {headerContent.count}
+                      </div>
+                    )}
+                  </div>
                 </div>
+                {headerContent.leftActions}
               </div>
-            </div>
-          </div>
-          <div className={cn(
-            "flex items-center gap-3 h-full absolute z-10",
-            isRTL ? "left-4" : "right-4"
-          )}>
-            <div className="flex items-center relative">
-              {/* Last sync timestamp */}
-              {lastSyncTime && (
-                <div
-                  className={cn(
-                    'flex items-center gap-2 transition-opacity',
-                    'duration-500 ease-out opacity-100 me-2'
-                  )}
+
+              {/* Center: Search bar - absolutely centered */}
+              <div className="absolute left-1/2 -translate-x-1/2 flex items-center justify-center w-[448px] max-w-md">
+                {headerContent.onSearch ? (
+                  <div className="relative w-full">
+                    <Search className={cn(
+                      "absolute h-4 w-4 text-muted-foreground pointer-events-none",
+                      isRTL ? "right-3" : "left-3",
+                      "top-1/2 -translate-y-1/2"
+                    )} />
+                    <Input
+                      key="controlled-search"
+                      type="text"
+                      placeholder={headerContent.searchPlaceholder || 'Search...'}
+                      value={headerContent.searchValue ?? ''}
+                      onChange={(e) => headerContent.onSearch?.(e.target.value)}
+                      className={cn(
+                        "h-9 pl-9 pr-3 w-full"
+                      )}
+                    />
+                  </div>
+                ) : (
+                  <div className="relative w-full">
+                    <Search className={cn(
+                      "absolute h-4 w-4 text-muted-foreground pointer-events-none",
+                      isRTL ? "right-3" : "left-3",
+                      "top-1/2 -translate-y-1/2"
+                    )} />
+                    <Input
+                      key="readonly-search"
+                      type="text"
+                      placeholder={headerContent.searchPlaceholder || t('header.search.placeholder')}
+                      className={cn(
+                        "h-9 pl-9",
+                        isRTL ? "pr-9" : "pr-20",
+                        "w-full cursor-pointer"
+                      )}
+                      onClick={() => setIsSearchModalOpen(true)}
+                      readOnly
+                    />
+                    <div className={cn(
+                      "absolute pointer-events-none",
+                      isRTL ? "left-3" : "right-3",
+                      "top-1/2 -translate-y-1/2"
+                    )}>
+                      <Kbd className="bg-gray-100 text-gray-600 border border-gray-200 text-xs">
+                        {isMac ? '⌘' : 'Ctrl'} K
+                      </Kbd>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Spacer to push right side */}
+              <div className="flex-1" />
+
+              {/* Right side: Action buttons */}
+              <div className="flex items-center gap-3 flex-shrink-0">
+                {headerContent.rightActions}
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="size-9 [&_svg]:!h-5 [&_svg]:!w-5 text-[#F4610B] hover:text-[#F4610B] bg-[#F4610B]/5 hover:bg-[#F4610B]/10 flex items-center justify-center transition-colors relative"
+                  aria-label={storeName || "Store Settings"}
+                  onClick={() => setIsStoreDropdownOpen(true)}
                 >
-                  <span className="text-xs font-medium text-gray-400 whitespace-nowrap">
-                    {t('header.sync.updated')} {formatRelativeTime(lastSyncTime)}
-                  </span>
-                </div>
-              )}
-              {/* TODO: Sync button - to be reimplemented with new architecture */}
-            </div>
-            <NotificationDrawer
-              updates={dummyUpdates}
-              messages={dummyMessages}
-              onUpdateRead={handleUpdateRead}
-              onMarkAllAsRead={handleMarkAllAsRead}
-            />
-            <Drawer open={isStoreDropdownOpen} onOpenChange={setIsStoreDropdownOpen} direction={isRTL ? "left" : "right"}>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="size-10 ml-2 [&_svg]:!h-6 [&_svg]:!w-6 text-[#F4610B] hover:text-[#F4610B] bg-[#F4610B]/5 hover:bg-[#F4610B]/10 flex items-center justify-center transition-colors relative"
-                aria-label={storeName || "Store Settings"}
-                onClick={() => setIsStoreDropdownOpen(true)}
-              >
-                {(() => {
-                  const currentStore = storeConnections.find(c => c.id === selectedConnectionId)
-                  const platform = currentStore?.platform || selectedConnection?.platform
-                  const uploadedLogoUrl = currentStore?.store_logo_url || storeLogoUrl
-                  const logoZoomLevel = currentStore?.logo_zoom || logoZoom || 100
-                  const platformLogoUrl = platform ? PLATFORM_LOGOS[platform?.toLowerCase()] : null
-                  
-                  // Show uploaded logo if available
-                  if (uploadedLogoUrl) {
+                  {(() => {
+                    const currentStore = storeConnections.find(c => c.id === selectedConnectionId)
+                    const platform = currentStore?.platform || selectedConnection?.platform
+                    const uploadedLogoUrl = currentStore?.store_logo_url || storeLogoUrl
+                    const logoZoomLevel = currentStore?.logo_zoom || logoZoom || 100
+                    const platformLogoUrl = platform ? PLATFORM_LOGOS[platform?.toLowerCase()] : null
+                    
+                    if (uploadedLogoUrl) {
+                      return (
+                        <>
+                          <div className="absolute inset-0 overflow-hidden rounded-lg">
+                            <Image
+                              key={uploadedLogoUrl}
+                              src={uploadedLogoUrl}
+                              alt="Store logo"
+                              width={36}
+                              height={36}
+                              className="object-cover w-full h-full"
+                              style={{
+                                transform: `scale(${logoZoomLevel / 100})`,
+                                transition: 'transform 0.2s ease-out'
+                              }}
+                              unoptimized
+                            />
+                          </div>
+                          {platformLogoUrl && (
+                            <div className="absolute -bottom-1 -right-3 w-5 h-5 rounded-md bg-white shadow-md overflow-hidden flex items-center justify-center z-50">
+                              <Image
+                                src={platformLogoUrl || ''}
+                                alt={platform || 'Platform'}
+                                width={14}
+                                height={14}
+                                className="object-contain w-full h-full"
+                                unoptimized
+                              />
+                            </div>
+                          )}
+                        </>
+                      )
+                    }
+                    
                     return (
                       <>
-                        <div className="absolute inset-0 overflow-hidden rounded-lg">
-                          <Image
-                            key={uploadedLogoUrl}
-                            src={uploadedLogoUrl}
-                            alt="Store logo"
-                            width={40}
-                            height={40}
-                            className="object-cover w-full h-full"
-                            style={{
-                              transform: `scale(${logoZoomLevel / 100})`,
-                              transition: 'transform 0.2s ease-out'
-                            }}
-                            unoptimized
-                          />
+                        <div className="w-full h-full flex items-center justify-center bg-[#F4610B]/10 rounded-lg">
+                          <Store size={20} className="text-[#F4610B]" />
                         </div>
-                        {/* Platform logo badge overlay */}
                         {platformLogoUrl && (
-                          <div className="absolute -bottom-1 -right-3 w-6 h-6 rounded-md bg-white shadow-md overflow-hidden flex items-center justify-center z-50">
+                          <div className="absolute -bottom-1 -right-3 w-5 h-5 rounded-md bg-white shadow-md overflow-hidden flex items-center justify-center z-50">
                             <Image
                               src={platformLogoUrl || ''}
                               alt={platform || 'Platform'}
-                              width={18}
-                              height={18}
+                              width={14}
+                              height={14}
                               className="object-contain w-full h-full"
                               unoptimized
                             />
@@ -1228,32 +1301,169 @@ function DashboardLayoutContentInner({
                         )}
                       </>
                     )
-                  }
-                  
-                  // Default: Store icon with light orange background and platform logo overlay
-                  return (
-                    <>
-                      <div className="w-full h-full flex items-center justify-center bg-[#F4610B]/10 rounded-lg">
-                        <Store size={24} className="text-[#F4610B]" />
-                      </div>
-                      {/* Platform logo badge overlay */}
-                      {platformLogoUrl && (
-                        <div className="absolute -bottom-1 -right-3 w-6 h-6 rounded-md bg-white shadow-md overflow-hidden flex items-center justify-center z-50">
-                          <Image
-                            src={platformLogoUrl || ''}
-                            alt={platform || 'Platform'}
-                            width={18}
-                            height={18}
-                            className="object-contain w-full h-full"
-                            unoptimized
-                          />
-                        </div>
+                  })()}
+                </Button>
+                <NotificationDrawer
+                  updates={dummyUpdates}
+                  messages={dummyMessages}
+                  onUpdateRead={handleUpdateRead}
+                  onMarkAllAsRead={handleMarkAllAsRead}
+                />
+              </div>
+            </>
+          ) : (
+            <>
+              {/* Default header */}
+              <div className="flex items-center gap-3 flex-1">
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <SidebarTrigger className={cn(
+                      "-ms-1 absolute z-10 size-9 [&_svg]:!h-6 [&_svg]:!w-6 text-gray-500 hover:text-[#F4610B] hover:bg-orange-100 transition-colors",
+                      isRTL ? "right-4" : "left-4"
+                    )} />
+                  </TooltipTrigger>
+                  <TooltipContent 
+                    side="bottom" 
+                    sideOffset={16} 
+                    className="text-xs px-2 py-1.5"
+                  >
+                    Toggle Sidebar
+                  </TooltipContent>
+                </Tooltip>
+                <div className={cn(
+                  "absolute z-10 left-1/2 -translate-x-1/2"
+                )}>
+                  <div className="relative">
+                    <Search className={cn(
+                      "absolute h-4 w-4 text-muted-foreground pointer-events-none",
+                      isRTL ? "right-3" : "left-3",
+                      "top-1/2 -translate-y-1/2"
+                    )} />
+                    <Input
+                      type="text"
+                      placeholder={t('header.search.placeholder')}
+                      className={cn(
+                        "h-11 pl-9",
+                        isRTL ? "pr-9" : "pr-20",
+                        "w-[200px] sm:w-[250px] md:w-[300px] lg:w-[350px] xl:w-[400px]",
+                        "cursor-pointer"
                       )}
-                    </>
-                  )
-                })()}
-              </Button>
-              <DrawerContent 
+                      onClick={() => setIsSearchModalOpen(true)}
+                      readOnly
+                    />
+                    <div className={cn(
+                      "absolute pointer-events-none",
+                      isRTL ? "left-3" : "right-3",
+                      "top-1/2 -translate-y-1/2"
+                    )}>
+                      <Kbd className="bg-gray-100 text-gray-600 border border-gray-200 text-xs">
+                        {isMac ? '⌘' : 'Ctrl'} K
+                      </Kbd>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div className={cn(
+                "flex items-center gap-3 h-full absolute z-10",
+                isRTL ? "left-4" : "right-4"
+              )}>
+                <div className="flex items-center relative">
+                  {/* Last sync timestamp */}
+                  {lastSyncTime && (
+                    <div
+                      className={cn(
+                        'flex items-center gap-2 transition-opacity',
+                        'duration-500 ease-out opacity-100 me-2'
+                      )}
+                    >
+                      <span className="text-xs font-medium text-gray-400 whitespace-nowrap">
+                        {t('header.sync.updated')} {formatRelativeTime(lastSyncTime)}
+                      </span>
+                    </div>
+                  )}
+                  {/* TODO: Sync button - to be reimplemented with new architecture */}
+                </div>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="size-9 [&_svg]:!h-5 [&_svg]:!w-5 text-[#F4610B] hover:text-[#F4610B] bg-[#F4610B]/5 hover:bg-[#F4610B]/10 flex items-center justify-center transition-colors relative"
+                  aria-label={storeName || "Store Settings"}
+                  onClick={() => setIsStoreDropdownOpen(true)}
+                >
+                  {(() => {
+                    const currentStore = storeConnections.find(c => c.id === selectedConnectionId)
+                    const platform = currentStore?.platform || selectedConnection?.platform
+                    const uploadedLogoUrl = currentStore?.store_logo_url || storeLogoUrl
+                    const logoZoomLevel = currentStore?.logo_zoom || logoZoom || 100
+                    const platformLogoUrl = platform ? PLATFORM_LOGOS[platform?.toLowerCase()] : null
+                    
+                    if (uploadedLogoUrl) {
+                      return (
+                        <>
+                          <div className="absolute inset-0 overflow-hidden rounded-lg">
+                            <Image
+                              key={uploadedLogoUrl}
+                              src={uploadedLogoUrl}
+                              alt="Store logo"
+                              width={36}
+                              height={36}
+                              className="object-cover w-full h-full"
+                              style={{
+                                transform: `scale(${logoZoomLevel / 100})`,
+                                transition: 'transform 0.2s ease-out'
+                              }}
+                              unoptimized
+                            />
+                          </div>
+                          {platformLogoUrl && (
+                            <div className="absolute -bottom-1 -right-3 w-5 h-5 rounded-md bg-white shadow-md overflow-hidden flex items-center justify-center z-50">
+                              <Image
+                                src={platformLogoUrl || ''}
+                                alt={platform || 'Platform'}
+                                width={14}
+                                height={14}
+                                className="object-contain w-full h-full"
+                                unoptimized
+                              />
+                            </div>
+                          )}
+                        </>
+                      )
+                    }
+                    
+                    return (
+                      <>
+                        <div className="w-full h-full flex items-center justify-center bg-[#F4610B]/10 rounded-lg">
+                          <Store size={20} className="text-[#F4610B]" />
+                        </div>
+                        {platformLogoUrl && (
+                          <div className="absolute -bottom-1 -right-3 w-5 h-5 rounded-md bg-white shadow-md overflow-hidden flex items-center justify-center z-50">
+                            <Image
+                              src={platformLogoUrl || ''}
+                              alt={platform || 'Platform'}
+                              width={14}
+                              height={14}
+                              className="object-contain w-full h-full"
+                              unoptimized
+                            />
+                          </div>
+                        )}
+                      </>
+                    )
+                  })()}
+                </Button>
+                <NotificationDrawer
+                  updates={dummyUpdates}
+                  messages={dummyMessages}
+                  onUpdateRead={handleUpdateRead}
+                  onMarkAllAsRead={handleMarkAllAsRead}
+                />
+              </div>
+            </>
+          )}
+        </header>
+        <Drawer open={isStoreDropdownOpen} onOpenChange={setIsStoreDropdownOpen} direction={isRTL ? "left" : "right"}>
+          <DrawerContent 
                 className={cn("w-[480px] border-0 p-0 rounded-none h-full flex flex-col", isRTL && "text-right")}
                 style={{
                   ...(locale === 'ar' ? { 
@@ -1403,8 +1613,6 @@ function DashboardLayoutContentInner({
                 </DrawerFooter>
               </DrawerContent>
             </Drawer>
-          </div>
-        </header>
         <SearchModal 
           open={isSearchModalOpen} 
           onOpenChange={setIsSearchModalOpen} 
@@ -1667,7 +1875,7 @@ function DashboardLayoutContentInner({
             </DialogFooter>
           </DialogContent>
         </Dialog>
-        <div className="flex flex-1 flex-col gap-4 p-4 sm:px-0 sm:py-4 md:px-4 lg:px-8 pb-8 relative h-full overflow-y-auto">
+        <div className="flex flex-1 flex-col gap-4 pt-8 px-4 pb-4 sm:px-0 sm:pt-8 sm:pb-4 md:px-4 lg:px-8 pb-8 relative h-full overflow-y-auto">
           {children}
           {/* Loading overlay when changing stores - DISABLED */}
           {/* {isChangingStore && (
@@ -2045,9 +2253,11 @@ export default function DashboardLayout({
     <OnboardingModalProvider>
       <StoreConnectionProvider>
         <SidebarProvider>
-          <DashboardLayoutContent>
-            {children}
-          </DashboardLayoutContent>
+          <HeaderProvider>
+            <DashboardLayoutContent>
+              {children}
+            </DashboardLayoutContent>
+          </HeaderProvider>
         </SidebarProvider>
       </StoreConnectionProvider>
     </OnboardingModalProvider>

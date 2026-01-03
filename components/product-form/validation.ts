@@ -96,7 +96,7 @@ export const productFormSchema = z.object({
   salesChannels: z.array(salesChannelSchema).min(1, 'At least one sales channel is required'),
   
   // Categories
-  selectedCategoryIds: z.array(z.string()),
+  selectedCategoryIds: z.array(z.string()).min(1, 'At least one category is required'),
   
   // Inventory
   trackInventory: z.boolean(),

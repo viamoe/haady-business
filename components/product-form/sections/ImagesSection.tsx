@@ -167,7 +167,7 @@ export function ImagesSection() {
       )}
       
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-        {/* Existing Images */}
+        {/* Existing Images - Primary is always first (sorted in state) */}
         {existingImages.map((img, index) => (
           <div key={img.id} className="relative group pt-2 pr-2">
             {/* Remove Button */}

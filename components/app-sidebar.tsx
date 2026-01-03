@@ -1027,12 +1027,13 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         return
       }
 
-      // Fetch product count
+      // Fetch product count (exclude trashed products)
       const { count, error } = await supabase
         .from('products')
         .select('id', { count: 'exact', head: true })
         .in('store_id', storeIds)
         .eq('is_active', true)
+        .is('deleted_at', null)
 
       if (error) {
         // If error is related to deleted_at column not existing, retry without it

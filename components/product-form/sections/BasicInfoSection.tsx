@@ -2,7 +2,7 @@
 
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Textarea } from '@/components/ui/textarea'
+import { RichTextEditor } from '@/components/ui/rich-text-editor'
 import { AlertCircle } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useProductFormContext } from '../context'
@@ -19,9 +19,11 @@ export function BasicInfoSection() {
           className={cn("flex items-center gap-2", errors.nameEn ? 'text-red-600' : '')}
         >
           Product Name (English){' '}
-          <span className="text-[10px] font-medium text-red-500 bg-red-50 px-1.5 py-0.5 rounded-full">
-            required
-          </span>
+          {!formData.nameEn && (
+            <span className="text-[10px] font-medium text-red-500 bg-red-50 px-1.5 py-0.5 rounded-full">
+              required
+            </span>
+          )}
         </Label>
         <Input
           id="name_en"
@@ -49,9 +51,11 @@ export function BasicInfoSection() {
           className={cn("flex items-center gap-2", errors.nameAr ? 'text-red-600' : '')}
         >
           Product Name (Arabic){' '}
-          <span className="text-[10px] font-medium text-red-500 bg-red-50 px-1.5 py-0.5 rounded-full">
-            required
-          </span>
+          {!formData.nameAr && (
+            <span className="text-[10px] font-medium text-red-500 bg-red-50 px-1.5 py-0.5 rounded-full">
+              required
+            </span>
+          )}
         </Label>
         <Input
           id="name_ar"
@@ -75,26 +79,24 @@ export function BasicInfoSection() {
       {/* Description - English */}
       <div className="space-y-2">
         <Label htmlFor="description_en">Description (English)</Label>
-        <Textarea
-          id="description_en"
+        <RichTextEditor
           value={formData.descriptionEn}
-          onChange={(e) => updateField('descriptionEn', e.target.value)}
+          onChange={(value) => updateField('descriptionEn', value)}
           placeholder="Enter product description in English"
-          rows={3}
           dir="ltr"
+          minHeight="120px"
         />
       </div>
 
       {/* Description - Arabic */}
       <div className="space-y-2">
         <Label htmlFor="description_ar">Description (Arabic)</Label>
-        <Textarea
-          id="description_ar"
+        <RichTextEditor
           value={formData.descriptionAr}
-          onChange={(e) => updateField('descriptionAr', e.target.value)}
+          onChange={(value) => updateField('descriptionAr', value)}
           placeholder="أدخل وصف المنتج بالعربية"
-          rows={3}
           dir="rtl"
+          minHeight="120px"
         />
       </div>
     </div>

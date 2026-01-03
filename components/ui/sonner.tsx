@@ -15,8 +15,8 @@ const AnimatedCheckIcon = () => {
     <AnimateIcon 
       animate={true}
       animateOnView={true}
-      animateOnViewOnce={false}
-      animateOnHover 
+      animateOnViewOnce={true}
+      animateOnHover={false}
       animation="default"
     >
       <Check className="size-8 text-green-500" />
@@ -53,17 +53,18 @@ const Toaster = ({ ...props }: ToasterProps) => {
     <Sonner
       theme={actualTheme}
       className={`toaster group ${arabicFontClass}`}
-      position="top-center"
+      position="top-right"
       icons={{
         success: <AnimatedCheckIcon />,
       }}
       style={{
-        "--border-radius": "1rem",
+        "--border-radius": "0.5rem",
       } as React.CSSProperties}
       toastOptions={{
         classNames: {
           toast:
-            `group toast group-[.toaster]:bg-white group-[.toaster]:text-gray-950 group-[.toaster]:border-gray-200 group-[.toaster]:shadow-lg group-[.toaster]:items-start group-[.toaster]:rounded-2xl ${isArabic ? 'group-[.toaster]:font-arabic' : ''}`,
+            `group toast group-[.toaster]:bg-white group-[.toaster]:text-gray-950 group-[.toaster]:border group-[.toaster]:border-gray-100 group-[.toaster]:shadow-lg group-[.toaster]:items-center group-[.toaster]:rounded-lg group-[.toaster]:max-w-[420px] group-[.toaster]:p-3 ${isArabic ? 'group-[.toaster]:font-arabic' : ''}`,
+          title: `group-[.toast]:max-w-full group-[.toast]:min-w-0 group-[.toast]:overflow-hidden group-[.toast]:w-full`,
           description: `group-[.toast]:text-gray-500 ${isArabic ? 'group-[.toast]:font-arabic' : ''}`,
           actionButton:
             `group-[.toast]:bg-gray-100 group-[.toast]:text-gray-900 group-[.toast]:hover:bg-gray-900 group-[.toast]:hover:text-white group-[.toast]:border group-[.toast]:border-[#F4610B] group-[.toast]:font-medium group-[.toast]:px-3 group-[.toast]:py-1.5 group-[.toast]:rounded-md group-[.toast]:transition-colors group-[.toast]:text-sm ${isArabic ? 'group-[.toast]:font-arabic' : ''}`,

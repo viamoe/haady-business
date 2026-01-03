@@ -16,12 +16,14 @@ import { useProductFormContext } from '../context'
 import { generateSKU, generateBarcode } from '@/lib/utils/sku-barcode-generator'
 import { BarcodeDisplay } from '@/components/barcode-display'
 import { BarcodeType } from '../types'
+import { supabase } from '@/lib/supabase/client'
 
 export function SkuBarcodeSection() {
-  const { formData, updateField, storeId } = useProductFormContext()
+  const { formData, updateField, storeId, product } = useProductFormContext()
   const [isOpen, setIsOpen] = useState(false)
   const [skuCopied, setSkuCopied] = useState(false)
   const [barcodeCopied, setBarcodeCopied] = useState(false)
+  const isEditing = !!product?.id
 
   const barcodeTypes: { value: BarcodeType; label: string }[] = [
     { value: 'EAN13', label: 'EAN-13' },
@@ -30,22 +32,120 @@ export function SkuBarcodeSection() {
     { value: 'QR', label: 'QR Code' },
   ]
 
-  const handleGenerateSku = () => {
-    const newSku = generateSKU(formData.nameEn || formData.nameAr, { prefix: 'PROD' })
-    updateField('sku', newSku)
+  const handleGenerateSku = async () => {
+    try {
+      // Build query - scope to store if available, exclude current product
+      let query = supabase
+        .from('products')
+        .select('sku, id')
+        .not('sku', 'is', null)
+        .neq('sku', '')
+      
+      // Scope to current store if available
+      if (storeId) {
+        query = query.eq('store_id', storeId)
+      }
+      
+      const { data: existingProducts } = await query
+      
+      const existingSkus = (existingProducts || [])
+        .filter(p => !product?.id || p.id !== product.id) // Exclude current product if editing
+        .map(p => p.sku)
+        .filter((sku): sku is string => !!sku)
+      
+      // Get store-specific SKU settings if available
+      let skuPrefix = 'PROD'
+      if (storeId) {
+        const { data: settings } = await supabase
+          .from('sku_settings')
+          .select('sku_prefix')
+          .eq('store_id', storeId)
+          .maybeSingle()
+        
+        if (settings?.sku_prefix) {
+          skuPrefix = settings.sku_prefix
+        }
+      }
+      
+      const newSku = generateSKU(formData.nameEn || formData.nameAr, { prefix: skuPrefix }, existingSkus)
+      
+      if (!newSku) {
+        throw new Error('Failed to generate unique SKU after multiple attempts')
+      }
+      
+      updateField('sku', newSku)
+    } catch (error) {
+      console.error('Error generating SKU:', error)
+      // Fallback to generation without uniqueness check
+      const newSku = generateSKU(formData.nameEn || formData.nameAr, { prefix: 'PROD' })
+      updateField('sku', newSku)
+    }
   }
 
-  const handleGenerateBarcode = () => {
-    // Map UI barcode types to generator types
-    const typeMap: Record<string, string> = {
-      'EAN13': 'EAN13',
-      'UPC': 'UPC-A', 
-      'CODE128': 'CODE128',
-      'QR': 'CODE128', // QR not supported by generator, fallback to CODE128
+  const handleGenerateBarcode = async () => {
+    try {
+      // Map UI barcode types to generator types
+      const typeMap: Record<string, string> = {
+        'EAN13': 'EAN13',
+        'UPC': 'UPC-A', 
+        'CODE128': 'CODE128',
+        'QR': 'CODE128', // QR not supported by generator, fallback to CODE128
+      }
+      
+      // Get barcode type from store settings or use form data
+      let generatorType = typeMap[formData.barcodeType] || 'EAN13'
+      if (storeId) {
+        const { data: settings } = await supabase
+          .from('sku_settings')
+          .select('barcode_type')
+          .eq('store_id', storeId)
+          .maybeSingle()
+        
+        if (settings?.barcode_type) {
+          const storeType = typeMap[settings.barcode_type] || settings.barcode_type
+          generatorType = storeType
+        }
+      }
+      
+      // Build query - scope to store if available, exclude current product
+      let query = supabase
+        .from('products')
+        .select('barcode, id')
+        .not('barcode', 'is', null)
+        .neq('barcode', '')
+      
+      // Scope to current store if available
+      if (storeId) {
+        query = query.eq('store_id', storeId)
+      }
+      
+      const { data: existingProducts } = await query
+      
+      const existingBarcodes = (existingProducts || [])
+        .filter(p => !product?.id || p.id !== product.id) // Exclude current product if editing
+        .map(p => p.barcode)
+        .filter((barcode): barcode is string => !!barcode)
+      
+      const result = generateBarcode({ type: generatorType as any }, existingBarcodes)
+      
+      if (!result.barcode) {
+        throw new Error('Failed to generate unique barcode after multiple attempts')
+      }
+      
+      updateField('barcode', result.barcode)
+    } catch (error) {
+      console.error('Error generating barcode:', error)
+      // Fallback to generation without uniqueness check
+      const typeMap: Record<string, string> = {
+        'EAN13': 'EAN13',
+        'UPC': 'UPC-A', 
+        'CODE128': 'CODE128',
+        'QR': 'CODE128',
+      }
+      const generatorType = typeMap[formData.barcodeType] || 'EAN13'
+      const result = generateBarcode({ type: generatorType as any })
+      updateField('barcode', result.barcode)
     }
-    const generatorType = typeMap[formData.barcodeType] || 'EAN13'
-    const result = generateBarcode({ type: generatorType as any })
-    updateField('barcode', result.barcode)
   }
 
   const copyToClipboard = (text: string, type: 'sku' | 'barcode') => {
@@ -118,6 +218,8 @@ export function SkuBarcodeSection() {
                 onChange={(e) => updateField('sku', e.target.value.toUpperCase())}
                 placeholder="e.g., PROD-001-BLK"
                 className="pr-10 uppercase"
+                disabled={isEditing}
+                readOnly={isEditing}
               />
               {formData.sku && (
                 <button
@@ -143,7 +245,9 @@ export function SkuBarcodeSection() {
                 <button
                   key={type.value}
                   type="button"
+                  disabled={isEditing}
                   onClick={() => {
+                    if (isEditing) return
                     updateField('barcodeType', type.value)
                     // Clear barcode when type changes
                     if (formData.barcode) {
@@ -154,7 +258,8 @@ export function SkuBarcodeSection() {
                     "py-2 px-4 rounded-lg text-sm font-medium transition-all flex items-center gap-2 border",
                     formData.barcodeType === type.value
                       ? "bg-[#F4610B]/5 border-[#F4610B] text-[#F4610B]"
-                      : "bg-gray-100 text-gray-600 hover:bg-gray-200 border-transparent"
+                      : "bg-gray-100 text-gray-600 hover:bg-gray-200 border-transparent",
+                    isEditing && "opacity-50 cursor-not-allowed"
                   )}
                 >
                   {formData.barcodeType === type.value && (
@@ -203,6 +308,8 @@ export function SkuBarcodeSection() {
                 value={formData.barcode}
                 onChange={(e) => updateField('barcode', e.target.value)}
                 placeholder={formData.barcodeType === 'EAN13' ? '1234567890123' : 'Enter barcode'}
+                disabled={isEditing}
+                readOnly={isEditing}
               />
               {formData.barcode && (
                 <button
@@ -234,6 +341,7 @@ export function SkuBarcodeSection() {
               </div>
             </div>
           )}
+
         </div>
       )}
     </div>

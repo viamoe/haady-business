@@ -526,12 +526,13 @@ export function DashboardContent({
           return
         }
 
-        // Fetch products for stores from this connection
+        // Fetch products for stores from this connection (exclude trashed products)
         let { count: productCount, error: productsError } = await supabase
           .from('products')
           .select('id', { count: 'exact', head: true })
           .in('store_id', storeIds)
           .eq('is_active', true)
+          .is('deleted_at', null)
 
         // If error, try without is_active filter
         if (productsError) {
@@ -748,12 +749,13 @@ export function DashboardContent({
               console.log('Store IDs:', storeIds)
             }
 
-            // Fetch updated product count
+            // Fetch updated product count (exclude trashed products)
             let { count: productCount, error: productsError } = await supabase
               .from('products')
               .select('id', { count: 'exact', head: true })
               .in('store_id', storeIds)
               .eq('is_active', true)
+              .is('deleted_at', null)
 
             // If error is related to deleted_at column not existing, retry without it
             if (productsError && (productsError.message?.includes('deleted_at') || productsError.code === '42703' || productsError.code === 'PGRST116')) {

@@ -37,9 +37,9 @@ interface BarcodeDisplayProps {
 }
 
 const SIZE_CONFIG = {
-  sm: { width: 150, height: 60, scale: 2, fontSize: 'text-xs' },
-  md: { width: 200, height: 80, scale: 3, fontSize: 'text-sm' },
-  lg: { width: 280, height: 100, scale: 4, fontSize: 'text-base' },
+  sm: { scale: 1, qrScale: 1, maxQrSize: 100, fontSize: 'text-xs' },
+  md: { scale: 2, qrScale: 2, maxQrSize: 180, fontSize: 'text-sm' },
+  lg: { scale: 2, qrScale: 2, maxQrSize: 220, fontSize: 'text-base' },
 }
 
 const TYPE_DISPLAY = {
@@ -82,9 +82,21 @@ export function BarcodeDisplay({
 
     try {
       // Use the API endpoint to get PNG barcode
-      const response = await fetch(
-        `/api/barcode?value=${encodeURIComponent(barcode)}&type=${type}&format=png&scale=${config.scale}&includeText=${!isQR}`
-      )
+      const scale = isQR ? config.qrScale : config.scale
+      const queryParams = new URLSearchParams({
+        value: barcode,
+        type: type,
+        format: 'png',
+        scale: scale.toString(),
+        includeText: (!isQR).toString(),
+      })
+      
+      // For linear barcodes, add height parameter
+      if (!isQR) {
+        queryParams.append('height', '12')
+      }
+      
+      const response = await fetch(`/api/barcode?${queryParams.toString()}`)
       
       if (!response.ok) {
         // Try to parse error as JSON
@@ -114,7 +126,7 @@ export function BarcodeDisplay({
       setIsLoading(false)
       onError?.(err)
     }
-  }, [barcode, type, config.scale, isQR, onError])
+  }, [barcode, type, config.scale, config.qrScale, isQR, onError])
 
   useEffect(() => {
     generateBarcode()
@@ -181,28 +193,23 @@ export function BarcodeDisplay({
       {/* Barcode Image */}
       <div 
         className={cn(
-          "bg-white rounded-lg border border-gray-100 p-3 flex items-center justify-center",
+          "bg-white rounded-lg border border-gray-100 flex items-center justify-center p-2",
           isLoading && "animate-pulse"
         )}
-        style={{ 
-          minWidth: config.width,
-          minHeight: isQR ? config.width : config.height 
-        }}
       >
         {isLoading ? (
           <div className="flex flex-col items-center gap-2">
-            <div className="w-16 h-8 bg-gray-200 rounded animate-pulse" />
-            <div className="w-24 h-2 bg-gray-200 rounded animate-pulse" />
+            {isQR ? (
+              <div className="w-16 h-16 bg-gray-200 rounded animate-pulse" />
+            ) : (
+              <div className="w-24 h-8 bg-gray-200 rounded animate-pulse" />
+            )}
           </div>
         ) : svgContent ? (
           <img 
             src={svgContent}
             alt={`Barcode: ${barcode}`}
-            className="max-w-full h-auto"
-            style={{ 
-              maxWidth: config.width, 
-              maxHeight: isQR ? config.width : config.height 
-            }}
+            style={isQR ? { maxWidth: `${config.maxQrSize}px`, maxHeight: `${config.maxQrSize}px` } : undefined}
           />
         ) : null}
       </div>

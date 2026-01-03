@@ -10,12 +10,12 @@ import {
   ProductFormData,
   ProductFormErrors,
   ProductImage,
-  Category,
   Product,
   UploadProgress,
   defaultFormData,
   defaultUploadProgress,
 } from './types'
+import type { Category } from '@/lib/types/categories'
 
 const ProductFormContext = createContext<ProductFormContextValue | null>(null)
 
@@ -46,6 +46,7 @@ export function ProductFormProvider({ children, product }: ProductFormProviderPr
         sku: product.sku || '',
         barcode: product.barcode || '',
         barcodeType: (product.barcode_type as 'EAN13' | 'UPC' | 'CODE128' | 'QR') || 'EAN13',
+        qrCode: product.qr_code || '',
         isAvailable: product.is_available,
         productType: product.product_type || 'physical',
         sellingMethod: product.selling_method || 'unit',
@@ -55,6 +56,7 @@ export function ProductFormProvider({ children, product }: ProductFormProviderPr
         subscriptionInterval: product.subscription_interval || '',
         salesChannels: product.sales_channels || ['online', 'in_store'],
         selectedCategoryIds: [],
+        selectedBrandId: (product as any).brand_id || null,
         // Inventory fields from product
         trackInventory: product.track_inventory ?? true,
         stockQuantity: '', // Will be loaded separately from inventory table
@@ -181,9 +183,10 @@ export function ProductFormProvider({ children, product }: ProductFormProviderPr
       try {
         const { data } = await supabase
           .from('categories')
-          .select('id, name, name_ar, parent_id, level, icon')
+          .select('id, name, name_ar, slug, parent_id, level, category_type, icon, image_url, hover_image_url, description, description_ar, is_active, is_system, sort_order, created_at, updated_at')
           .eq('is_active', true)
-          .order('name')
+          .order('sort_order', { ascending: true })
+          .order('name', { ascending: true })
         
         if (data) {
           setAllCategories(data)
@@ -217,20 +220,32 @@ export function ProductFormProvider({ children, product }: ProductFormProviderPr
     loadProductImages()
   }, [product?.id])
   
-  // Load product categories when editing
+  // Load product categories when editing - use Supabase client directly (not API) to avoid ownership issues
   useEffect(() => {
     const loadProductCategories = async () => {
       if (product?.id) {
         try {
-          const response = await fetch(`/api/products/${product.id}/categories`)
-          if (response.ok) {
-            const data = await response.json()
-            const categoryIds = (data.categories || []).map((cat: any) => cat.category_id)
-            updateField('selectedCategoryIds', categoryIds)
+          // Query product_categories directly - RLS will handle permissions
+          const { data: productCategories, error } = await supabase
+            .from('product_categories')
+            .select('category_id')
+            .eq('product_id', product.id)
+          
+          if (error) {
+            console.error('Error loading product categories:', error)
+            updateField('selectedCategoryIds', [])
+            return
           }
+          
+          const categoryIds = (productCategories || []).map((pc: any) => pc.category_id)
+          updateField('selectedCategoryIds', categoryIds)
         } catch (error) {
           console.error('Error loading product categories:', error)
+          updateField('selectedCategoryIds', [])
         }
+      } else {
+        // Reset categories when no product
+        updateField('selectedCategoryIds', [])
       }
     }
     

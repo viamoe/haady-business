@@ -2,6 +2,8 @@
  * Type definitions for Categories Management System
  */
 
+export type CategoryType = 'joyful_gifting' | 'tastes_treats' | 'digital_surprises' | 'moments_meaning' | 'donation_charity'
+
 export interface Category {
   id: string
   name: string
@@ -9,10 +11,14 @@ export interface Category {
   slug: string
   parent_id: string | null
   level: number
+  category_type: CategoryType | null // Only populated for Level 0 (Category Type)
   icon: string | null
+  image_url: string | null
+  hover_image_url: string | null
   description: string | null
   description_ar: string | null
   is_active: boolean
+  is_system: boolean
   sort_order: number
   created_at: string
   updated_at: string
@@ -53,6 +59,7 @@ export interface ProductCategoryLink {
 export interface CategoryQueryOptions {
   parent_id?: string | null
   level?: number
+  category_type?: CategoryType
   include_inactive?: boolean
   hierarchical?: boolean
   page?: number

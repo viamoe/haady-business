@@ -9,9 +9,9 @@ import { ProductType, SellingMethod, FulfillmentType, SalesChannel } from '../ty
 export function ClassificationSection() {
   const { formData, updateField, errors, clearError } = useProductFormContext()
 
-  const productTypes: { value: ProductType; label: string; icon: React.ReactNode; description: string }[] = [
+  const productTypes: { value: ProductType; label: string; icon: React.ReactNode; description: string; requiresOnline?: boolean }[] = [
     { value: 'physical', label: 'Physical', icon: <Package className="h-5 w-5" />, description: 'Tangible goods' },
-    { value: 'digital', label: 'Digital', icon: <Download className="h-5 w-5" />, description: 'Downloadable' },
+    { value: 'digital', label: 'Digital', icon: <Download className="h-5 w-5" />, description: 'Downloadable', requiresOnline: true },
     { value: 'service', label: 'Service', icon: <Clock className="h-5 w-5" />, description: 'Bookable' },
     { value: 'bundle', label: 'Bundle', icon: <Package className="h-5 w-5" />, description: 'Multiple items' },
   ]
@@ -48,47 +48,177 @@ export function ClassificationSection() {
 
   const availableFulfillmentOptions = fulfillmentOptions.filter(opt => opt.forTypes.includes(formData.productType))
 
+  // Pickup is only available if in_store sales channel is enabled
+  const isPickupAvailable = formData.salesChannels.includes('in_store')
+  // Digital products require online sales channel
+  const isOnlineAvailable = formData.salesChannels.includes('online')
+
   return (
     <div className="space-y-6 p-5 bg-white rounded-2xl border border-gray-200">
+      {/* Sales Channels - First because other options depend on it */}
+      <div className={cn(
+        "space-y-3",
+        errors.salesChannels && "text-red-600"
+      )}>
+        <Label className={cn("text-sm font-semibold", errors.salesChannels ? "text-red-600" : "text-gray-900")}>
+          Sales Channels{' '}
+          {formData.salesChannels.length === 0 && (
+            <span className="text-[10px] font-medium text-red-500 bg-red-50 px-1.5 py-0.5 rounded-full">
+              required
+            </span>
+          )}
+        </Label>
+        <div className="grid grid-cols-2 gap-3">
+          {salesChannelOptions
+            // Hide In-Store when Digital product type is selected
+            .filter(channel => !(channel.value === 'in_store' && formData.productType === 'digital'))
+            .map((channel) => {
+            const isChecked = formData.salesChannels.includes(channel.value)
+            return (
+              <button
+                key={channel.value}
+                type="button"
+                onClick={() => {
+                  if (isChecked && formData.salesChannels.length > 1) {
+                    const newChannels = formData.salesChannels.filter(c => c !== channel.value)
+                    updateField('salesChannels', newChannels)
+                    // If removing online and product is digital, switch to physical
+                    if (channel.value === 'online' && formData.productType === 'digital') {
+                      updateField('productType', 'physical')
+                      updateField('sellingMethod', 'unit')
+                      updateField('fulfillmentTypes', ['pickup'])
+                    }
+                    // If removing in_store, also remove pickup from fulfillment types
+                    if (channel.value === 'in_store' && formData.fulfillmentTypes.includes('pickup')) {
+                      const newFulfillment = formData.fulfillmentTypes.filter(f => f !== 'pickup')
+                      // Ensure at least one fulfillment type remains for physical/bundle products
+                      if (newFulfillment.length === 0 && (formData.productType === 'physical' || formData.productType === 'bundle')) {
+                        updateField('fulfillmentTypes', ['delivery'])
+                      } else {
+                        updateField('fulfillmentTypes', newFulfillment)
+                      }
+                    }
+                  } else if (!isChecked) {
+                    updateField('salesChannels', [...formData.salesChannels, channel.value])
+                    if (errors.salesChannels) clearError('salesChannels')
+                  }
+                }}
+                className={cn(
+                  "relative p-4 rounded-3xl transition-all duration-200 text-left group",
+                  "shadow-[0_0_50px_rgba(15,23,42,0.08)]",
+                  "bg-white border-0 hover:-translate-y-1"
+                )}
+              >
+                <div className="flex items-start gap-3">
+                  <div className={cn(
+                    "w-16 h-16 rounded-lg flex items-center justify-center flex-shrink-0 bg-white p-2",
+                    isChecked ? "bg-[#F4610B]/10" : "bg-gray-100"
+                  )}>
+                    <div className={cn(
+                      "h-full w-full flex items-center justify-center",
+                      isChecked ? "text-[#F4610B]" : "text-gray-600"
+                    )}>
+                      {channel.icon}
+                    </div>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className={cn(
+                      "font-medium text-sm",
+                      isChecked ? "text-[#F4610B]" : "text-gray-900"
+                    )}>
+                      {channel.label}
+                    </div>
+                    <div className="text-xs text-gray-500 mt-0.5">
+                      {channel.value === 'online' ? 'Website & Apps' : 'POS & Physical'}
+                    </div>
+                  </div>
+                  {isChecked && (
+                    <div className="absolute top-2 right-2 h-6 w-6 rounded-full bg-[#F4610B] flex items-center justify-center flex-shrink-0">
+                      <svg className="h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                      </svg>
+                    </div>
+                  )}
+                </div>
+              </button>
+            )
+          })}
+        </div>
+        {formData.productType === 'digital' && (
+          <p className="text-xs text-gray-400">Digital products can only be sold online</p>
+        )}
+        {errors.salesChannels && (
+          <p className="text-xs text-red-600">{errors.salesChannels}</p>
+        )}
+      </div>
+
       {/* Product Type */}
       <div className="space-y-3">
         <Label className="text-sm font-semibold text-gray-900">Product Type</Label>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          {productTypes.map((type) => (
+          {productTypes.map((type) => {
+            const isDisabledDueToChannel = type.requiresOnline && !isOnlineAvailable
+            return (
             <button
               key={type.value}
               type="button"
+                disabled={isDisabledDueToChannel}
+                title={isDisabledDueToChannel ? 'Digital products require Online sales channel' : undefined}
               onClick={() => {
+                  if (isDisabledDueToChannel) return
                 updateField('productType', type.value)
                 // Reset fulfillment types based on product type
                 if (type.value === 'digital') {
                   updateField('fulfillmentTypes', ['digital'])
+                    // Digital products can only be sold online
+                    if (formData.salesChannels.includes('in_store')) {
+                      updateField('salesChannels', ['online'])
+                    }
                 } else if (type.value === 'service') {
                   updateField('fulfillmentTypes', ['onsite'])
                 } else {
+                    // Physical or Bundle - set fulfillment based on available channels
+                    if (formData.salesChannels.includes('in_store')) {
                   updateField('fulfillmentTypes', ['pickup'])
+                    } else {
+                      updateField('fulfillmentTypes', ['delivery'])
+                    }
                 }
               }}
               className={cn(
                 "p-4 rounded-xl border transition-all text-left",
-                formData.productType === type.value
+                  isDisabledDueToChannel
+                    ? "bg-gray-50 border-gray-100 cursor-not-allowed opacity-50"
+                    : formData.productType === type.value
                   ? "bg-[#F4610B]/5 border-[#F4610B] ring-1 ring-[#F4610B]"
                   : "bg-gray-50 border-gray-200 hover:bg-gray-100"
               )}
             >
               <div className={cn(
                 "h-10 w-10 rounded-lg flex items-center justify-center mb-2",
-                formData.productType === type.value
+                  isDisabledDueToChannel
+                    ? "bg-gray-100 text-gray-300"
+                    : formData.productType === type.value
                   ? "bg-[#F4610B] text-white"
                   : "bg-gray-200 text-gray-600"
               )}>
                 {type.icon}
               </div>
-              <div className="font-medium text-gray-900">{type.label}</div>
-              <div className="text-xs text-gray-500">{type.description}</div>
+                <div className={cn(
+                  "font-medium",
+                  isDisabledDueToChannel ? "text-gray-300" : "text-gray-900"
+                )}>{type.label}</div>
+                <div className={cn(
+                  "text-xs",
+                  isDisabledDueToChannel ? "text-gray-300" : "text-gray-500"
+                )}>{type.description}</div>
             </button>
-          ))}
+            )
+          })}
         </div>
+        {!isOnlineAvailable && (
+          <p className="text-xs text-gray-400">Digital products require Online sales channel</p>
+        )}
       </div>
 
       {/* Selling Method */}
@@ -191,11 +321,16 @@ export function ClassificationSection() {
         <div className="flex flex-wrap gap-2">
           {availableFulfillmentOptions.map((type) => {
             const isChecked = formData.fulfillmentTypes.includes(type.value)
+            // Pickup requires in_store sales channel
+            const isDisabled = type.value === 'pickup' && !isPickupAvailable
             return (
               <button
                 key={type.value}
                 type="button"
+                disabled={isDisabled}
+                title={isDisabled ? 'Pickup requires In-Store sales channel' : undefined}
                 onClick={() => {
+                  if (isDisabled) return
                   if (isChecked) {
                     updateField('fulfillmentTypes', formData.fulfillmentTypes.filter(t => t !== type.value))
                   } else {
@@ -204,12 +339,14 @@ export function ClassificationSection() {
                 }}
                 className={cn(
                   "py-2 px-4 rounded-lg text-sm font-medium transition-all flex items-center gap-2 border",
-                  isChecked
+                  isDisabled
+                    ? "bg-gray-50 text-gray-300 border-transparent cursor-not-allowed"
+                    : isChecked
                     ? "bg-[#F4610B]/5 border-[#F4610B] text-[#F4610B]"
                     : "bg-gray-100 text-gray-600 hover:bg-gray-200 border-transparent"
                 )}
               >
-                {isChecked && (
+                {isChecked && !isDisabled && (
                   <div className="h-4 w-4 rounded-full bg-[#F4610B] flex items-center justify-center flex-shrink-0">
                     <svg className="h-2.5 w-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
@@ -222,6 +359,9 @@ export function ClassificationSection() {
             )
           })}
         </div>
+        {!isPickupAvailable && formData.productType !== 'digital' && formData.productType !== 'service' && (
+          <p className="text-xs text-gray-400">Pickup requires In-Store sales channel to be enabled</p>
+        )}
       </div>
 
       {/* Requires Scheduling - For services */}
@@ -244,56 +384,6 @@ export function ClassificationSection() {
         </div>
       )}
 
-      {/* Sales Channels */}
-      <div className={cn(
-        "space-y-3 pt-4 border-t border-gray-100",
-        errors.salesChannels && "text-red-600"
-      )}>
-        <Label className={cn("text-sm", errors.salesChannels ? "text-red-600" : "text-gray-600")}>
-          Sales Channels{' '}
-          <span className="text-[10px] font-medium text-red-500 bg-red-50 px-1.5 py-0.5 rounded-full">
-            required
-          </span>
-        </Label>
-        <div className="flex flex-wrap gap-2">
-          {salesChannelOptions.map((channel) => {
-            const isChecked = formData.salesChannels.includes(channel.value)
-            return (
-              <button
-                key={channel.value}
-                type="button"
-                onClick={() => {
-                  if (isChecked && formData.salesChannels.length > 1) {
-                    updateField('salesChannels', formData.salesChannels.filter(c => c !== channel.value))
-                  } else if (!isChecked) {
-                    updateField('salesChannels', [...formData.salesChannels, channel.value])
-                    if (errors.salesChannels) clearError('salesChannels')
-                  }
-                }}
-                className={cn(
-                  "py-2 px-4 rounded-lg text-sm font-medium transition-all flex items-center gap-2 border",
-                  isChecked
-                    ? "bg-[#F4610B]/5 border-[#F4610B] text-[#F4610B]"
-                    : "bg-gray-100 text-gray-600 hover:bg-gray-200 border-transparent"
-                )}
-              >
-                {isChecked && (
-                  <div className="h-4 w-4 rounded-full bg-[#F4610B] flex items-center justify-center flex-shrink-0">
-                    <svg className="h-2.5 w-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                    </svg>
-                  </div>
-                )}
-                {channel.icon}
-                {channel.label}
-              </button>
-            )
-          })}
-        </div>
-        {errors.salesChannels && (
-          <p className="text-xs text-red-600">{errors.salesChannels}</p>
-        )}
-      </div>
     </div>
   )
 }

@@ -57,11 +57,17 @@ export function useProductImages() {
     setDeletedImageIds(prev => [...prev, imageId])
   }, [setExistingImages, setDeletedImageIds])
 
-  // Set an existing image as primary
+  // Set an existing image as primary and move it to first position
   const setPrimaryImage = useCallback((imageId: string) => {
-    setExistingImages(prev =>
-      prev.map(img => ({ ...img, is_primary: img.id === imageId }))
-    )
+    setExistingImages(prev => {
+      // Find the image to make primary
+      const primaryImage = prev.find(img => img.id === imageId)
+      if (!primaryImage) return prev
+      
+      // Create new array with primary first, then others
+      const others = prev.filter(img => img.id !== imageId).map(img => ({ ...img, is_primary: false }))
+      return [{ ...primaryImage, is_primary: true }, ...others]
+    })
     // Clear featured status from new images when selecting an existing image as primary
     setFeaturedNewImageIndex(-1)
   }, [setExistingImages, setFeaturedNewImageIndex])

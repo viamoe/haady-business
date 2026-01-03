@@ -1,5 +1,6 @@
 @import url("https://fonts.googleapis.com/css2?family=Google+Sans+Flex:opsz,wght@8..144,100..1000&display=swap");
 @import "tailwindcss";
+@plugin "@tailwindcss/typography";
 
 /* Self-hosted Arabic fonts from Supabase storage - PingAR+LT */
 @font-face {
@@ -522,11 +523,11 @@ html[lang="ar"] [data-slot="dropdown-menu-content"] *,
   background: linear-gradient(
     90deg,
     #9ca3af 0%,
-    #ffffff 20%,
+    #374151 20%,
     #9ca3af 40%,
-    #ffffff 60%,
+    #374151 60%,
     #9ca3af 80%,
-    #ffffff 100%
+    #374151 100%
   );
   background-size: 2000px 100%;
   -webkit-background-clip: text;
@@ -1196,8 +1197,8 @@ input[type="button"]:disabled {
 [data-sonner-toast][data-type="success"] [data-icon] svg,
 [data-sonner-toast][data-type="success"] svg {
   color: rgb(34 197 94) !important; /* green-500 */
-  width: 28px !important; /* size-10 */
-  height: 28px !important;
+  width: 1.25rem !important; /* 20px */
+  height: 1.25rem !important; /* 20px */
   animation: checkmark-appear 0.6s ease-in-out forwards;
 }
 
@@ -1230,68 +1231,185 @@ input[type="button"]:disabled {
   }
 }
 
-/* Make all toast icons bigger */
+/* Make all toast icons properly sized */
 [data-sonner-toast] [data-icon] svg,
 [data-sonner-toast] svg {
-  width: 28px !important; /* size-10 */
-  height: 28px !important;
+  width: 1.25rem !important; /* 20px */
+  height: 1.25rem !important; /* 20px */
 }
 
-/* Align all Sonner toast icons to the first line of text */
+/* Professional toast styling */
 [data-sonner-toast] {
-  @apply !items-start;
-  gap: 1.5rem !important; /* 24px spacing between icon and text */
-  border-radius: 1rem !important; /* 16px - more rounded corners */
+  @apply !items-center;
+  gap: 0.75rem !important; /* 12px spacing between icon and text */
+  border-radius: 0.5rem !important; /* 8px rounded corners */
+  padding: 0.75rem !important; /* 12px padding */
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06) !important;
+  border: 1px solid rgb(243 244 246) !important; /* gray-100 */
+  backdrop-filter: blur(8px) !important;
+  background: rgba(255, 255, 255, 0.95) !important;
+  animation: slideInFromRight 0.3s ease-out forwards !important;
+}
+
+/* Slide in animation from right edge */
+@keyframes slideInFromRight {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+/* Position toast below header (typically 64-80px) */
+[data-sonner-toaster] {
+  top: 5rem !important; /* 80px - below header */
+  right: 1rem !important; /* 16px from right edge */
+  bottom: auto !important;
 }
 
 /* Override Sonner's border-radius CSS variable */
-[data-sonner-toast],
-[data-sonner-toast] * {
-  --border-radius: 1rem !important;
-  border-radius: 1rem !important;
+[data-sonner-toast] {
+  --border-radius: 0.5rem !important;
+  border-radius: 0.5rem !important;
 }
 
+/* Professional icon container - minimal and clean */
 [data-sonner-toast] [data-icon] {
-  @apply !self-start !mt-0.5;
-  align-items: flex-start !important;
-  margin-right: 0.2rem !important; /* Additional spacing - 16px */
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 1.5rem !important; /* 24px */
+  height: 1.5rem !important; /* 24px */
+  flex-shrink: 0 !important;
+  margin: 0 !important;
+  position: relative !important;
 }
 
-/* Ensure icon container aligns with title */
+/* Center the SVG icon */
+[data-sonner-toast] [data-icon] svg {
+  width: 1.25rem !important; /* 20px */
+  height: 1.25rem !important; /* 20px */
+  display: block !important;
+  margin: 0 !important;
+}
+
+/* Success icon - green */
+[data-sonner-toast][data-type="success"] [data-icon] svg {
+  color: rgb(34 197 94) !important; /* green-500 */
+}
+
+/* Error icon - red */
+[data-sonner-toast][data-type="error"] [data-icon] svg {
+  color: rgb(239 68 68) !important; /* red-500 */
+}
+
+/* Warning icon - amber */
+[data-sonner-toast][data-type="warning"] [data-icon] svg {
+  color: rgb(245 158 11) !important; /* amber-500 */
+}
+
+/* Info icon - blue */
+[data-sonner-toast][data-type="info"] [data-icon] svg {
+  color: rgb(59 130 246) !important; /* blue-500 */
+}
+
+/* Content layout */
 [data-sonner-toast] > div:first-child {
-  @apply !items-start;
-  gap: 1.5rem !important; /* 24px spacing between icon and text */
+  @apply !items-center;
+  gap: 0.75rem !important;
 }
 
-/* Align content wrapper to start */
 [data-sonner-toast] [data-content] {
-  @apply !items-start;
+  @apply !items-center;
+  max-width: 100% !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+  overflow: hidden !important;
+  min-width: 0 !important;
+  flex: 1 !important;
 }
 
-/* Increase spacing in toast content area */
 [data-sonner-toast] > div {
-  gap: 1.5rem !important; /* 24px spacing between icon and text */
+  gap: 0.75rem !important;
 }
 
-/* Sonner Title - Bold and Big size */
+/* Professional typography */
 [data-sonner-toast] [data-title],
 [data-sonner-toast] [data-sonner-title] {
-  @apply !font-bold !text-lg;
-  font-size: 0.9rem !important; /* 18px */
+  font-size: 0.875rem !important; /* 14px */
   font-weight: 500 !important;
-  line-height: 1.5 !important;
-  margin-bottom: 0.125rem !important; /* Reduced spacing - 2px */
+  line-height: 1.25rem !important;
+  color: rgb(17 24 39) !important; /* gray-900 */
+  margin: 0 !important;
+  max-width: 100% !important;
+  overflow: hidden !important;
+  min-width: 0 !important;
 }
 
-/* Sonner Description/Message - Regular and smaller size */
+/* Ensure toast title content truncates */
+[data-sonner-toast] [data-title] > *,
+[data-sonner-toast] [data-sonner-title] > * {
+  max-width: 100% !important;
+  overflow: hidden !important;
+  min-width: 0 !important;
+}
+
+/* Product name in toast should truncate */
+[data-sonner-toast] [data-title] p,
+[data-sonner-toast] [data-sonner-title] p {
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+  max-width: 100% !important;
+  width: 100% !important;
+  display: block !important;
+  box-sizing: border-box !important;
+}
+
+/* Force toast container to respect max-width */
+[data-sonner-toast] {
+  max-width: 500px !important;
+  box-sizing: border-box !important;
+  overflow: hidden !important;
+}
+
+/* Force all direct children of toast to respect width */
+[data-sonner-toast] > div {
+  max-width: 100% !important;
+  box-sizing: border-box !important;
+  overflow: hidden !important;
+}
+
+/* Force title container to respect width */
+[data-sonner-toast] [data-title],
+[data-sonner-toast] [data-sonner-title] {
+  max-width: 100% !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+  overflow: hidden !important;
+}
+
+/* Force flex containers inside toast to respect width */
+[data-sonner-toast] [data-title] > div,
+[data-sonner-toast] [data-sonner-title] > div {
+  max-width: 100% !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+  min-width: 0 !important;
+  overflow: hidden !important;
+}
+
+/* Description styling */
 [data-sonner-toast] [data-description],
 [data-sonner-toast] [data-sonner-description] {
-  @apply !font-normal !text-xs;
-  font-size: 0.75rem !important; /* 12px */
+  font-size: 0.8125rem !important; /* 13px */
   font-weight: 400 !important;
-  line-height: 1.5 !important;
-  margin-top: 0 !important; /* Remove default margin */
-  color: rgb(107 114 128) !important; /* gray-500 - match error toast text color */
+  line-height: 1.25rem !important;
+  margin: 0 !important;
+  color: rgb(107 114 128) !important; /* gray-500 */
 }
 
 /* Ensure success toast description matches error toast text color */
@@ -1349,6 +1467,11 @@ html[lang="ar"] [data-sonner-toast] button,
 /* Reduce spacing in content wrapper */
 [data-sonner-toast] [data-content] {
   gap: 0.125rem !important; /* 2px spacing between title and description */
+  max-width: 100% !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+  overflow: hidden !important;
+  min-width: 0 !important;
 }
 
 /* ============================================
@@ -1565,10 +1688,6 @@ html[lang="ar"] [data-sonner-toast] button,
   background: #6B7280 !important;
 }
 
-/* Skeleton animated color */
-.skeleton-animated {
-  color: var(--background);
-}
 
 /* Minimal scrollbar - Light gray, no background */
 .scrollbar-minimal {
@@ -1608,5 +1727,37 @@ html[lang="ar"] [data-sonner-toast] button,
 .comparison-rows .comparison-row[style*="opacity"]:hover {
   opacity: 1 !important;
   transition: opacity 0.3s ease !important;
+}
+
+/* Table header button hover - darker orange when header is orange (all selected) */
+th[data-all-selected="true"] button:hover {
+  background-color: #d9560a !important;
+}
+
+/* Invert checkbox colors when header is orange (all selected) */
+th[data-all-selected="true"] [data-slot="checkbox"][data-state="checked"] {
+  background-color: white !important;
+  border-color: white !important;
+}
+
+th[data-all-selected="true"] [data-slot="checkbox"][data-state="checked"] [data-slot="checkbox-indicator"],
+th[data-all-selected="true"] [data-slot="checkbox"][data-state="checked"] svg {
+  color: #F4610B !important;
+}
+
+/* Table row fade-in animation for product rows */
+@keyframes tableRowFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-tableRowFadeIn {
+  animation: tableRowFadeIn 0.4s ease-out forwards;
 }
 

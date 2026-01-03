@@ -4,6 +4,8 @@ import { DashboardContent } from './dashboard-content'
 import { cookies } from 'next/headers'
 import { getLocalizedUrlFromRequest } from '@/lib/localized-url'
 
+// Cache for 60 seconds, revalidate on demand
+export const revalidate = 60
 export const dynamic = 'force-dynamic'
 
 export default async function DashboardPage() {
@@ -61,13 +63,25 @@ export default async function DashboardPage() {
 
   const firstName = getFirstName(businessProfile.full_name)
 
-  // First, get all store IDs for this business
+  // First, get all store IDs and names for this business (optimize: get name here too)
   const { data: storesData } = await supabase
     .from('stores')
-    .select('id')
+    .select('id, name')
     .eq('business_id', businessProfile.id)
 
   const storeIds = storesData?.map(store => store.id) || []
+  
+  // Get primary store name early if available
+  let businessName = 'Your Business'
+  if (businessProfile?.store_id && storesData) {
+    const primaryStore = storesData.find(store => store.id === businessProfile.store_id)
+    if (primaryStore?.name) {
+      businessName = primaryStore.name
+    }
+  }
+  
+  // Store country for use in parallel query
+  const businessCountry = businessProfile?.business_country
 
   // Calculate date ranges for today, week, month, year
   const now = new Date()
@@ -84,20 +98,22 @@ export default async function DashboardPage() {
   yearStart.setFullYear(yearStart.getFullYear() - 1)
 
   // Parallelize all database queries for better performance
-  const [storeCountResult, productCountResult, connectionsResult, ordersTodayResult, ordersWeekResult, ordersMonthResult, ordersYearResult, salesTodayResult, salesWeekResult, salesMonthResult, salesYearResult] = await Promise.all([
+  // Also fetch country currency in parallel to avoid sequential query
+  const [storeCountResult, productCountResult, connectionsResult, ordersTodayResult, ordersWeekResult, ordersMonthResult, ordersYearResult, salesTodayResult, salesWeekResult, salesMonthResult, salesYearResult, countryCurrencyResult] = await Promise.all([
     // Get store count
     supabase
       .from('stores')
       .select('id', { count: 'exact', head: true })
       .eq('business_id', businessProfile.id),
     
-    // Get product count (only if we have stores)
+    // Get product count (only if we have stores, exclude trashed products)
     storeIds.length > 0
       ? supabase
           .from('products')
           .select('id', { count: 'exact', head: true })
           .in('store_id', storeIds)
           .eq('is_active', true)
+          .is('deleted_at', null)
       : Promise.resolve({ data: null, count: 0, error: null } as { data: null; count: number; error: null }),
     
     // Get store connections via stores (new structure)
@@ -191,23 +207,20 @@ export default async function DashboardPage() {
           .gte('created_at', yearStart.toISOString())
           .eq('payment_status', 'paid')
       : Promise.resolve({ data: null, error: null } as { data: null; error: null }),
+    
+    // Fetch country currency in parallel (optimize: avoid sequential query)
+    businessCountry
+      ? supabase
+          .from('countries')
+          .select('currency_icon')
+          .eq('id', businessCountry)
+          .maybeSingle()
+      : Promise.resolve({ data: null, error: null } as { data: null; error: null }),
   ])
 
-  // Get primary store name (business name is now the store name)
-  let businessName = 'Your Business'
-  if (businessProfile?.store_id) {
-    const { data: primaryStore } = await supabase
-      .from('stores')
-      .select('name')
-      .eq('id', businessProfile.store_id)
-      .maybeSingle()
-    
-    if (primaryStore?.name) {
-      businessName = primaryStore.name
-    }
-  }
+  // Business name already set above
 
-  // Business data
+  // Business data (use businessProfile.country directly to avoid extra query)
   const business = {
     name: businessName,
     status: businessProfile?.status,
@@ -260,27 +273,12 @@ export default async function DashboardPage() {
     }
   }
 
-  // Fetch country and currency information from database
+  // Get country currency from parallel query result
   let countryCurrency = 'ر.س' // Default to Saudi Riyal symbol
-  if (business?.country) {
-    const { data: countryData, error: countryError } = await supabase
-      .from('countries')
-      .select('currency_icon')
-      .eq('id', business.country)
-      .single()
-    
-    if (countryError) {
-      console.error('Error fetching country currency:', countryError)
-    }
-    
-    // Use currency_icon if available (check for null, undefined, and empty string)
-    if (countryData?.currency_icon && countryData.currency_icon.trim() !== '') {
-      countryCurrency = countryData.currency_icon.trim()
-    } else {
-      console.log('Currency icon not found or empty for country:', business.country, 'Country data:', countryData)
-    }
-  } else {
-    console.log('Merchant country not set:', business)
+  if (countryCurrencyResult?.data?.currency_icon && countryCurrencyResult.data.currency_icon.trim() !== '') {
+    countryCurrency = countryCurrencyResult.data.currency_icon.trim()
+  } else if (countryCurrencyResult?.error && process.env.NODE_ENV === 'development') {
+    console.error('Error fetching country currency:', countryCurrencyResult.error)
   }
 
   // Calculate sales totals

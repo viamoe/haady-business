@@ -26,6 +26,8 @@ export interface Product {
   sku: string | null
   barcode: string | null
   barcode_type: string | null
+  qr_code: string | null
+  qr_code_auto_generated: boolean | null
   image_url: string | null
   is_available: boolean
   is_active: boolean
@@ -50,6 +52,8 @@ export interface Product {
   track_inventory?: boolean
   allow_backorder?: boolean
   low_stock_threshold?: number | null
+  // Brand
+  brand_id?: string | null
 }
 
 export type ProductType = 'physical' | 'digital' | 'service' | 'bundle'
@@ -89,9 +93,22 @@ export interface Category {
   id: string
   name: string
   name_ar: string | null
+  slug: string
   parent_id: string | null
   level: number
+  category_type: 'joyful_gifting' | 'tastes_treats' | 'digital_surprises' | 'moments_meaning' | 'donation_charity' | null
   icon: string | null
+  image_url: string | null
+  hover_image_url: string | null
+  description: string | null
+  description_ar: string | null
+  is_active: boolean
+  is_system: boolean
+  sort_order: number
+  created_at: string
+  updated_at: string
+  path?: string
+  children?: Category[]
 }
 
 // Variant Types
@@ -131,6 +148,7 @@ export interface ProductFormData {
   sku: string
   barcode: string
   barcodeType: BarcodeType
+  qrCode: string
   
   // Availability
   isAvailable: boolean
@@ -146,6 +164,9 @@ export interface ProductFormData {
   
   // Categories
   selectedCategoryIds: string[]
+  
+  // Brand
+  selectedBrandId: string | null
   
   // Inventory
   trackInventory: boolean
@@ -169,6 +190,7 @@ export interface ProductFormErrors {
   price?: string
   salesChannels?: string
   bundleItems?: string
+  selectedCategoryIds?: string
 }
 
 // Props Types
@@ -255,6 +277,7 @@ export const defaultFormData: ProductFormData = {
   sku: '',
   barcode: '',
   barcodeType: 'EAN13',
+  qrCode: '',
   isAvailable: true,
   productType: 'physical',
   sellingMethod: 'unit',
@@ -264,6 +287,7 @@ export const defaultFormData: ProductFormData = {
   subscriptionInterval: '',
   salesChannels: ['online', 'in_store'],
   selectedCategoryIds: [],
+  selectedBrandId: null,
   trackInventory: true,
   stockQuantity: '',
   lowStockThreshold: '10',

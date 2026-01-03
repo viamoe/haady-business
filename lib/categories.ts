@@ -159,8 +159,9 @@ export async function getCategoriesHierarchical(
   options?: CategoryQueryOptions
 ): Promise<Category[]> {
   const {
-    parent_id = null,
+    parent_id = undefined, // Default to undefined (not null) to get ALL categories when not specified
     level,
+    category_type,
     include_inactive = false,
     hierarchical = false,
     sort_by = 'sort_order',
@@ -171,18 +172,27 @@ export async function getCategoriesHierarchical(
     .from('categories')
     .select('*')
 
-  // Filter by parent
+  // Filter by parent - only filter if explicitly provided (not undefined)
+  // If parent_id is undefined, don't filter (get all categories)
+  // If parent_id is null, get only root categories (parent_id IS NULL)
+  // If parent_id is a UUID, get only children of that parent
   if (parent_id !== undefined) {
     if (parent_id === null) {
       query = query.is('parent_id', null)
-    } else {
+    } else if (parent_id) {
       query = query.eq('parent_id', parent_id)
     }
+    // If parent_id is undefined, don't add any filter (get all)
   }
 
   // Filter by level
   if (level !== undefined) {
     query = query.eq('level', level)
+  }
+
+  // Filter by category_type
+  if (category_type !== undefined) {
+    query = query.eq('category_type', category_type)
   }
 
   // Filter active/inactive

@@ -31,30 +31,37 @@ export async function POST(request: Request) {
     }
 
     const { 
-      name_en, name_ar, description_en, description_ar, price, sku, barcode, barcode_type, image_url, store_id, category_ids,
+      name_en, name_ar, description_en, description_ar, price, sku, barcode, barcode_type, qr_code, qr_code_auto_generated, image_url, store_id, category_ids,
       product_type, selling_method, selling_unit, fulfillment_type, requires_scheduling, subscription_interval, sales_channels,
       compare_at_price, discount_type, discount_value, discount_start_date, discount_end_date,
+      // Brand
+      brand_id,
       // Inventory fields
-      track_inventory, allow_backorder, low_stock_threshold, stock_quantity
+      track_inventory, allow_backorder, low_stock_threshold, stock_quantity,
+      // Status fields
+      status, scheduled_publish_at
     } = body
 
-    // Validate required fields
-    // Both name_en and name_ar are required (NOT NULL in database)
-    if (!name_en || !name_en.trim()) {
+    // Validate required fields (relaxed for drafts)
+    const isDraft = status === 'draft'
+    
+    // Names are required for non-draft products
+    if (!isDraft && (!name_en || !name_en.trim())) {
       return NextResponse.json(
         { error: 'Product name in English (name_en) is required' },
         { status: 400 }
       )
     }
     
-    if (!name_ar || !name_ar.trim()) {
+    if (!isDraft && (!name_ar || !name_ar.trim())) {
       return NextResponse.json(
         { error: 'Product name in Arabic (name_ar) is required' },
         { status: 400 }
       )
     }
 
-    if (!price || price <= 0) {
+    // Price is required for non-draft products
+    if (!isDraft && (!price || price <= 0)) {
       return NextResponse.json(
         { error: 'Valid price is required' },
         { status: 400 }
@@ -99,17 +106,17 @@ export async function POST(request: Request) {
     // Generate SKU if not provided
     const finalSku = sku || `PROD-${Date.now()}`
 
-    // Prepare product data
+    // Prepare product data (allow empty names for drafts)
     const productData: Record<string, any> = {
       store_id,
-      name_en: name_en.trim(),
-      name_ar: name_ar.trim(),
+      name_en: name_en?.trim() || (isDraft ? 'Untitled Draft' : ''),
+      name_ar: name_ar?.trim() || (isDraft ? 'مسودة بدون عنوان' : ''),
       description_en: description_en?.trim() || null,
       description_ar: description_ar?.trim() || null,
-      price: parseFloat(price),
+      price: price ? parseFloat(price) : (isDraft ? 0 : 0),
       sku: finalSku,
       image_url: image_url || null,
-      is_available: true,
+      is_available: !isDraft,
       is_active: true,
     }
 
@@ -117,6 +124,12 @@ export async function POST(request: Request) {
     if (barcode) {
       productData.barcode = barcode
       productData.barcode_type = barcode_type || 'EAN13'
+    }
+    
+    // Add QR code fields if provided
+    if (qr_code) {
+      productData.qr_code = qr_code
+      productData.qr_code_auto_generated = qr_code_auto_generated || false
     }
 
     // Add classification fields if provided
@@ -135,11 +148,24 @@ export async function POST(request: Request) {
     if (discount_start_date !== undefined) productData.discount_start_date = discount_start_date || null
     if (discount_end_date !== undefined) productData.discount_end_date = discount_end_date || null
 
+    // Add brand if provided
+    if (brand_id !== undefined) productData.brand_id = brand_id || null
+
     // Add inventory tracking fields if provided
     if (track_inventory !== undefined) productData.track_inventory = track_inventory
     if (allow_backorder !== undefined) productData.allow_backorder = allow_backorder
     if (low_stock_threshold !== undefined && low_stock_threshold !== null) {
       productData.low_stock_threshold = parseInt(low_stock_threshold, 10) || 10
+    }
+
+    // Add status fields if provided
+    if (status) {
+      productData.status = status
+      // Set is_published based on status for backwards compatibility
+      productData.is_published = status === 'active'
+    }
+    if (scheduled_publish_at) {
+      productData.scheduled_publish_at = scheduled_publish_at
     }
 
     console.log('Creating product with data:', {

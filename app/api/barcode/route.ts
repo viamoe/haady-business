@@ -31,7 +31,10 @@ export async function GET(request: Request) {
     const format = searchParams.get('format') || 'png'
     const scale = parseInt(searchParams.get('scale') || '3', 10)
     const height = parseInt(searchParams.get('height') || '15', 10)
+    const width = searchParams.get('width') ? parseInt(searchParams.get('width')!, 10) : undefined
     const includeText = searchParams.get('includeText') !== 'false'
+    
+    const isQR = type.toUpperCase() === 'QR' || type.toUpperCase() === 'DATAMATRIX'
 
     if (!value) {
       return NextResponse.json(
@@ -57,17 +60,20 @@ export async function GET(request: Request) {
       )
     }
 
-    const isQR = type.toUpperCase() === 'QR' || type.toUpperCase() === 'DATAMATRIX'
-    
     const bwipOptions: bwipjs.RenderOptions = {
       bcid: encoder,
       text: value,
       scale: Math.min(10, Math.max(1, scale)),
-      height: height,
       includetext: !isQR && includeText,
       textxalign: 'center',
       backgroundcolor: 'FFFFFF',
       barcolor: '000000',
+    }
+    
+    // For QR codes, don't set width/height - let scale determine the size (always square)
+    // For linear barcodes, set height
+    if (!isQR) {
+      bwipOptions.height = height
     }
 
     // Use toBuffer for both formats (SVG not supported in newer bwip-js versions)
@@ -136,15 +142,19 @@ export async function POST(request: Request) {
       bcid: encoder,
       text: value,
       scale: Math.min(10, Math.max(1, scale)),
-      height: height,
       includetext: !isQR && includeText,
       textxalign: 'center',
       backgroundcolor: backgroundColor.replace('#', ''),
       barcolor: barcodeColor.replace('#', ''),
     }
 
-    if (width) {
-      bwipOptions.width = width
+    // For QR codes, don't set width/height - let scale determine the size (always square)
+    // For linear barcodes, set height
+    if (!isQR) {
+      bwipOptions.height = height
+      if (width) {
+        bwipOptions.width = width
+      }
     }
 
     if (rotate) {

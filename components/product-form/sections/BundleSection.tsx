@@ -162,9 +162,11 @@ export function BundleSection() {
             )} />
           </div>
           Bundle Contents
-          <span className="text-[10px] font-medium text-red-500 bg-red-50 px-1.5 py-0.5 rounded-full">
-            required
-          </span>
+          {formData.bundleItems.length === 0 && (
+            <span className="text-[10px] font-medium text-red-500 bg-red-50 px-1.5 py-0.5 rounded-full">
+              required
+            </span>
+          )}
         </h4>
         {formData.bundleItems.length > 0 && (
           <span className="text-xs font-medium text-gray-500 bg-gray-100 px-2 py-1 rounded-full">
